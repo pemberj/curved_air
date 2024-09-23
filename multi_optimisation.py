@@ -1,6 +1,7 @@
 """
-Several functions to find optimal solutions for compound prisms, achromatic
-lenses, etc.
+TODO:
+
+Move this funtion into the GlassCatalogue class as a method.
 """
 
 import numpy as np
@@ -10,10 +11,10 @@ import scipy.optimize
 import astropy.units as u
 
 try:
-    from curved_air.glass import Glass, GlassCatalogue
+    from curved_air.glass import GlassCatalogue
     from curved_air.optics import Prism, PrismStack
 except ImportError:
-    from glass import Glass, GlassCatalogue
+    from glass import GlassCatalogue
     from optics import Prism, PrismStack
 
 
