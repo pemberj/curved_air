@@ -545,7 +545,7 @@ class ADC:
         return results
             
             
-    def plot(self, num_samples: int = 100):
+    def plot(self, num_samples: int = 100) -> None:
         
         wls = self.wls(n = num_samples)
             
@@ -790,6 +790,7 @@ def _refract(
 
 @dataclass
 class Grating:
+    
     catalogue_number: str = ""
     groove_frequency: Quantity = 31.6 / u.mm
     blaze_angle: Quantity = 76 * u.deg
@@ -801,38 +802,59 @@ class Grating:
     R: float = field(init = False)
     m_times_lambda: Quantity = field(init = False)
 
+
     def __post_init__(self):
         self.R = round(np.tan(self.blaze_angle).value, 1)
-        self.m_times_lambda = (2 * np.cos(self.gamma) * self.sigma * np.sin(self.blaze_angle)).to(u.um)
+        self.m_times_lambda =\
+            (
+                2 * np.cos(self.gamma)\
+                    * self.sigma * np.sin(self.blaze_angle)
+                        ).to(u.um)
+
 
     @property
     def gamma(self) -> Quantity: return self.gamma_angle
+
     
     @property
     def theta_B(self) -> Quantity: return self.blaze_angle
 
+
     @property
     def groove_period(self) -> Quantity: return 1 / self.groove_frequency
 
-    @property
+
+    @cached_property
     def sigma(self) -> Quantity: return self.groove_period.to(u.um)
 
-    @property
+
+    @cached_property
     def gpmm(self) -> Quantity: return self.groove_frequency.to(1 / u.mm)
-    
-    @property
-    def max_order(self): return int((self.m_times_lambda / self.min_wl) - 0.5)
-    
-    @property
-    def min_order(self): return int((self.m_times_lambda / self.max_wl) + 0.5)
 
-    @property
-    def order_containing_500nm(self, integer = True) -> int:
+    
+    @cached_property
+    def max_order(self) -> int:
         
-        if integer:
-            return self.order_number(wl = 500 * u.nm, quantised = True)
+        return int((self.m_times_lambda / self.min_wl) - 0.5)
 
-        return self.order_number(wl = 500 * u.nm)
+    
+    @cached_property
+    def min_order(self) -> int:
+        
+        return int((self.m_times_lambda / self.max_wl) + 0.5)
+
+    @property
+    def diffraction_orders(self) -> list[int]:
+        
+        min_m = self.order_number(self.max_wl, quantised=True)
+        max_m = self.order_number(self.min_wl, quantised=True)
+        
+        return list(range(min_m, max_m + 1))
+
+
+    def order_containing_500nm(self, quantised: bool = True) -> int:
+        
+        return self.order_number(wl = 500 * u.nm, quantised = quantised)
 
 
     def blaze_wavelength(self, m: int | list[int] | ArrayLike) -> Quantity:
@@ -861,15 +883,6 @@ class Grating:
             return int(round(float((self.m_times_lambda / wl).si), 0))
 
         return float((self.m_times_lambda / wl).si)
-    
-    
-    @property
-    def diffraction_orders(self) -> list[int]:
-        
-        min_m = self.order_number(self.max_wl, quantised=True)
-        max_m = self.order_number(self.min_wl, quantised=True)
-        
-        return list(range(min_m, max_m + 1))
 
 
     def order_FSR(self, m: int, FSR_fraction: float = 1.) -> Quantity:
@@ -911,7 +924,6 @@ class Grating:
         return max(angles) - min(angles)
 
 
-
     def diffraction_angle(
             self,
             m: int,
@@ -940,25 +952,32 @@ class Grating:
 
         # angle += self.blaze_angle
 
-        return (np.cos(self.gamma) * self.sigma * (np.sin(self.blaze_angle) + np.sin(angle))) / m
+        return (
+            np.cos(self.gamma) * self.sigma\
+                * (np.sin(self.blaze_angle) + np.sin(angle))
+                    ) / m
 
 
     def order_FSR_bounds_from_angle(self, m: int) -> tuple[Quantity]:
 
         angle = self.order_opening_angle(m = m) / 2
 
-        return (self.wavelength_at_angle(m = m, angle = self.blaze_angle - angle),
-                self.wavelength_at_angle(m = m, angle = self.blaze_angle + angle))
+        return (
+            self.wavelength_at_angle(m = m, angle = self.blaze_angle - angle),
+            self.wavelength_at_angle(m = m, angle = self.blaze_angle + angle)
+            )
     
 
     def aspect_ratio(
             self,
             min_wl: Quantity = 385 * u.nm,
             max_wl: Quantity = 950 * u.nm,
-            ):
+            ) -> float:
 
-        blue_angle = self.order_opening_angle(m=self.order_number(min_wl)).to(u.deg)
-        red_angle = self.order_opening_angle(m=self.order_number(max_wl)).to(u.deg)
+        blue_angle =\
+            self.order_opening_angle(m=self.order_number(min_wl)).to(u.deg)
+        red_angle =\
+            self.order_opening_angle(m=self.order_number(max_wl)).to(u.deg)
 
         print(f"{blue_angle=}")
         print(f"{red_angle=}")
