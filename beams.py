@@ -1,47 +1,73 @@
-# EtalonSim / GaussianBeam.py
-
 """
 A simple implementation of Gaussian Beams using Python.
 
 Dependencies: numpy, astropy (for units), matplotlib (for plots)
 """
 
+from dataclasses import dataclass
+from functools import cached_property
+
 import numpy as np
+from numpy.typing import ArrayLike
+
 import astropy.units as u
+from astropy.units import Quantity
+
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 
 
-class GaussianBeam():
+@dataclass
+class Beam:
+    """
+    Basic properties of a simple monochromatic light beam.
+    
+    No propagation is described here, for that see the subclasses.
+    """
+    
+    λ: Quantity = 633 * u.nm
+    E_0: float = 1
+    n: float = 1  
+    
+    debug_level: int = 0
+    
+    
+    @cached_property
+    def k_scalar(self): return (2 * np.pi / self.λ)
+    
+    
+    def __str__(self) -> str:
+
+        vals = "".join(
+                [
+                   f"{p:>12}: {val:<6}\n" for p, val in self.__dict__.items()
+                ]
+            )
+
+        return "Beam:\n" + vals
+
+
+# EtalonSim / GaussianBeam.py
+@dataclass
+class GaussianBeam(Beam):
     """
     """
 
+    w_0: Quantity = 10 * u.um
 
-    def __init__(self, λ=633*u.nm, E_0=1, w_0=10*u.um, n=1, debug_level=0):
-        """
-        Args:
-            E_0 (int, optional): [description]. Defaults to 1.
-            w_0 ([type], optional): [description]. Defaults to 10*u.um.
-            n (int, optional): [description]. Defaults to 1.
-            debug_level (int, optional): [description]. Defaults to 0.
-        """
 
-        self.debug_level = debug_level
+    def __post_init__(self) -> None:
 
-        self.λ = λ.si
-        self.E_0 = E_0
-        self.w_0 = w_0.si
-        self.n = n
-
-        if debug_level > 0:
+        if self.debug_level > 0:
             for p, val in self.__dict__.items():
                 print(f"{p}: {val}")
 
+
     @property
     def k(self):
-        """
-        k, wavenumber
-        """
-
+        """k, wavenumber"""
         return ((2 * np.pi * self.n) / self.λ).si
+
 
     @property
     def z_R(self):
@@ -53,7 +79,7 @@ class GaussianBeam():
         return ((np.pi * self.n * self.w_0**2) / self.λ).si
 
 
-    def q(self, z=0*u.mm):
+    def q(self, z = 0*u.mm):
         """
         q, complex beam parameter
         """
@@ -257,7 +283,7 @@ class GaussianBeam():
             return ret
 
 
-    def summed_E_field(self, z=0*u.mm, exclude="none", debug_level=0):
+    def summed_E_field(self, z=0*u.mm, exclude="none"):
         """
         For a beam symmetric about the optical axis. Integrating over r from 0 to infinity gives the
         summed (inegrated) E field across a plane at z. Used for calculating the interference of
@@ -272,13 +298,13 @@ class GaussianBeam():
 
         try:
             if "gouy phase" not in exclude.lower():
-                if debug_level > 0: print("Including Gouy phase")
+                if self.debug_level > 0: print("Including Gouy phase")
                 ret *= np.exp(1j * self.Gouy_phase(z))
 
             else: print("Returning results without Gouy phase...")
 
             if "radial" not in exclude.lower():
-                if debug_level > 0: print("Including radial effects (wavefront curvature, intensity variations)")
+                if self.debug_level > 0: print("Including radial effects (wavefront curvature, intensity variations)")
                 ret *= integral_over_r
 
             else: print("Returning results with no radial effects...")
@@ -296,30 +322,29 @@ class GaussianBeam():
     
     
 # EtalonSim / PlanarBeam.py
-    
-import numpy as np
-import astropy.units as u
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
-
-class PlanarBeam():
+@dataclass
+class PlanarBeam(Beam):
     """
     An implementation of a very simple plane electromagnetic wave
     """
+    
+    plane_normal: tuple | ArrayLike = (0, 0, 1)
+    
 
-    def __init__(self, λ=633*u.nm, E_0=1, n=1, plane_normal=(0,0,1), debug_level=0):
-
-        self.λ = λ
-        self.E_0 = E_0
-        self.n = n
-        self.plane_normal = plane_normal
-        self.debug_level = debug_level
+    def __post_init__(self) -> None:
         
-        self.k_scalar = (2* np.pi / λ) * np.linalg.norm(self.plane_normal)
-        self.k_vector = self.k_scalar * self.plane_normal
-
-        if debug_level > 0:
+        if self.debug_level > 0:
             pp.pprint(self.__dict__)
+
+        
+    @cached_property
+    def k_scalar(self) -> float:
+        return (2* np.pi / self.λ) * np.linalg.norm(self.plane_normal)        
+    
+    
+    @cached_property
+    def k_vector(self) -> tuple | ArrayLike:
+        return self.k_scalar * self.plane_normal
 
 
     def E_field(self, x=0*u.mm, y=0*u.mm, z=0*u.mm):
@@ -327,93 +352,63 @@ class PlanarBeam():
         https://en.wikipedia.org/wiki/Electromagnetic_wave_equation
         """
 
-        x, y, z = x.to("mm").value, y.to("mm").value, z.to("mm").value
+        x, y, z = x.to(u.mm).value, y.to(u.mm).value, z.to(u.mm).value
         
         # Position vector r
         r_unitless = np.array([x, y, z])
         # r = r_unitless * u.mm
-        k_vector_unitless = self.k_vector.to("1 / mm").value
+        k_vector_unitless = self.k_vector.to(1 / u.mm).value
 
         return self.E_0 * np.exp(-1j * np.dot(k_vector_unitless, r_unitless))
-   
+
+
+# EtalonSim / SphericalBeam2.py
+@dataclass
+class SphericalBeam(Beam):
+    """
+    Light emitting from a point source in a spherical wavefront
+    """
+
+    f_number: int | float = 10
+    plane_normal: ArrayLike = (0,0,1)
     
-# EtalonSim / SphericalBeam.py
-
-import numpy as np
-import astropy.units as u
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
-
-class SphericalBeam():
-    """
-    An implementation of a very simple spherical electromagnetic wave
-    """
-
-    def __init__(self, λ=633*u.nm, 
-                       E_0=1,
-                       n=1,
-                       plane_normal=(0,0,1),
-                       opening_angle=np.inf * u.deg,
-                       debug_level=0):
-
-        self.λ = λ
-        self.E_0 = E_0
-        self.n = n
-        self.plane_normal = plane_normal
-        self.opening_angle = opening_angle
-        self.debug_level = debug_level
+    k_vector: ArrayLike = None
+    
+    
+    def __post_init__(self) -> None:
         
-        self.k_scalar = (2* np.pi / λ) * np.linalg.norm(self.plane_normal)
+        self.plane_normal = np.array(self.plane_normal)
+        self.plane_normal =\
+            self.plane_normal / np.linalg.norm(self.plane_normal)
+        
         self.k_vector = self.k_scalar * self.plane_normal
 
-        if debug_level > 0:
-            pp.pprint(self.__dict__)
-
-
-    def E_field(self, x=0*u.mm, y=0*u.mm, z=0*u.mm):
-        """
-        https://en.wikipedia.org/wiki/Electromagnetic_wave_equation
-        """
-
-        x, y, z = x.to("mm").value, y.to("mm").value, z.to("mm").value
-
-        mask = np.arctan((np.sqrt(np.sum(np.array([x, y])**2, axis=0)))/z)\
-                                    >= self.opening_angle.to("radian").value
         
-        # length of vectors x,y,z
-        rho_unitless = np.sqrt(np.sum(np.array([x, y, z])**2, axis=0))
-        k_scalar_unitless = self.k_scalar.to("1/mm").value
-
-        return np.ma.array(self.E_0 * np.exp(-1j * k_scalar_unitless * rho_unitless),
-                           mask=mask,
-                           fill_value=0.).filled() # .filled() method
-                           # returns normal array, filling in the masked values!
-
-
-
-    def E_field_array(self, Xs=[0] * u.mm, Ys=[0] * u.mm, Zs=[0] * u.mm):
+    def electric_field(
+        self,
+        x: ArrayLike | Quantity = 0 * u.mm,
+        y: ArrayLike | Quantity = 0 * u.mm,
+        z: ArrayLike | Quantity = 0 * u.mm,
+        ) -> Quantity:
         """
-        https://en.wikipedia.org/wiki/Electromagnetic_wave_equation
+        Calculate the electric field at a point in space
         """
+        
+        r = np.array([
+                    x.to(u.mm).value,
+                    y.to(u.mm).value,
+                    z.to(u.mm).value
+                ]) * u.mm
 
-        Xs, Ys, Zs = Xs.to("mm").value, Ys.to("mm").value, Zs.to("mm").value
-
-        coords = np.vstack(np.meshgrid(Xs, Ys, Zs)).reshape(3,-1).T
-
-        result = [self.E_field(x=x*u.mm, y=y*u.mm, z=z*u.mm) for x, y, z in coords]
-
-        return(result)
-
-
-    def E_field_summed_preintegrated(self, z=0*u.mm):
-        """
-        Preintegrate, exploiting axial symmetry
-        """
-
-        raise NotImplementedError
-        return
-
-
+        # r_norm = np.linalg.norm(r, axis=0)
+        
+        # area = np.pi * (r_norm / (2 * self.f_number))**2
+        area = 1 * u.mm ** 2
+        
+        E = self.E_0 / area.value
+        phase = np.exp(1j * (np.dot(self.k_vector, r).si))
+        
+        return E * phase
 
 
 
