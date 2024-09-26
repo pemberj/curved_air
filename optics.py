@@ -3,6 +3,7 @@ Originally from 'EchelleDesigner' project
 """
 
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Callable, Union, Iterable
 
 import numpy as np
@@ -754,7 +755,6 @@ class ADC:
         plt.show()
 
 
-
 def _refract(
     n_1: Union[int, float, Callable],
     n_2: Union[int, float, Callable],
@@ -786,9 +786,6 @@ def _refract(
     theta_out = np.arcsin((_n_1 / _n_2) * np.sin(theta_in))
 
     return theta_out.to(u.degree)
-
-
-
 
 
 @dataclass
@@ -969,40 +966,52 @@ class Grating:
         return red_angle / blue_angle
 
 
-
 # EtalonSim / Etalon.py
-
-
-import numpy as np
-import astropy.units as u
-
-# Description of plane wave illumination of an etalon a la Wikipedia
-
+@dataclass
 class Etalon():
-    """
-    Basic analytic etalon description
-    """
+    """Description of plane wave illumination of an etalon a la Wikipedia"""
+    
+    n: float = 1
+    l: Quantity = 6 * u.mm
+    θ: Quantity = 0 * u.degree
+    R_1: float = 0.95
+    
+    R_2: float | None = None
 
-    def __init__(self, n=1, l=6*u.mm, θ=0*u.degree, R_1=0.95, R_2=None):
-        self.n = n
-        self.l = l
-        self.θ = θ
-        self.R_1 = R_1
-        if R_2 is None:
-            self.R_2 = R_1
-        else:
-            self.R_2 = R_2
-        self.R = np.sqrt(self.R_1 * self.R_2)
+    
+    def __post_init__(self):
+        
+        if self.R_2 is None:
+            self.R_2 = self.R_1
 
-    @property
+
+    @cached_property
+    def R(self) -> float: return np.sqrt(self.R_1 * self.R_2)
+    
+    
+    @cached_property
+    def T(self):
+        return 1 - self.R
+
+
+    @cached_property
     def F_coef(self):
         return (4 * self.R) / ((1 - self.R)**2)
 
-    @property
+
+    @cached_property
     def finesse(self):
         return np.pi / (2 * np.arcsin(1 / np.sqrt(self.F_coef)))
 
-    @property
+
+    @cached_property
+    def R_max(self):
+        """
+        Maximum reflectivity, R_max
+        """
+        return (4 * self.R) / ((1 + self.R) ** 2)
+
+
     def delta_lambda(self, λ=780*u.nm):
         """
         Free spectral range of the etalon, defaults to λ = 780nm
@@ -1010,15 +1019,10 @@ class Etalon():
         n_g = 1
         return ((λ ** 2) / (2 * n_g * self.l * np.cos(self.θ) + λ)).to("pm")
 
-    @property
-    def R_max(self):
-        """
-        Maximum reflectivity, R_max
-        """
-        return (4 * self.R) / ((1 + self.R) ** 2)
 
     def delta(self, λ):
         return ((2 * np.pi / λ) * 2 * self.n * self.l * np.cos(self.θ)).si.value
+
 
     def Transmittance(self, λ):
         """
@@ -1027,15 +1031,14 @@ class Etalon():
         """
         return 1 / (1 + self.F_coef * (np.sin(self.delta(λ) / 2))**2)
 
+
     def intensity(self, λ):
         return self.Transmittance(λ)
 
-    @property
-    def T(self):
-        return 1 - self.R
 
     def amplitude(self, m, λ):
         return self.T * (self.R ** m) * np.exp(1j * m * self.delta(λ))
+
 
     def summed_amplitudes(self, λ):
         """
@@ -1044,12 +1047,21 @@ class Etalon():
         return self.T / (1 - self.R * np.exp(1j * self.delta(λ)))
 
 
-    def print_info(self):
+    def __str__(self) -> str:
 
-        for p, val in self.__dict__.items():
-            print(f"{p}: {val}")
+        vals = "".join(
+                [
+                   f"{p:>12}: {val:<6.3g}\n" for p, val in self.__dict__.items()
+                ]
+            )
+
+        return "Etalon:\n" + vals
 
 
+    def __repr__(self) -> str:
+        
+        return f"Etalon(n={self.n}, l={self.l}, θ={self.θ}, "+\
+               f"R_1={self.R_1}, R_2={self.R_2})"
 
 
 
