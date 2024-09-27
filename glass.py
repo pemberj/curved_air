@@ -1025,6 +1025,9 @@ class GlassCatalogue(dict):
         self,
         min_wl: Quantity = 380 * u.nm,
         max_wl: Quantity = 950 * u.nm,
+        D_telescope: Quantity = 0.8 * u.m,
+        D_ADC: Quantity = 15 * u.mm,
+        z_max: Quantity = 65 * u.degree,
         num_samples: int = 20,
         max_residuals: Quantity = 100 * u.mas,
         ):
@@ -1061,9 +1064,9 @@ class GlassCatalogue(dict):
                 prism_stack = PrismStack([g1, g2]),
                 min_wl = min_wl,
                 max_wl = max_wl,
-                D_telescope = 0.8 * u.m,
-                D_ADC = 15 * u.mm,
-                z_max = 65 * u.degree,
+                D_telescope = D_telescope,
+                D_ADC = D_ADC,
+                z_max = z_max,
                 criterion = "PTV",
                 )
             
