@@ -938,7 +938,7 @@ class GlassCatalogue(dict):
         - [ ] Add interactivity to the plot, with hover-over labels
         """
         
-
+        
         if not axis:
             fig = plt.figure()
             ax = fig.gca()
@@ -946,15 +946,31 @@ class GlassCatalogue(dict):
         
         names = [g.name for g in self.glasses]
 
+        # Somewhat bulky code to color-code the points by the original file
+        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        all_original_files = [g.original_file for g in self.glasses]
+        unique_original_files = list(set(all_original_files))
+        manufacturer_indices =\
+            {f: i for i, f in enumerate(unique_original_files)}
+        cols = [colors[manufacturer_indices[f]] for f in all_original_files]
+        
+        
         # for _, glass in self.items():
         points = ax.scatter(
             [g.Abbe_number for g in self.glasses],
             [g.n_d for g in self.glasses],
             s=50,
-            alpha=0.5
+            alpha=0.5,
+            c = cols,
             )
-
+        
         ax.set_xlim(ax.get_xlim()[::-1])
+        ax.set_ylim(ax.get_ylim())
+        
+        for i, m in enumerate(unique_original_files):
+            ax.scatter(0, 0, s=50, c=colors[i], label=m)
+            
+        ax.legend()
         
         if interactive:
             # code from here: 
