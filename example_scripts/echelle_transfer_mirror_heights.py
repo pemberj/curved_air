@@ -1,15 +1,20 @@
 """
-
-
+This script calculates the required height of the transfer mirror in an echelle
+spectrograph as a function of the collimator parameters and the parameters of
+the echelle grating.
 """
 
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
+script_path = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(script_path, "../.."))
 
 import numpy as np
-from astropy import units as u
+from numpy.typing import ArrayLike
+
+import astropy.units as u
+from astropy.units import Quantity
+
 from matplotlib import pyplot as plt
 
 from curved_air.optics import Grating
@@ -17,6 +22,7 @@ from curved_air.utils import calculate_transfer_mirror_height
 
 
 def main() -> None:
+    
     fig = plt.figure("Transfer mirror height")
     ax = fig.gca()
     

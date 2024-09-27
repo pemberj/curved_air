@@ -1,12 +1,15 @@
 """
-
+This script uses numerical methods to calculate the wavelength-dependent
+transmission of a Fabry-Pérot etalon. It compares the numerical results (using
+both a plane-wave beam and a Gaussian beam) to the analytic description. The
+plane-wave-illuminated etalon should give the same result as the analytic
+version.
 """
 
 import os
 import sys
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../..")
-    ))
+script_path = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(script_path, "../.."))
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -24,7 +27,7 @@ from curved_air.plot_style import plot_style
 plt.style.use(plot_style)
 
 
-def main():
+def main() -> None:
 
     mirror_spacing = 6 * u.mm #mm
     round_trip = 2 * mirror_spacing
@@ -89,10 +92,6 @@ def main():
         # Why am I getting a zero-offset in the numerical ones?
         # Corresponds to the very first mirror reflection
         values = values / np.max(values) - (1 - np.sqrt(mirror_reflectivity))
-        
-        # print(f"{λs.to(u.pm).value = }")
-        print(f"{beam_type = }")
-        print(f"{values = }")
         
         peak_fwhm = np.diff(FWHM(λs.to("pm").value, values))[0] * u.pm
         calculated_finesse = distance_between_peaks/peak_fwhm

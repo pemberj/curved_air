@@ -1,20 +1,20 @@
 """
-
-
+This script uses the analytic description of a plane-wave-illuminated etalon and
+calculates its wavelength-dependent transmission.
 """
-
 
 import os
 import sys
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../..")
-    ))
+script_path = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(script_path, "../.."))
 
 import numpy as np
+from numpy.typing import ArrayLike
+
 import astropy.units as u
+from astropy.units import Quantity
 
 from matplotlib import pyplot as plt
-from matplotlib import font_manager as fm
 
 from curved_air.optics import Etalon
 from curved_air.utils import FWHM
@@ -33,7 +33,7 @@ def main():
     # Single peak:
     # λs = np.linspace(499.998, 500.002, 500) * u.nm
     c = 6e-3 / 7692 * 1e9
-    w = 0.005
+    w = 0.01
     λs = np.linspace(c - w/2, c + w/2, 501) * u.nm
 
     print("Analytic finesse:", etalon.finesse)
@@ -51,12 +51,6 @@ def main():
         "Finesse calculated from FWHM and Δλ: "+\
          f"{etalon.delta_lambda() / peak_fwhm}"
          )
-
-    etalon.R
-    etalon.T
-    etalon.F_coef
-    etalon.finesse
-    etalon.R_max
 
     print(etalon)
     
