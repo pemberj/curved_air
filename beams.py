@@ -384,7 +384,7 @@ class SphericalBeam(Beam):
         self.k_vector = self.k_scalar * self.plane_normal
 
         
-    def electric_field(
+    def E_field(
         self,
         x: ArrayLike | Quantity = 0 * u.mm,
         y: ArrayLike | Quantity = 0 * u.mm,
@@ -394,11 +394,21 @@ class SphericalBeam(Beam):
         Calculate the electric field at a point in space
         """
         
-        r = np.array([
-                    x.to(u.mm).value,
-                    y.to(u.mm).value,
-                    z.to(u.mm).value
-                ]) * u.mm
+        if isinstance(x, Quantity): x = x.to(u.mm).value
+        if isinstance(y, Quantity): y = y.to(u.mm).value
+        if isinstance(z, Quantity): z = z.to(u.mm).value
+        
+        x_shape = np.shape(x)
+        y_shape = np.shape(y)
+        z_shape = np.shape(z)
+        
+        x = np.array(x).flatten()
+        y = np.array(y).flatten()
+        
+        if isinstance(z, float):
+            z = z * np.ones_like(x)
+        
+        r = np.array([x, y, z]) * u.mm
 
         # r_norm = np.linalg.norm(r, axis=0)
         
@@ -408,7 +418,7 @@ class SphericalBeam(Beam):
         E = self.E_0 / area.value
         phase = np.exp(1j * (np.dot(self.k_vector, r).si))
         
-        return E * phase
+        return np.array(E * phase).reshape(x_shape)
 
 
 
