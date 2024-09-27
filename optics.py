@@ -299,10 +299,9 @@ class ADC:
     z_max: Quantity = 65 * u.degree
     criterion: str = "PTV" # "RMS", "RSS", "PTV", "max_abs"
 
-    G_alpha_air:    Quantity | None = None
-    alpha:          Quantity | None = None
-    beta:           Quantity | None = None
-    wl_0:           Quantity | None = None
+    alpha:  Quantity | None = None
+    beta:   Quantity | None = None
+    wl_0:   Quantity | None = None
     
     residuals_function: Callable | None = None
     
@@ -315,6 +314,27 @@ class ADC:
     @property
     def g2(self) -> Glass:
         return self.prism_stack.prism_list[1]
+    
+    
+    @property
+    def G_alpha_air(self) -> Quantity:
+        """
+        Get the effective prism apex angle for the atmosphere for use when
+        following the method of Spanò (2014): "Accurate astronomical atmospheric
+        dispersion models in Zemax". Amplifies the refractive index.
+        
+        Don't think we need to use this here after all... 
+        """
+        
+        A_mean = 1 - 2.57064513e-07
+        B_mean = 1.39479963e-04
+        G = 1e8
+        
+        return G * np.arctan(
+            (1 / G) * (
+                A_mean * np.tan(self.z_max) + B_mean * np.tan(self.z_max) ** 3
+                )
+            )
     
     
     @property
@@ -401,12 +421,6 @@ class ADC:
     
         wls = self.wls(n = num_samples)
 
-        A_mean = 1 - 2.57064513e-07
-        B_mean = 1.39479963e-04
-        G = 1e8
-        self.G_alpha_air = G * np.arctan((1 / G) *\
-            (A_mean * np.tan(self.z_max) + B_mean * np.tan(self.z_max) ** 3))
-
         # G_alpha_air is the required scaled prism angle for a thin prism model
         # of atmospheric dispersion. It is roughly equal to
         # Atan(z_max) + Btan^3(z_max), which is in turn roughly equal to
@@ -440,8 +454,18 @@ class ADC:
             epsilon = (g1.refractive_index(wl_0) - 1)\
                     / (g2.refractive_index(wl_0) - 1)
 
+
+            """ OLD - STILL USING G_ALPHA_AIR
             delta_air = (
                 self.beam_comp * self.G_alpha_air * (
+                    self.air_model.refractive_index(wls)
+                  - self.air_model.refractive_index(wl_0)
+                    )
+                ).si.to(u.degree)
+            """
+            
+            delta_air = (
+                self.beam_comp * self.z_max * (
                     self.air_model.refractive_index(wls)
                   - self.air_model.refractive_index(wl_0)
                     )
@@ -455,7 +479,10 @@ class ADC:
 
             residuals = (delta_ADC - delta_air) * u.radian
             # Put it back in equivalent on-sky angle
+            """ OLD, SEE ABOVE
             residuals /= (self.G_alpha_air * self.beam_comp)
+            """
+            residuals /= (self.z_max * self.beam_comp)
             
             if return_residuals:
                 return residuals.to(u.mas)
