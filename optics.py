@@ -399,17 +399,18 @@ class ADC:
         self,
         plot: bool = False,
         num_samples: int = 20,
-        ) -> None:
+        ) -> dict:
         """
+        This function finds the best main apex angle and zero-deviation
+        wavelength for the ADC's dispersion to match the dispersion of air.
+        
         TODO:
         
         - [ ] Instead of computing residuals based on the difference between
         refractive indices, actually trace rays through the ADC
         
-        - [ ] 
-        
+        - [ ] Allow to match different target dispersion???
         """
-        
         
         if len(self.prism_stack.prism_list) != 2:
             raise NotImplementedError("This method is only implemented for "+\
@@ -780,6 +781,25 @@ class ADC:
         ax.legend()
         
         plt.show()
+
+
+    def __str__(self):
+        return f"""
+            Compound prism rotation al ADC with {self.g1} and {self.g2} glasses.
+            Apex angles: {self.first_apex_angle:.3f} / 
+            {self.second_apex_angle:.3f} (compound angle {self.beta:.3f}).
+            Provides zero beam deviation at {self.wl_0:.3f}.
+            """
+            
+            
+    def __repr__(self):
+        return f"ADC(prism_stack = {self.prism_stack}, "+\
+               f"air_model = {self.air_model}, "+\
+               f"min_wl = {self.min_wl:.3f}, max_wl = {self.max_wl:.3f}, "+\
+               f"D_telescope = {self.D_telescope:.3f}, "+\
+               f"D_ADC = {self.D_ADC:.3f}, "+\
+               f"z_max = {self.z_max:.3f}, "+\
+               f"alpha = {self.alpha:.3f}, "\
 
 
 def _refract(
