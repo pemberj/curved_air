@@ -317,27 +317,6 @@ class ADC:
     
     
     @property
-    def G_alpha_air(self) -> Quantity:
-        """
-        Get the effective prism apex angle for the atmosphere for use when
-        following the method of Spanò (2014): "Accurate astronomical atmospheric
-        dispersion models in Zemax". Amplifies the refractive index.
-        
-        Don't think we need to use this here after all... 
-        """
-        
-        A_mean = 1 - 2.57064513e-07
-        B_mean = 1.39479963e-04
-        G = 1e8
-        
-        return G * np.arctan(
-            (1 / G) * (
-                A_mean * np.tan(self.z_max) + B_mean * np.tan(self.z_max) ** 3
-                )
-            )
-    
-    
-    @property
     def epsilon(self) -> Quantity:
         if self.wl_0 is None:
             return None
@@ -422,18 +401,6 @@ class ADC:
     
         wls = self.wls(n = num_samples)
 
-        # G_alpha_air is the required scaled prism angle for a thin prism model
-        # of atmospheric dispersion. It is roughly equal to
-        # Atan(z_max) + Btan^3(z_max), which is in turn roughly equal to
-        # tan(z_max) but the extra terms are important when we are talking about
-        # dispersion residuals anything less than about a hundred
-        # milliarcseconds (in the atmosphere, so once scaled that respresents
-        # residuals of several hundred mas - you can decide which approximation
-        # if any is appropriate to your application.
-
-        # Approximation:
-        #G_alpha_air = np.tan(np.radians(z_max))
-
         # Find a linear combination of refractive index curves that best match
         # the refractive index of air, in which the apex angles of the two prism
         def residuals(
@@ -454,18 +421,8 @@ class ADC:
 
             epsilon = (g1.refractive_index(wl_0) - 1)\
                     / (g2.refractive_index(wl_0) - 1)
-
-
-            """ OLD - STILL USING G_ALPHA_AIR
-            delta_air = (
-                self.beam_comp * self.G_alpha_air * (
-                    self.air_model.refractive_index(wls)
-                  - self.air_model.refractive_index(wl_0)
-                    )
-                ).si.to(u.degree)
-            """
             
-            delta_air = (
+            delta_air = (      # vvvvvvvvvv   Should this be tan(z_max)?
                 self.beam_comp * self.z_max * (
                     self.air_model.refractive_index(wls)
                   - self.air_model.refractive_index(wl_0)
@@ -480,9 +437,6 @@ class ADC:
 
             residuals = (delta_ADC - delta_air) * u.radian
             # Put it back in equivalent on-sky angle
-            """ OLD, SEE ABOVE
-            residuals /= (self.G_alpha_air * self.beam_comp)
-            """
             residuals /= (self.z_max * self.beam_comp)
             
             if return_residuals:
@@ -548,7 +502,6 @@ class ADC:
 
                     "D_telescope": self.D_telescope,
                     "D_ADC": self.D_ADC,
-                    "G_alpha_air": self.G_alpha_air,
                     "beam_comp": self.beam_comp,
 
                     "z_max": self.z_max,
@@ -617,7 +570,7 @@ class ADC:
                     f"$n_1 - {self.epsilon:.5g}n_2 {self.epsilon - 1:+.3g}$)"+\
                     f" {self.alpha/2:.3g}$^o$")
         
-        d_air = self.beam_comp * self.G_alpha_air * (
+        d_air = self.beam_comp * self.z_max * (
                                 self.air_model.refractive_index(wls)
                               - self.air_model.refractive_index(self.wl_0)
                                 )
