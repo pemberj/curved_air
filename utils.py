@@ -183,13 +183,15 @@ def lin_interp(x, y, i, half):
 def FWHM(x_values, y_values):
     """
     """
+    
+    y_values -= min(y_values)
+    y_values /= max(y_values)
 
-    half_max = max(y_values) / 2
-    signs = np.sign(np.add(y_values, -half_max))
+    signs = np.sign(np.add(y_values, -0.5))
     zero_crossings = (signs[0:-2]) != signs[1:-1]
     zero_crossings_i = np.where(zero_crossings)[0]
-    return [lin_interp(x_values, y_values, zero_crossings_i[0], half_max),
-            lin_interp(x_values, y_values, zero_crossings_i[1], half_max)]
+    return [lin_interp(x_values, y_values, zero_crossings_i[0], 0.5),
+            lin_interp(x_values, y_values, zero_crossings_i[1], 0.5)]
 
 
 def Gaussian(x, x0=0, sigma=1):
