@@ -477,6 +477,7 @@ class SphericalBeam(Beam):
         self,
         z: Quantity = 0*u.mm,
         max_radius: Quantity | None = None,
+        force_radius: bool = False,
         ) -> Quantity:
         """
         Using the analytic expression for a spherical beam, this function
@@ -503,7 +504,9 @@ class SphericalBeam(Beam):
         if z == 0:
             return self.E_0
         
-        if max_radius is None:
+        if force_radius:
+            radius = max_radius
+        elif max_radius is None:
             radius = self.beam_diameter(z * u.mm) / 2
         else:
             radius = min(max_radius, self.beam_diameter(z * u.mm) / 2)
@@ -526,22 +529,6 @@ class SphericalBeam(Beam):
         I, error = quad(integrand, 0, radius.to(u.mm).value, limit=50)
         
         return 2 * np.pi * self.E_0 * I
-        
-        
-        # for r in np.linspace(0, max_radius, 1000):
-            
-        #     arg = (self.k_scalar * np.sqrt(r**2 + z**2)).si * u.radian
-            
-        #     step = r / np.sqrt(r**2 + z**2) * np.cos(arg)
-        #             # np.exp(1j * self.k_scalar * np.sqrt(r**2 + z**2))
-            
-        #     out.append(step)
-            
-        # return 2 * np.pi * self.E_0 * np.nansum(out)
-        
-        
-
-
 
 
 def main() -> None:
