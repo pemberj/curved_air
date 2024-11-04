@@ -34,10 +34,11 @@ def main() -> None:
     round_trip = 2 * mirror_spacing * n
     round_trip_mm = round_trip.to("mm").value
     num_round_trips = 30 #number of reflections on the OUTPUT surface
-    mirror_reflectivity = 0.9
-    f_number = 50
+    mirror_reflectivity = 0.8
+    f_number = 100
     num_wavelengths = 500
-    z_0 = -50 * u.mm
+    z_0 = 0 * u.mm
+    # z_0 = -1 * round_trip * num_round_trips
     z_0_mm = z_0.to("mm").value
 
     analytic_etalon = Etalon(
