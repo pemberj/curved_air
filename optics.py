@@ -546,7 +546,9 @@ class ADC:
         
         fig, axs = plt.subplots(4, 1, figsize=(8, 10), tight_layout=True)
 
-        fig.suptitle(f"Optimised ADC using {self.g1.name} and {self.g2.name}", size=18)
+        fig.suptitle(
+            f"Optimised ADC using {self.g1.name} and {self.g2.name}", size=18
+            )
 
         # Plot refractive indices of the two glasses
         ax = axs[0]
@@ -776,7 +778,8 @@ def _refract(
     debug_level: float = 0.
     ) -> Quantity:
 
-    # Compute the refracted angle of a ray or rays at a single material interface
+    # Compute the refracted angle of a ray or rays at a single material
+    # interface
     # This can handle EITHER an array of input angles at a single wavelength
     # OR a single input angle at a range of wavelengths
 
@@ -790,11 +793,10 @@ def _refract(
         try: _n_2 = n_2(wavelength)
         except TypeError: _n_2 = n_2
 
-    # By this point, _n_1 and _n_2 should be either floats, ints, or lists/arrays of such
+    # By this point, _n_1 and _n_2 should be either floats, ints, or
+    # lists/arrays of such
     assert not callable(_n_1)
     assert not callable(_n_1)
-
-    # print(f"Refracting at {theta_in.to('degree')} from {_n_1 = } to {_n_2 = }")
 
     theta_out = np.arcsin((_n_1 / _n_2) * np.sin(theta_in))
 
