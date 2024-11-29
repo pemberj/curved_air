@@ -7,7 +7,7 @@ MARVEL facility.
 import os
 import sys
 script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, ".."))
+sys.path.append(os.path.join(script_path, "../../src"))
 
 from glob import glob
 import re
@@ -31,9 +31,12 @@ plt.style.use(plot_style)
 def main() -> None:
 
     agf_files = sorted([
-        f for f in glob("./data/AGFs/*.[Aa][Gg][Ff]")
+        f for f in glob(f"{script_path}/../../data/AGFs/*.[Aa][Gg][Ff]")
             if re.search("ohara|schott", f)
         ])
+    
+    if not agf_files:
+        raise FileNotFoundError("No AGF files found in the data directory.")
 
     catalogue = GlassCatalogue()\
         .read_AGF(agf_filename = agf_files)
@@ -49,7 +52,10 @@ def main() -> None:
         )
     
     MARVEL_ADC.optimise()
-    MARVEL_ADC.plot(save_filename="ADC_K10_FPL51.svg", show=False)
+    MARVEL_ADC.plot(
+        save_filename=f"{script_path}/ADC_K10_FPL51.svg",
+        show=False
+        )
     
     
     example_ADC = ADC(
@@ -63,7 +69,10 @@ def main() -> None:
         )
     
     example_ADC.optimise()
-    example_ADC.plot(save_filename="ADC_KZFS4HT_SK4.svg", show=False)
+    example_ADC.plot(
+        save_filename=f"{script_path}/ADC_KZFS4HT_SK4.svg",
+        show=False
+        )
 
 
     example_ADC = ADC(
@@ -77,7 +86,10 @@ def main() -> None:
         )
     
     example_ADC.optimise()
-    example_ADC.plot(save_filename="ADC_LASF41_BAF10.svg", show=False)
+    example_ADC.plot(
+        save_filename=f"{script_path}/ADC_LASF41_BAF10.svg",
+        show=False
+        )
 
 
 if __name__ == "__main__":
