@@ -14,13 +14,8 @@ from astropy.units import Quantity
 
 from scipy.optimize import minimize
 
-try:
-    from curved_air.glass import Glass
-    from curved_air.other import Model, Air
-except ImportError:
-    from glass import Glass
-    from other import Model, Air
-
+from curved_air.glass import Glass
+from curved_air.other import Model, Air
 
 
 @dataclass
@@ -610,8 +605,7 @@ class ADC:
         ax.axvline(x=self.wl_0.to(u.um).value, color="k", ls="--", lw=1)
         ax.set_xlabel("Wavelength (microns)")
         ax.set_ylabel("Angular dispersion\n"\
-                     +"residuals at $z_{max}$\n"\
-                     +"$\Delta \delta$ (mas)")
+                     +"residuals at $z_{max}$ (mas)")
         ax.legend()
         
         # Plot cross-sectional layout of physical compound prisms

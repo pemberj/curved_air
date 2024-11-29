@@ -10,13 +10,8 @@ import itertools
 import scipy.optimize
 import astropy.units as u
 
-try:
-    from curved_air.glass import GlassCatalogue
-    from curved_air.optics import Prism, PrismStack
-except ImportError:
-    from glass import GlassCatalogue
-    from optics import Prism, PrismStack
-
+from curved_air.glass import GlassCatalogue
+from curved_air.optics import Prism, PrismStack
 
 
 def constant_dispersion(glass_catalogue: GlassCatalogue = None,
@@ -109,9 +104,11 @@ def constant_dispersion(glass_catalogue: GlassCatalogue = None,
 
 
 
-
+def main() -> None:
+    
+    ...
 
 
 if __name__ == "__main__":
     
-    ...
+    main()

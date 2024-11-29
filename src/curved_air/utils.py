@@ -1,14 +1,15 @@
 
 from glob import glob
+
 import numpy as np
+
 import pandas as pd
+
 from astropy import units as u
+
 from matplotlib import pyplot as plt
 
-try:
-    from curved_air.optics import Grating
-except ImportError:
-    from optics import Grating
+from curved_air.optics import Grating
 
 
 # Echelledesigner / read-csv.py

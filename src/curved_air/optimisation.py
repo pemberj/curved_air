@@ -11,15 +11,9 @@ import astropy.units as u
 from astropy.units import Quantity, UnitConversionError
 from typing import Callable
 
-try:
-    from curved_air.glass import Glass, GlassCatalogue
-    from curved_air.optics import Prism, PrismStack
-    from curved_air.other import Model, Air
-except ImportError:
-    from glass import Glass, GlassCatalogue
-    from optics import Prism, PrismStack
-    from other import Model, Air
-
+from curved_air.glass import Glass, GlassCatalogue
+from curved_air.optics import Prism, PrismStack
+from curved_air.other import Model, Air
 
 
 def find_overlapping_refrective_index(
@@ -373,59 +367,8 @@ def match_target_refractive_index(
 
 def main() -> None:
     
-    import os
-    from glob import glob
-    import re
+    ...
     
-    from matplotlib import pyplot as plt
-    
-
-    path = os.path.dirname(os.path.realpath(__file__))
-    
-    agf_files = sorted(
-        [f for f in glob(pathname="./curved_air/AGFs/*.[Aa][Gg][Ff]")\
-                        if re.search(pattern="ohara|schott", string=f)])
-
-    gc = GlassCatalogue()\
-        .read_AGF(agf_filename = agf_files)\
-        .filter(
-                status_description = ["standard", "preferred"],
-                min_wl = 390 * u.nm,
-                max_wl = 950 * u.nm,
-                min_transmission = 0.97,
-                min_average_transmission = 0.99,
-            )  
-    
-    
-    ADC = match_target_refractive_index(
-                        g1 = gc["K10"],
-                        g2 = gc["S-FPL51"],
-                        min_wl = 390 * u.nm,
-                        max_wl = 950 * u.nm,
-                        num_samples = 50,
-                        target_refractive_index = Air().refractive_index,
-                    )
-    
-    for p in ADC.prism_list:
-        print(p)
-        
-    wls = np.linspace(0.39, 0.95, 100) * u.um
-    
-    out_rays = ADC.trace(wls = wls)
-    
-    
-    fig = plt.figure()
-    ax = fig.gca()
-    
-    ax.plot(wls, out_rays.to(u.degree))
-    ax.set_xlabel("Wavelength (um)")
-    ax.set_ylabel("Deviation angle (deg)")
-    
-    plt.show()
-
-
-
-
 
 if __name__ == "__main__":
     

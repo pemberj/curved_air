@@ -29,15 +29,8 @@ from astropy.units import Quantity
 from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
 
-# import matplotlib.font_manager as fm
-# fm.fontManager.addfont(path="./Quicksand_regular.ttf")
-
-try:
-    from curved_air.plot_style import plot_style
-    from curved_air.other import _fraunhofer_lines
-except ImportError:
-    from plot_style import plot_style
-    from other import _fraunhofer_lines
+from curved_air.other import _fraunhofer_lines
+from curved_air.plot_style import plot_style
 plt.style.use(plot_style)
 
 
@@ -1051,10 +1044,7 @@ class GlassCatalogue(dict):
         Optimise ADCs for all possible combinations of glasses in the catalogue
         """
         
-        try:
-            from curved_air.optics import PrismStack, ADC
-        except ImportError:
-            from optics import PrismStack, ADC
+        from curved_air.optics import PrismStack, ADC
         
         results = []
         
@@ -1260,26 +1250,7 @@ def _refractive_index(
 
 def main() -> None:
     
-    agf_files = sorted(
-            [
-                f for f in glob("./curved_air/AGFs/*.[Aa][Gg][Ff]")\
-                                                if re.search("ohara|schott", f)
-            ]
-        )
-
-    catalogue = GlassCatalogue()\
-        .read_AGF(agf_filename = agf_files)\
-        .filter(
-            min_wl=380 * u.nm,
-            max_wl=950 * u.nm,
-            min_transmission = 0.97,
-            min_average_transmission = 0.99,
-            
-            )
-    
-    # catalogue.plot_Abbe_diagram()
-    
-    catalogue.compute_ADCs(max_residuals=25 * u.mas)
+    ...
 
 
 if __name__ == "__main__":
