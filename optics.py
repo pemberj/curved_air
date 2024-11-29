@@ -526,14 +526,19 @@ class ADC:
         return results
             
             
-    def plot(self, num_samples: int = 100) -> None:
+    def plot(
+        self,
+        num_samples: int = 100,
+        save_filename: str = None,
+        show: bool = True,
+        ) -> None:
         
         wls = self.wls(n = num_samples)
             
         from matplotlib import pyplot as plt
         
         plt.rcParams["axes.labelsize"] = 14
-        plt.rcParams["legend.fontsize"] = 14
+        plt.rcParams["legend.fontsize"] = 12
     
         min_thickness = 10 * u.mm
         gap = 6 * u.mm
@@ -541,7 +546,7 @@ class ADC:
         
         fig, axs = plt.subplots(4, 1, figsize=(8, 10), tight_layout=True)
 
-        fig.suptitle(f"ADC design for {self.g1.name} and {self.g2.name}", size=18)
+        fig.suptitle(f"Optimised ADC using {self.g1.name} and {self.g2.name}", size=18)
 
         # Plot refractive indices of the two glasses
         ax = axs[0]
@@ -578,8 +583,8 @@ class ADC:
         d_air = d_air.to(u.degree)
         
         ax.plot(wls, d_air, "r-",
-            label="$\\frac{D_{tel}}{D_{ADC}}$ ( $n_{air} - n_{air}$(" \
-                +f"{(self.wl_0.to(u.nm)):.0f}) ) $\\times$ "\
+            label="$\\frac{D_{tel}}{D_{ADC}}$ ($n_{air} - n_{air}$(" \
+                +f"{(self.wl_0.to(u.nm)):.0f})) $\\times$ "\
                 +f"tan({self.z_max:.0f})")
         
         ax.axhline(y=0, color="k", ls="--", lw=1)
@@ -733,7 +738,15 @@ class ADC:
         
         ax.legend()
         
-        plt.show()
+        if save_filename is not None:
+            plt.savefig(save_filename)
+            
+            if show:
+                plt.show()
+                
+        else:
+            # Show the plot if no filename is given, even if show is False?
+            plt.show()
 
 
     def __str__(self):
