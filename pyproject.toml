@@ -3,7 +3,7 @@ name = "curved-air"
 version = "0.1.0"
 description = "Tools for optical design and optimisation"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "astropy>=7.0.0",
     "matplotlib>=3.9.2",

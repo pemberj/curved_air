@@ -6,7 +6,7 @@ calculates its wavelength-dependent transmission.
 import os
 import sys
 script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, "../.."))
+sys.path.append(os.path.join(script_path, "../src"))
 
 import numpy as np
 from numpy.typing import ArrayLike

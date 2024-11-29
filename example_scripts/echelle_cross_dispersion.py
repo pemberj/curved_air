@@ -5,7 +5,7 @@
 import os
 import sys
 script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, "../.."))
+sys.path.append(os.path.join(script_path, "../src"))
 
 from glob import glob
 import re
@@ -29,7 +29,7 @@ def main():
 
 
     agf_files = sorted([
-        f for f in glob("./data/AGFs/*.[Aa][Gg][Ff]")
+        f for f in glob("../data/AGFs/*.[Aa][Gg][Ff]")
             if re.search("schott", f)
             ])
     catalogue = GlassCatalogue().read_AGF(agf_files)

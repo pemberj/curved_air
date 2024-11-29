@@ -7,7 +7,7 @@ MARVEL facility.
 import os
 import sys
 script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, "../.."))
+sys.path.append(os.path.join(script_path, "../src"))
 
 from glob import glob
 import re
@@ -31,7 +31,7 @@ plt.style.use(plot_style)
 def main() -> None:
 
     agf_files = sorted([
-        f for f in glob("./data/AGFs/*.[Aa][Gg][Ff]")
+        f for f in glob("../data/AGFs/*.[Aa][Gg][Ff]")
             if re.search("ohara|schott", f)
         ])
 

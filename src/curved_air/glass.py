@@ -21,7 +21,7 @@ from astropy import units as u
 # Type hinting
 from typing import TypeVar
 SelfGlass = TypeVar("SelfGlass", bound="Glass")
-SelfGlassCatalogue = TypeVar("SelfGlassCatalogue", bound="Glass")
+SelfGlassCatalogue = TypeVar("SelfGlassCatalogue", bound="GlassCatalogue")
 from typing import Iterator, Generator
 from numpy.typing import ArrayLike
 from astropy.units import Quantity

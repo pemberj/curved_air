@@ -7,7 +7,7 @@ the echelle grating.
 import os
 import sys
 script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, "../.."))
+sys.path.append(os.path.join(script_path, "../src"))
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -23,7 +23,7 @@ from curved_air.utils import calculate_transfer_mirror_height
 
 def main() -> None:
     
-    fig = plt.figure("Transfer mirror height")
+    fig = plt.figure("Transfer mirror height", figsize=(10 ,8))
     ax = fig.gca()
     
     combinations = ([31.6, 31.6, 52.67, 13.33], [63.5, 76, 69.7, 80.6])

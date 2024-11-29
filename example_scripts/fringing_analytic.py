@@ -7,7 +7,7 @@ this to a new AGF file for use in Zemax.
 import os
 import sys
 script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, "../.."))
+sys.path.append(os.path.join(script_path, "../src"))
 
 from glob import glob
 import re

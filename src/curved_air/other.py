@@ -6,7 +6,7 @@ Contains wavelength definitions of Fraunhofer lines
 
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 import numpy as np
@@ -361,7 +361,7 @@ class Atmosphere():
 
     atmosphere_model: str = "plane-parallel"
     zenith_distance: Quantity = 67. * u.deg
-    air_model: Air = Air()
+    air_model: Air = field(default_factory = Air)
         
     def __post_init__(self):
         if self.atmosphere_model:

@@ -192,8 +192,8 @@ class PrismStack:
     """
 
     prism_list: list[Prism] = field(default_factory = list)
-    entrance_medium: Model = Air()
-    exit_medium: Model = Air()
+    entrance_medium: Model = field(default_factory = Air)
+    exit_medium: Model = field(default_factory = Air)
 
 
     def add_prism(self, prism: Prism):
@@ -291,7 +291,7 @@ class PrismStack:
 class ADC:
     
     prism_stack: PrismStack
-    air_model: Model = Air()
+    air_model: Model = field(default_factory = Air)
     min_wl: Quantity = 390 * u.nm
     max_wl: Quantity = 950 * u.nm
     D_telescope: Quantity = 0.8 * u.m
