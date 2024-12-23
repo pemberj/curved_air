@@ -4,83 +4,113 @@ TODO:
 Move this funtion into the GlassCatalogue class as a method.
 """
 
-import numpy as np
-from numpy.typing import ArrayLike
 import itertools
+from typing import TYPE_CHECKING
+
 import scipy.optimize
 import astropy.units as u
+import numpy as np
+from numpy.typing import ArrayLike
 
-from curved_air.glass import GlassCatalogue
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+from curved_air.glass import Glass, GlassCatalogue
 from curved_air.optics import Prism, PrismStack
 
 
-def constant_dispersion(glass_catalogue: GlassCatalogue = None,
-                        wavelength_range: ArrayLike = None,
-                        num_glasses: int = 3,
-                        max_apex_ratio: float = 3.,
-                        target_dispersion: float = 0.,
-                        dispersion_range: float = 0.1):
-    """
-    """
+def constant_dispersion(
+    glass_catalogue: GlassCatalogue = None,
+    wavelength_range: ArrayLike = None,
+    num_glasses: int = 3,
+    max_apex_ratio: float = 3.0,  # TODO: use this!  # noqa: ARG001
+    target_dispersion: float = 0.0,
+    dispersion_range: float = 0.1,
+) -> dict:
+    """ """
 
-    if len(glass_catalogue) >= 20 and num_glasses >= 3:
+    if len(glass_catalogue) >= 20 and num_glasses >= 3:  # noqa: PLR2004
         n = len(glass_catalogue)
         r = num_glasses
 
-        num_combinations = np.math.factorial(n + r - 1) / np.math.factorial(r)\
-                                                        / np.math.factorial(n-1)
+        num_combinations = (
+            np.math.factorial(n + r - 1)
+            / np.math.factorial(r)
+            / np.math.factorial(n - 1)
+        )
 
-        print("-"*20+f"\nWARNING!\n"\
-            +f"Optimising a {num_glasses}-element compound prism "\
-            +f"using a catalogue of {len(glass_catalogue)} materials.\n"\
-            +f"This will result in {round(num_combinations)} iterations.\n"\
-            +"You may wish to try with fewer materials in your catalogue.")
-
+        print(
+            "-" * 20
+            + "\nWARNING!\n"
+            + f"Optimising a {num_glasses}-element compound prism "
+            + f"using a catalogue of {len(glass_catalogue)} materials.\n"
+            + f"This will result in {round(num_combinations)} iterations.\n"
+            + "You may wish to try with fewer materials in your catalogue."
+        )
 
     if wavelength_range is None:
-        wavelength_range = np.linspace(0.39, 0.95, 20) * u.um # default value
+        wavelength_range = np.linspace(0.39, 0.95, 20) * u.um  # default value
 
-    combinations = itertools.combinations_with_replacement(
-                                        glass_catalogue.glass_list, num_glasses)
+    combinations: Generator[tuple[Glass, Glass]] = (
+        itertools.combinations_with_replacement(glass_catalogue.glass_list, num_glasses)
+    )
 
     results = {"glasses": [], "i": [], "A": [], "m": [], "b": [], "residuals": []}
 
     for combination in combinations:
-
         if np.any(np.array(combination[:-1]) == np.array(combination[1:])):
             # Skip any combinations with adjacent prisms of the same glass
             continue
 
-        def residuals(iAmb = [0.] + [None]*num_glasses + [1., 0.]) -> ArrayLike:
-            i = iAmb[0] * u.deg
-            A = iAmb[1:-2]
-            m, b = iAmb[-2:]
-            m *= u.rad / u.um # Give 'm' units of radians per micron
-            b *= u.rad # Give 'b' units of radians
+        def residuals(
+            iAmb: list[float] = [0] + [None] * num_glasses + [1, 0],
+        ) -> ArrayLike:
+            i, *A, m, b = iAmb
+            i *= u.deg
+            # i = iAmb[0] * u.deg
+            # A = iAmb[1:-2]
+            # m, b = iAmb[-2:]
+            m *= u.rad / u.um  # Give 'm' units of radians per micron
+            b *= u.rad  # Give 'b' units of radians
 
             # print(f"{i=} {A=} {m=} {b=}")
 
-            stack = PrismStack([Prism(glass=glass_catalogue[g], apex_angle=a*u.deg)\
-                                        for g, a in zip(combination, A)])
+            stack = PrismStack(
+                [
+                    Prism(glass=glass_catalogue[g], apex_angle=a * u.deg)
+                    for g, a in zip(combination, A, strict=False)  # noqa: B023
+                ]
+            )
             dispersion = stack.trace(wavelength_range, incidence_angle=i).to("deg")
-            return np.sum(np.power((dispersion - (m * wavelength_range + b)).to("deg").value, 2))
+            return np.sum(
+                np.power((dispersion - (m * wavelength_range + b)).to("deg").value, 2)
+            )
 
         A_start = np.ones(num_glasses) * 10
-        A_start[1::2] *= -1.
+        A_start[1::2] *= -1.0
         A_start = list(A_start)
 
-        bounds = [(-0.05, 0.05)]\
-               + [(-10., 10.)] * num_glasses\
-               + [(target_dispersion - dispersion_range,
-                   target_dispersion + dispersion_range),
-                  (-0.05, 0.05),]
+        bounds = (
+            [(-0.05, 0.05)]
+            + [(-10.0, 10.0)] * num_glasses
+            + [
+                (
+                    target_dispersion - dispersion_range,
+                    target_dispersion + dispersion_range,
+                ),
+                (-0.05, 0.05),
+            ]
+        )
 
-        #      i        A       m   b
-        x0 = [[0.] + A_start + [1., 0.]]
+        #     i      A     m  b
+        x0 = [0, *A_start, 1, 0]
 
-        res = scipy.optimize.minimize(fun=residuals, x0=x0, bounds=bounds,
-                            # options={"maxiter": 25},
-                            )
+        res = scipy.optimize.minimize(
+            fun=residuals,
+            x0=x0,
+            bounds=bounds,
+            # options = {"maxiter": 25},
+        )
 
         if not res.success:
             print(f"{combination}\n{res.message}")
@@ -89,8 +119,8 @@ def constant_dispersion(glass_catalogue: GlassCatalogue = None,
         i = res.x[0] * u.deg
         A = res.x[1:-2]
         m, b = res.x[-2:]
-        m *= u.rad / u.um # Give 'm' units of radians per micron
-        b *= u.rad # Give 'b' units of radians
+        m *= u.rad / u.um  # Give 'm' units of radians per micron
+        b *= u.rad  # Give 'b' units of radians
 
         results["glasses"].append(combination)
         results["i"].append(i)
@@ -102,13 +132,8 @@ def constant_dispersion(glass_catalogue: GlassCatalogue = None,
     return results
 
 
-
-
-def main() -> None:
-    
-    ...
+def main() -> None: ...
 
 
 if __name__ == "__main__":
-    
     main()

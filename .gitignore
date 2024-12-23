@@ -1,7 +1,7 @@
 old_scripts/
-
 # Zemax AGF glass catalogues
 *.[Aa][Gg][Ff]
+
 
 # Scratch Python documents, just a way to indicate that I am just experimenting
 *\[[Ss][Cc][Rr][Aa][Tt][Cc][Hh]\]*.py
@@ -9,7 +9,7 @@ old_scripts/
 # Results files, outputs from python scripts
 *[Rr]esults*.[Cc][Ss][Vv]
 
-
+.ruff_cache/
 
 # Default Github-generated Python .gitignore file
 #

@@ -1,41 +1,43 @@
+"""
+curved_air
 
-from glob import glob
+utils
+
+Utility functions
+"""
+
+from pathlib import Path
 
 import numpy as np
-
 import pandas as pd
-
 from astropy import units as u
-
 from matplotlib import pyplot as plt
 
 from curved_air.optics import Grating
 
 
 # Echelledesigner / read-csv.py
-def load_csv(
-    filename: str | None = None,
-    plot: bool = False
-    ) -> list[Grating]:
-    
+def load_csv(filename: str | None = None, plot: bool = False) -> list[Grating]:
     if not filename:
-        file = glob("./richardson-echelle-T3.csv")[0]
+        p = Path(__file__).parent
+        file = p.glob("richardson-echelle-T3.csv")[0]
     df = pd.read_csv(file, delimiter=" ")
 
     selection = df.query("Ruled_width >= 400")
 
     gratings = [
         Grating(
-            catalogue_number = c,
-            groove_frequency = float(gpmm) / u.mm,
-            blaze_angle = float(theta[:-1]) * u.deg,
-            )\
-                for c, gpmm, theta in zip(
-                    selection["Catalog_number"],
-                    selection["Grooves_per_mm"],
-                    selection["Nominal_blaze_angle"]
-                    )
-        ]
+            catalogue_number=c,
+            groove_frequency=float(gpmm) / u.mm,
+            blaze_angle=float(theta[:-1]) * u.deg,
+        )
+        for c, gpmm, theta in zip(
+            selection["Catalog_number"],
+            selection["Grooves_per_mm"],
+            selection["Nominal_blaze_angle"],
+            strict=False,
+        )
+    ]
 
     if plot:
         for g in gratings:
@@ -49,7 +51,7 @@ def load_csv(
         ax = fig.gca()
 
         for g in gratings:
-            ms = g.diffraction_orders(min_wl = min_wl, max_wl = max_wl)
+            ms = g.diffraction_orders(min_wl=min_wl, max_wl=max_wl)
             blaze_wavelengths = g.blaze_wavelength(ms)
             blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
             ax.plot(ms, blaze_wavelengths, label=f"R={g.R}, {g.gpmm.value} g/mm")
@@ -60,12 +62,11 @@ def load_csv(
         ax.legend()
         plt.show()
 
-
         fig = plt.figure()
         ax = fig.gca()
 
         for g in gratings:
-            ms = g.diffraction_orders(min_wl = min_wl, max_wl = max_wl)
+            ms = g.diffraction_orders(min_wl=min_wl, max_wl=max_wl)
             angles = g.order_opening_angle(ms)
             angles = [a.to(u.deg).value for a in angles]
 
@@ -76,23 +77,27 @@ def load_csv(
 
         ax.legend()
         plt.show()
-        
+
     return gratings
 
 
 # EchelleDesigner / order_gird.py
 
+
 def order_grid(
-    grating: Grating =\
-        Grating(
-            groove_frequency = 52.67/u.mm,
-            blaze_angle = 69*u.deg,
-            gamma_angle = 0.36*u.deg
-            ),
-    min_wl: u.Quantity = 380*u.nm,
-    max_wl: u.Quantity = 870*u.nm,
+    grating: Grating = None,
+    min_wl: u.Quantity = 380 * u.nm,
+    max_wl: u.Quantity = 870 * u.nm,
     num_configs: int = 12,
-    ):
+) -> list | None:
+    if grating is None:
+        grating = (
+            Grating(
+                groove_frequency=52.67 / u.mm,
+                blaze_angle=69 * u.deg,
+                gamma_angle=0.36 * u.deg,
+            ),
+        )
 
     blaze = grating.blaze_angle
     groove_density = grating.groove_frequency
@@ -119,7 +124,7 @@ def order_grid(
     print(f"{alt_increment = }")
 
     alt_grid = []
-    
+
     alt_grid.append(int(min_order))
     alt_grid.append(int(min_order + 1))
 
@@ -133,80 +138,99 @@ def order_grid(
     print(f"{alt_grid=}")
     print(f"{len(alt_grid)=}")
     return
-    
-    alt_orders = [min_order.value, min_order.value + 1]\
-      + list(range(min_order.value + 1 + alt_increment, max_order.value - 1, num_configs - 4))\
-      + [max_order.value - 1, max_order.value]
+
+    alt_orders = (
+        [min_order.value, min_order.value + 1]
+        + list(
+            range(
+                min_order.value + 1 + alt_increment,
+                max_order.value - 1,
+                num_configs - 4,
+            )
+        )
+        + [max_order.value - 1, max_order.value]
+    )
     print(alt_orders)
-   
-    
+
+
 # EchelleDesigner / transfer_mirror_length.py
 def calculate_transfer_mirror_height(
     grating: Grating,
     collimator_focal_length: u.Quantity,
-    ) -> u.Quantity:
-    
-    image_height =\
-        (collimator_focal_length / u.radian\
-            * grating.order_opening_angle(m=grating.min_order)).si
-    
+) -> u.Quantity:
+    image_height = (
+        collimator_focal_length
+        / u.radian
+        * grating.order_opening_angle(m=grating.min_order)
+    ).si
+
     # print("Total required height of transfer mirror:"\
     #     +f"{image_height.to(u.mm) = :.3f}")
-    
+
     return image_height.to(u.mm)
 
 
 # EtalonSim / helper.py
-def FWHM_old(y_values, x_values=None):
+def FWHM_old(
+    y_values: list | np.ndarray, x_values: list | np.ndarray | None = None
+) -> float:
     """
     Calculate the FWHM of a series of numerical values on a constant x-grid
     """
 
     norm = y_values / np.nanmax(y_values)
-    half = abs(norm - max(norm) / 2) # Create zero-crossings at half max value
+    half = abs(norm - max(norm) / 2)  # Create zero-crossings at half max value
     zero_crossings = []
-    zero_crossings.append(np.argmin(half[:len(half)//2])) # First zero-crossing
-    zero_crossings.append(np.argmin(half[len(half)//2:]) + len(half)//2) # Second zero-crossing
+    zero_crossings.append(np.argmin(half[: len(half) // 2]))  # First zero-crossing
+    zero_crossings.append(
+        np.argmin(half[len(half) // 2 :]) + len(half) // 2
+    )  # Second zero-crossing
 
     fwhm_steps = np.diff(zero_crossings)[0]
 
     if x_values is not None:
         x_step = np.diff(x_values)[0]
         return fwhm_steps * x_step
-    else:
-        return fwhm_steps
+    return fwhm_steps
 
 
-def lin_interp(x, y, i, half):
-    return x[i] + (x[i+1] - x[i]) * ((half - y[i]) / (y[i+1] - y[i]))
+def lin_interp(
+    x: list | np.ndarray, y: list | np.ndarray, i: int, half: float
+) -> float:
+    return x[i] + (x[i + 1] - x[i]) * ((half - y[i]) / (y[i + 1] - y[i]))
 
 
-def FWHM(x_values, y_values):
-    """
-    """
-    
+def FWHM(x_values: list | np.ndarray, y_values: list | np.ndarray) -> tuple[float]:
+    """ """
+
     y_values -= min(y_values)
     y_values /= max(y_values)
 
     signs = np.sign(np.add(y_values, -0.5))
     zero_crossings = (signs[0:-2]) != signs[1:-1]
     zero_crossings_i = np.where(zero_crossings)[0]
-    return [lin_interp(x_values, y_values, zero_crossings_i[0], 0.5),
-            lin_interp(x_values, y_values, zero_crossings_i[1], 0.5)]
+
+    return (
+        lin_interp(x_values, y_values, zero_crossings_i[0], 0.5),
+        lin_interp(x_values, y_values, zero_crossings_i[1], 0.5),
+    )
 
 
-def Gaussian(x, x0=0, sigma=1):
+def Gaussian(x: list | np.ndarray, x0: float = 0, sigma: float = 1) -> np.ndarray:
     """
     Generate a simple Gaussian distribution
     """
-    
-    return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-(1/2) * ((x - x0) / sigma) ** 2)
+
+    return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(
+        -(1 / 2) * ((x - x0) / sigma) ** 2
+    )
 
 
-def animate_results(results=None, vmin=0, vmax=1, cmap="jet", title="", save=False):
-    """
-    """
-    
+def animate_results(
+    results=None, vmin=0, vmax=1, cmap="jet", title="", save=False
+) -> None:
+    """ """
+
     from matplotlib import animation
 
     fig = plt.figure()
@@ -233,12 +257,8 @@ def animate_results(results=None, vmin=0, vmax=1, cmap="jet", title="", save=Fal
         plt.show()
 
 
-
-def main() -> None:
-    
-    ...
+def main() -> None: ...
 
 
 if __name__ == "__main__":
-        
     main()
