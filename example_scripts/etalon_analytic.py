@@ -1,10 +1,15 @@
+# /// script
+# dependencies = [
+#     "curved_air>=0.1.0",
+# ]
+# [tool.uv.sources]
+# curved_air = { path = "..", editable = true }
+# ///
+
 """
 This script uses the analytic description of a plane-wave-illuminated etalon and
 calculates its wavelength-dependent transmission.
 """
-
-import sys
-from pathlib import Path
 
 import numpy as np
 import astropy.units as u
@@ -12,13 +17,9 @@ from matplotlib import pyplot as plt
 
 from curved_air.optics import Etalon
 from curved_air.utils import FWHM
-from curved_air.plot_style import plot_style
+from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
-
-
-script_path = Path(__file__).parent
-sys.path.append(script_path / "../src")
 
 
 def main() -> None:

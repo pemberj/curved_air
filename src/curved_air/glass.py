@@ -10,28 +10,37 @@ https://github.com/polyanskiy/refractiveindex.info-scripts
 agf2yml.py
 """
 
+from __future__ import annotations
+
 import re
 import numpy as np
 from pathlib import Path
 from itertools import combinations
-from collections.abc import Iterator, Generator
+from typing import TYPE_CHECKING
 from dataclasses import dataclass, field
 
 from astropy import units as u
-from astropy.units import Quantity
-from numpy.typing import ArrayLike
+from astropy.units import Quantity, UnitConversionError
 import matplotlib.pyplot as plt
 
 from curved_air.other import _fraunhofer_lines
-from curved_air.plot_style import plot_style
+from curved_air.plotting import plot_style
 
-# Type hinting
-from typing import TypeVar
-
-SelfGlass = TypeVar("SelfGlass", bound="Glass")
-SelfGlassCatalogue = TypeVar("SelfGlassCatalogue", bound="GlassCatalogue")
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Generator
+    from numpy.typing import ArrayLike
+    from matplotlib.backend_bases import MouseEvent
 
 plt.style.use(plot_style)
+
+
+status_dictionary: dict[int, str] = {
+    1: "Standard",
+    2: "Preferred",
+    3: "Special",
+    4: "Obsolete",
+    5: "Melt",
+}
 
 
 @dataclass
@@ -123,7 +132,7 @@ class Glass:
 
         prefixes = ["N-", "S-", "LITHOTEC-"]
         characters = [" ", "*", "ultra"]
-        brackets = "[{([\])}]"
+        brackets = "[{([])}]"
 
         alt_names = [self.name]
 
@@ -146,14 +155,6 @@ class Glass:
 
     @property
     def status_description(self) -> str:
-        status_dictionary: dict[int, str] = {
-            1: "Standard",
-            2: "Preferred",
-            3: "Special",
-            4: "Obsolete",
-            5: "Melt",
-        }
-
         try:
             return status_dictionary[self.status]
         except KeyError:
@@ -169,7 +170,7 @@ class Glass:
             AGF_formula_number=self.formula, coefficients=self.disp_formula_coefficients
         )
 
-    def generate_glasscode(self) -> SelfGlass:
+    def generate_glasscode(self) -> Glass:
         if not self.glasscode:
             self.glasscode = (
                 int((self.n_d - 1) * 1e3) * 1e3 + int((self.V_d * 10) * 1e3) / 1e3
@@ -215,7 +216,7 @@ class Glass:
                 return self.n_d
 
         return _refractive_index(
-            lam=wls,
+            wavelengths=wls,
             coefficients=self.rii_dispersion_coefficients,
             formula_number=self.formula,
         )
@@ -306,7 +307,7 @@ class Glass:
         axis: plt.Axes = None,
         show: bool = True,
         debug_level: float = 0,
-    ) -> SelfGlass:
+    ) -> Glass:
         """ """
 
         if wls is None:
@@ -355,7 +356,7 @@ class Glass:
 
         return self
 
-    def rename(self, new_name: str) -> SelfGlass:
+    def rename(self, new_name: str) -> Glass:
         self.name = new_name
         return self
 
@@ -407,6 +408,7 @@ class Glass:
             print(f"Errors occurred when attempting to process glass {self.name}")
             return ""
 
+    @property
     def summary(self) -> str:
         return (
             "-" * 25
@@ -426,6 +428,10 @@ class Glass:
         #      + f"V_d = {self.vd}\n"\
         #      + f"Status: {self.status}: {self.status_description}\n"\
         #      + "-"*20
+
+    # def __repr__(self) -> str:
+    #     return "Glass("
+    #            ""
 
 
 class GlassCatalogue(dict):
@@ -461,16 +467,23 @@ class GlassCatalogue(dict):
     def number_of_glasses(self) -> int:
         return len(self.__dict__)
 
-    def read_AGF(self, agf_filename: str | None = None) -> SelfGlassCatalogue:
-        if isinstance(agf_filename, list | np.ndarray):
+    def read_AGF(
+        self,
+        agf_filename: Path | str | list[Path] | list[str],
+        debug_level: int = 0,
+    ) -> GlassCatalogue:
+        if isinstance(agf_filename, list):
             for f in agf_filename:
                 self.read_AGF(f)
             return self
 
-        original_file = agf_filename.split("/")[-1]
+        if isinstance(agf_filename, str):
+            agf_filename = Path(agf_filename)
+
+        original_file = agf_filename.name
 
         print(f"Reading file: {original_file:<20}")
-        p = Path(agf_filename)
+        p = agf_filename
         try:
             agf = p.open(encoding="utf-8", newline="\r\n")
         except UnicodeDecodeError:
@@ -531,22 +544,32 @@ class GlassCatalogue(dict):
 
                     try:
                         g.formula = int(float(data[2]))
+                        if debug_level >= 1:
+                            print(f"Formula number: {g.formula}")
                     except ValueError:
                         ...
 
                     try:
                         g.nd = float(data[4])
-                    except ValueError:
+                        if debug_level >= 1:
+                            print(f"Refractive index: {g.nd}")
+                    except ValueError as e:
+                        if debug_level >= 1:
+                            print(f"{e}, assigning refractive index = -1.0")
                         g.nd = -1.0
 
                     if data[5] != "":
                         try:
                             g.vd = float(data[5])
+                            if debug_level >= 1:
+                                print(f"Abbe number: {g.vd}")
                         except ValueError:
                             ...
                     else:
                         try:
                             g.vd = float(data[6])
+                            if debug_level >= 1:
+                                print(f"Abbe number: {g.vd}")
                         except ValueError:
                             ...
 
@@ -554,20 +577,31 @@ class GlassCatalogue(dict):
                         glasscode = float(data[3])
                         if glasscode in [-1.0, 0.0, 1.0]:
                             g.generate_glasscode()
+                        if debug_level >= 1:
+                            print(f"Glass code: {glasscode}")
                         else:
                             g.glasscode = glasscode
+                            if debug_level >= 1:
+                                print(f"Glass code: {g.glasscode}")
                     except ValueError:
                         g.generate_glasscode()
 
                     if len(data) >= 8:  # noqa: PLR2004
                         try:
-                            g.status = int(float(data[7][0]))
+                            _status = float(data[7])
+                            if debug_level >= 1:
+                                print(f"_status: {_status}")
+                            g.status = int(_status)
+                            if debug_level >= 1:
+                                print(f"int -> Status: {g.status}")
                         except ValueError:
                             ...
 
                     if len(data) >= 9:  # and data.count("-") == 0:  # noqa: PLR2004
                         try:
                             g.meltfreq = float(data[8])
+                            if debug_level >= 1:
+                                print(f"Melting frequency: {g.meltfreq}")
                         except ValueError:
                             ...
                     # else: g.meltfreq = 0
@@ -577,11 +611,15 @@ class GlassCatalogue(dict):
                 elif data[0] == "LD":
                     try:
                         g.wlmin = float(data[1])
+                        if debug_level >= 1:
+                            print(f"Minimum wavelength: {g.wlmin}")
                     except ValueError:
                         ...
 
                     try:
                         g.wlmax = float(data[2])
+                        if debug_level >= 1:
+                            print(f"Maximum wavelength: {g.wlmax}")
                     except ValueError:
                         ...
 
@@ -597,6 +635,10 @@ class GlassCatalogue(dict):
                         g.disp_formula_coefficients = [
                             float(d) for d in data[1:] if d != ""
                         ]
+                        if debug_level >= 1:
+                            print(
+                                f"Dispersion formula coefficients: {g.disp_formula_coefficients}"
+                            )
                     except ValueError:
                         ...
 
@@ -610,6 +652,10 @@ class GlassCatalogue(dict):
                         g.thermal_disp_coefficients = [
                             float(d) for d in data[1:] if d != ""
                         ]
+                        if debug_level >= 1:
+                            print(
+                                f"Thermal dispersion coefficients: {g.thermal_disp_coefficients}"
+                            )
                     except ValueError:
                         ...
 
@@ -618,21 +664,29 @@ class GlassCatalogue(dict):
                 elif data[0] == "ED":
                     try:
                         g.cte1 = float(data[1])
+                        if debug_level >= 1:
+                            print(f"CTE1: {g.cte1}")
                     except ValueError:
                         ...
 
                     try:
                         g.cte2 = float(data[2])
+                        if debug_level >= 1:
+                            print(f"CTE2: {g.cte2}")
                     except ValueError:
                         ...
 
                     try:
                         g.density = float(data[3])
+                        if debug_level >= 1:
+                            print(f"Density: {g.density}")
                     except ValueError:
                         ...
 
                     try:
                         g.dpgf = float(data[4])
+                        if debug_level >= 1:
+                            print(f"dPgF: {g.dpgf}")
                     except ValueError:
                         ...
 
@@ -643,27 +697,39 @@ class GlassCatalogue(dict):
                     if len(data) > 2:  # noqa: PLR2004
                         try:
                             g.CR = float(data[2])
+                            if debug_level >= 1:
+                                print(f"CR: {g.CR}")
                         except ValueError:
                             if g.CR == "3-4":
                                 g.CR = 3.5
+                            if debug_level >= 1:
+                                print(f"CR: {g.CR}")
 
                         try:
                             g.FR = int(float(data[3]))
+                            if debug_level >= 1:
+                                print(f"FR: {g.FR}")
                         except ValueError:
                             ...
 
                         try:
                             g.SR = float(data[4])
+                            if debug_level >= 1:
+                                print(f"SR: {g.SR}")
                         except ValueError:
                             ...
 
                         try:
                             g.AR = float(data[5])
+                            if debug_level >= 1:
+                                print(f"AR: {g.AR}")
                         except ValueError:
                             ...
 
                         try:
                             g.PR = float(data[6])
+                            if debug_level >= 1:
+                                print(f"PR: {g.PR}")
                         except ValueError:
                             ...
 
@@ -692,7 +758,7 @@ class GlassCatalogue(dict):
 
         return self
 
-    def write_AGF(self, filename: str = "./output.agf") -> SelfGlassCatalogue:
+    def write_AGF(self, filename: str = "./output.agf") -> GlassCatalogue:
         """
         Maybe define an external function or even just a dictionary to generate
         the required line-structure for the AGF file. I just want to do what
@@ -727,7 +793,7 @@ class GlassCatalogue(dict):
         n_wavelength: float = 0.588,
         V_d: float | None = None,
         dV_d: float = 1.0,
-    ) -> SelfGlassCatalogue:
+    ) -> GlassCatalogue:
         """
         A simple method to search inside a GlassCatalogue
 
@@ -807,8 +873,8 @@ class GlassCatalogue(dict):
         min_V_d: float | None = None,
         max_V_d: float | None = None,
         # Glass status
-        status_code: list[int | float] | None = None,
-        status_description: list[str] | None = None,
+        status_code: float | list[int | float] | None = None,
+        status_description: str | list[str] | None = None,
         # Transsmission
         min_transmission: float | None = None,
         max_transmission: float | None = None,
@@ -816,7 +882,7 @@ class GlassCatalogue(dict):
         # CTE
         min_CTE: float | None = None,
         max_CTE: float | None = None,
-    ) -> SelfGlassCatalogue:
+    ) -> GlassCatalogue:
         """
         For now, a very simple filtering method, providing a way to return
         only those glasses that match particular cutoff criteria based on
@@ -882,9 +948,12 @@ class GlassCatalogue(dict):
                             continue
                     else:  # It is list or ArrayLike
                         status_description = [sd.lower() for sd in status_description]
+                        keep = False
                         for sd in status_description:
-                            if sd not in glass.status_description.lower():
-                                continue
+                            if sd in glass.status_description.lower():
+                                keep = True
+                        if not keep:
+                            continue
                 except TypeError:
                     ...
 
@@ -959,7 +1028,7 @@ class GlassCatalogue(dict):
         self,
         axis: plt.Axes | None = None,
         interactive: bool = True,
-    ) -> SelfGlassCatalogue:
+    ) -> GlassCatalogue:
         """
         TODO:
         - [ ] Add interactivity to the plot, with hover-over labels
@@ -984,6 +1053,7 @@ class GlassCatalogue(dict):
         points = ax.scatter(
             [g.Abbe_number for g in self.glasses],
             [g.n_d for g in self.glasses],
+            marker="o",
             s=50,
             alpha=0.5,
             c=cols,
@@ -993,7 +1063,7 @@ class GlassCatalogue(dict):
         ax.set_ylim(ax.get_ylim())
 
         for i, m in enumerate(unique_original_files):
-            ax.scatter(0, 0, s=50, c=colors[i], label=m)
+            ax.scatter(0, 0, marker="o", s=50, c=colors[i], label=m)
 
         ax.legend()
 
@@ -1019,7 +1089,7 @@ class GlassCatalogue(dict):
                 annot.set_text(text)
                 annot.get_bbox_patch().set_alpha(0.4)
 
-            def hover(event: plt.Event) -> None:
+            def hover(event: MouseEvent) -> None:
                 vis = annot.get_visible()
                 if event.inaxes == ax:
                     cont, ind = points.contains(event)
@@ -1042,7 +1112,7 @@ class GlassCatalogue(dict):
         self,
         axis: plt.Axes | None = None,
         wls: ArrayLike | Quantity | None = None,
-    ) -> SelfGlassCatalogue:
+    ) -> GlassCatalogue:
         if not axis:
             fig = plt.figure()
             ax = fig.gca()
@@ -1087,10 +1157,10 @@ class GlassCatalogue(dict):
 
         print(
             f"{columns[0]:<12}\t"
-            + f"{columns[1]:<12}\t"
-            + f"{columns[2]:<12}\t"
-            + f"{columns[3]:<24}\t"
-            + f"{columns[4]:<12}"
+            f"{columns[1]:<12}\t"
+            f"{columns[2]:<12}\t"
+            f"{columns[3]:<24}\t"
+            f"{columns[4]:<12}"
         )
 
         for g1, g2 in combinations(self.glasses, 2):
@@ -1110,19 +1180,19 @@ class GlassCatalogue(dict):
                 results.append(adc)
                 print(
                     f"{g1.name:<12}\t"
-                    + f"{g2.name:<12}\t"
-                    + f'{f"{adc.alpha:.5g}":<12}\t'
-                    + f'{f"{adc.wl_0:.5g}":<24}\t'
-                    + f'{f"{adc.residuals_PTV:.5g}":<12}\t'
+                    f"{g2.name:<12}\t"
+                    f"{f'{adc.alpha:.5g}':<12}\t"
+                    f"{f'{adc.wl_0:.5g}':<24}\t"
+                    f"{f'{adc.residuals_PTV:.5g}':<12}\t"
                 )
 
         return results
 
     def __str__(self) -> str:
-        return "\n".join([f.summary() for f in self.values()])
+        return "\n".join([f.summary for f in self.values()])
 
     def __repr__(self) -> str:
-        return "\n".join([f.summary() for f in self.values()])
+        return "\n".join([f.summary for f in self.values()])
 
 
 def _dispersion_formula_number(AGF_formula_number: int) -> int:
@@ -1145,7 +1215,8 @@ def _dispersion_formula_number(AGF_formula_number: int) -> int:
 
 
 def _dispersion_coefficients(
-    AGF_formula_number: int, coefficients: list[float]
+    AGF_formula_number: int,
+    coefficients: list[float],
 ) -> list[float]:
     """
     Adapted from the refractiveindex.INFO database-generation scripts. I follow
@@ -1204,15 +1275,17 @@ def _dispersion_coefficients(
 
 
 def _refractive_index(
-    lam: ArrayLike, coefficients: list[float], formula_number: int
-) -> ArrayLike | None:
-    """A function to compute the wavelength-dependent refractive index of a
-    material based on coefficients
+    wavelengths: list[float] | ArrayLike | float,
+    coefficients: list[float],
+    formula_number: int,
+) -> ArrayLike:
+    """A function to compute the wavelength-dependent refractive index of a material
+    based on coefficients
 
-    This uses the formula numbering convention of the refractiveindex.INFO
-    database: 1 is the Sellmeier formula with squared coefficients in the
-    denominators, 2 is the Sellmeier formula without squares in the
-    denominators, and 3 is a polynomial formula used by some glass manufacturers
+    This uses the formula numbering convention of the refractiveindex.INFO database:
+    1 is the Sellmeier formula with squared coefficients in the denominators,
+    2 is the Sellmeier formula without squares in the denominators, and
+    3 is a polynomial formula used by some glass manufacturers.
 
     Args:
         wavelengths   (list): [description]
@@ -1224,56 +1297,61 @@ def _refractive_index(
     """
 
     try:
-        lam = lam.to("um")
+        wavelengths = wavelengths.to("um").value
+    except UnitConversionError:
+        # Wrong units
+        ...
     except AttributeError:
+        # Not an astropy.units.Quantity
         ...
 
-    lam = np.array(lam)
+    wavelengths = np.array(wavelengths)
 
-    C = list(range(18))
-    C[0] = 0  # Set C[0] as padding, for parity in numbering
-    for i, c in enumerate(coefficients):
-        C[i + 1] = c
+    C = [0] * 18
+    # C[0] = 0
+    for i, c in enumerate(coefficients, start=1):
+        C[i] = c
+    # all C[len(coefficients)+1:] = 0
 
     if formula_number == 1:
         return np.sqrt(
             1
             + C[1]
-            + (C[2] * lam**2) / (lam**2 - C[3] ** 2)
-            + (C[4] * lam**2) / (lam**2 - C[5] ** 2)
-            + (C[6] * lam**2) / (lam**2 - C[7] ** 2)
-            + (C[8] * lam**2) / (lam**2 - C[9] ** 2)
-            + (C[10] * lam**2) / (lam**2 - C[11] ** 2)
-            + (C[12] * lam**2) / (lam**2 - C[13] ** 2)
-            + (C[14] * lam**2) / (lam**2 - C[15] ** 2)
-            + (C[16] * lam**2) / (lam**2 - C[17] ** 2)
+            + (C[2] * wavelengths**2) / (wavelengths**2 - C[3] ** 2)
+            + (C[4] * wavelengths**2) / (wavelengths**2 - C[5] ** 2)
+            + (C[6] * wavelengths**2) / (wavelengths**2 - C[7] ** 2)
+            + (C[8] * wavelengths**2) / (wavelengths**2 - C[9] ** 2)
+            + (C[10] * wavelengths**2) / (wavelengths**2 - C[11] ** 2)
+            + (C[12] * wavelengths**2) / (wavelengths**2 - C[13] ** 2)
+            + (C[14] * wavelengths**2) / (wavelengths**2 - C[15] ** 2)
+            + (C[16] * wavelengths**2) / (wavelengths**2 - C[17] ** 2)
         )
 
     if formula_number == 2:  # noqa: PLR2004
         return np.sqrt(
             1
             + C[1]
-            + (C[2] * lam**2) / (lam**2 - C[3])
-            + (C[4] * lam**2) / (lam**2 - C[5])
-            + (C[6] * lam**2) / (lam**2 - C[7])
-            + (C[8] * lam**2) / (lam**2 - C[9])
-            + (C[10] * lam**2) / (lam**2 - C[11])
-            + (C[12] * lam**2) / (lam**2 - C[13])
-            + (C[14] * lam**2) / (lam**2 - C[15])
-            + (C[16] * lam**2) / (lam**2 - C[17])
+            + (C[2] * wavelengths**2) / (wavelengths**2 - C[3])
+            + (C[4] * wavelengths**2) / (wavelengths**2 - C[5])
+            + (C[6] * wavelengths**2) / (wavelengths**2 - C[7])
+            + (C[8] * wavelengths**2) / (wavelengths**2 - C[9])
+            + (C[10] * wavelengths**2) / (wavelengths**2 - C[11])
+            + (C[12] * wavelengths**2) / (wavelengths**2 - C[13])
+            + (C[14] * wavelengths**2) / (wavelengths**2 - C[15])
+            + (C[16] * wavelengths**2) / (wavelengths**2 - C[17])
         )
 
     if formula_number == 3:  # noqa: PLR2004
         return np.sqrt(
             C[1]
-            + C[2] * lam ** C[3]
-            + C[4] * lam ** C[5]
-            + C[6] * lam ** C[7]
-            + C[8] * lam ** C[9]
-            + C[10] * lam ** C[11]
-            + C[12] * lam ** C[13]
-            + C[14] * lam ** C[15]
-            + C[16] * lam ** C[17]
+            + C[2] * wavelengths ** C[3]
+            + C[4] * wavelengths ** C[5]
+            + C[6] * wavelengths ** C[7]
+            + C[8] * wavelengths ** C[9]
+            + C[10] * wavelengths ** C[11]
+            + C[12] * wavelengths ** C[13]
+            + C[14] * wavelengths ** C[15]
+            + C[16] * wavelengths ** C[17]
         )
 
     return None

@@ -445,8 +445,8 @@ class SphericalBeam(Beam):
             z = z.to(u.mm).value
 
         x_shape = np.shape(x)
-        y_shape = np.shape(y)  # TODO: don't assume x, y, and z are the same shape
-        z_shape = np.shape(z)  # noqa: F841
+        # y_shape = np.shape(y)  # TODO: don't assume x, y, and z are the same shape
+        # z_shape = np.shape(z)
 
         x = np.array(x).flatten()
         y = np.array(y).flatten()

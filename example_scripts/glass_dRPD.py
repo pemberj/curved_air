@@ -15,7 +15,7 @@ from astropy import units as u
 import matplotlib.pyplot as plt
 
 from curved_air.glass import GlassCatalogue
-from curved_air.plot_style import plot_style
+from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
 

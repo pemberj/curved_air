@@ -39,10 +39,10 @@ _fraunhofer_lines = {
 """
 Wrappers to functions from the `ref_index` library
 
-These wrappers now take `astropy.units.Quantity` objects in, to allow input
-parameters with any appropriate unit to be used, and no confusion about Celcius
-or Kevlin, etc. It does come with the overhead of requiring `astropy` but for me
-and others who regularly use `astropy` anyway, it is well worth it.
+These wrappers now take `astropy.units.Quantity` objects in, to allow input parameters
+with any appropriate unit to be used, and no confusion about Celcius or Kevlin, etc.
+It does come with the overhead of requiring `astropy` but for me and others who
+regularly use `astropy` anyway, it is well worth it.
 
 Original paper: Ciddor 1996, https://doi.org/10.1364/AO.35.001566
 """

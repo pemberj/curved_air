@@ -1,0 +1,56 @@
+// Extensions to install:
+//  - Python (Microsoft)
+//  - Jupyter (Microsfot)
+//  - Ruff (Astral Software)
+
+{
+    "workbench.colorCustomizations": {
+        "titleBar.activeBackground": "#77b0e0",
+        "titleBar.activeForeground": "#3a3a3a",
+        "titleBar.inactiveBackground": "#476c8a",
+        "titleBar.inactiveForeground": "#c2c2c2",
+
+        "activityBar.activeBorder": "#77b0e0",
+    },
+
+    "editor.formatOnSave": true,
+
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        // "source.organizeImports": "explicit",
+        // "source.addMissingImports": "explicit"
+      }
+    },
+
+    // "[json]": {
+    //   "editor.defaultFormatter": "esbenp.prettier-vscode"
+    // },
+
+    // "notebook.formatOnSave.enabled": true,
+    "notebook.codeActionsOnSave": {
+      // "notebook.source.fixAll": "explicit",
+      // "notebook.source.organizeImports": "explicit"
+    },
+    "notebook.output.wordWrap": true,
+    "notebook.output.textLineLimit": 200,
+    "jupyter.debugJustMyCode": false,
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["tests"],
+
+    "files.exclude": {
+      "**/*.egg-info": true,
+      "**/htmlcov": true,
+      "**/~$*": true,
+      "**/.coverage.*": true,
+      "**/.venv": true,
+      "**/.ruff_cache/": true,
+      "**/.ipynb_checkpoints": true,
+      "**/__pycache__": true,
+      "**/.mypy_cache": true,
+      "**/.pytest_cache": true,
+    },
+    "python.analysis.typeCheckingMode": "off",
+
+}

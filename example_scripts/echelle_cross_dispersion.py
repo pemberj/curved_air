@@ -1,7 +1,16 @@
-""" """
+# /// script
+# dependencies = [
+#     "curved_air>=0.1.0",
+# ]
+# [tool.uv.sources]
+# curved_air = { path = "..", editable = true }
+# ///
+
+"""
+Compute the inter-order spacing for a given cross-disperser in an echelle spectrograph.
+"""
 
 import re
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -10,20 +19,17 @@ import matplotlib.pyplot as plt
 
 from curved_air.glass import GlassCatalogue
 from curved_air.optics import Prism
-from curved_air.plot_style import plot_style
+from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
 
 
-script_path = Path(__file__).parent
-sys.path.append(script_path / "../src")
-
-
 def main() -> None:
+    script_path = Path(__file__).parent
     agf_dir: Path = script_path / "../data/AGFs"
 
     agf_files = sorted(
-        [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("schott", f)]
+        [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("schott", f.name)]
     )
     catalogue = GlassCatalogue().read_AGF(agf_files)
 

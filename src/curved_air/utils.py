@@ -17,15 +17,25 @@ from curved_air.optics import Grating
 
 
 # Echelledesigner / read-csv.py
-def load_csv(filename: str | None = None, plot: bool = False) -> list[Grating]:
+def richardson_gratings(
+    filename: str | None = None,
+    plot: bool = False,
+    selection_query: str = "Ruled_width >= 400",
+) -> list[Grating]:
+    """
+    Load grating parameters from a csv catalogue from Richardson Gratings.
+    """
+
     if not filename:
-        p = Path(__file__).parent
-        file = p.glob("richardson-echelle-T3.csv")[0]
+        data_dir = Path(__file__).parent / ".." / ".." / "data"
+        files = list(data_dir.glob("richardson-echelle-T3.csv"))
+        assert len(files) == 1
+        file = files[0]
     df = pd.read_csv(file, delimiter=" ")
 
-    selection = df.query("Ruled_width >= 400")
+    selection = df.query(selection_query)
 
-    gratings = [
+    gratings: list[Grating] = [
         Grating(
             catalogue_number=c,
             groove_frequency=float(gpmm) / u.mm,
@@ -40,56 +50,98 @@ def load_csv(filename: str | None = None, plot: bool = False) -> list[Grating]:
     ]
 
     if plot:
-        for g in gratings:
-            print(g)
-            print(g.aspect_ratio())
-
-        min_wl = 0.385 * u.um
-        max_wl = 0.950 * u.um
-
-        fig = plt.figure()
+        fig = plt.figure("Wavelength as a function of order number")
         ax = fig.gca()
 
         for g in gratings:
-            ms = g.diffraction_orders(min_wl=min_wl, max_wl=max_wl)
+            ms = g.diffraction_orders
             blaze_wavelengths = g.blaze_wavelength(ms)
             blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
-            ax.plot(ms, blaze_wavelengths, label=f"R={g.R}, {g.gpmm.value} g/mm")
+            ax.plot(
+                ms,
+                blaze_wavelengths,
+                marker=".",
+                markersize=10,
+                markeredgecolor="k",
+                markeredgewidth=0.5,
+                alpha=0.5,
+                label=f"R={g.R}, {g.gpmm.value} g/mm: {len(ms)} orders",
+            )
 
         ax.set_xlabel("Order number $m$")
-        ax.set_ylabel("Blaze wavelength $\lambda$ ($\mu m$)")
+        ax.set_ylabel("Blaze wavelength $\\lambda$ [microns]")
 
         ax.legend()
-        plt.show()
 
-        fig = plt.figure()
+        fig = plt.figure("Order opening angle as a function of order number")
         ax = fig.gca()
 
         for g in gratings:
-            ms = g.diffraction_orders(min_wl=min_wl, max_wl=max_wl)
+            ms = g.diffraction_orders
             angles = g.order_opening_angle(ms)
             angles = [a.to(u.deg).value for a in angles]
 
-            ax.plot(ms, angles, label=f"R={g.R}, {g.gpmm.value} g/mm")
+            ax.plot(
+                ms,
+                angles,
+                marker=".",
+                markersize=10,
+                markeredgecolor="k",
+                markeredgewidth=0.5,
+                alpha=0.5,
+                label=f"R={g.R}, {g.gpmm.value} g/mm",
+            )
 
         ax.set_xlabel("Order number $m$")
-        ax.set_ylabel("Order opening angle (FSR) (degrees)")
+        ax.set_ylabel("Order FSR opening angle [degrees]")
 
         ax.legend()
+
+        fig = plt.figure("Opening angle as a function of blaze wavelength")
+        ax = fig.gca()
+
+        for g in gratings:
+            ms = g.diffraction_orders
+            blaze_wavelengths = g.blaze_wavelength(ms)
+            blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
+
+            ms = g.diffraction_orders
+            angles = g.order_opening_angle(ms)
+            angles = [a.to(u.deg).value for a in angles]
+
+            ax.plot(
+                blaze_wavelengths,
+                angles,
+                marker=".",
+                markersize=10,
+                markeredgecolor="k",
+                markeredgewidth=0.5,
+                alpha=0.5,
+                label=f"R={g.R}, {g.gpmm.value} g/mm: {len(ms)} orders",
+            )
+
+        ax.set_xlabel("Blaze wavelength $\\lambda$ [microns]")
+        ax.set_ylabel("Order FSR opening angle [degrees]")
+
+        ax.legend()
+
         plt.show()
 
     return gratings
 
 
 # EchelleDesigner / order_gird.py
-
-
 def order_grid(
     grating: Grating = None,
     min_wl: u.Quantity = 380 * u.nm,
     max_wl: u.Quantity = 870 * u.nm,
     num_configs: int = 12,
 ) -> list | None:
+    """
+    This function can be used to generate an evenly-spaced (in order m number) grid of
+    spectral orders for use in optical design software, eg. Zemax.
+    """
+
     if grating is None:
         grating = (
             Grating(
@@ -98,6 +150,7 @@ def order_grid(
                 gamma_angle=0.36 * u.deg,
             ),
         )
+        print(f"No grating provided, using default grating: {grating}")
 
     blaze = grating.blaze_angle
     groove_density = grating.groove_frequency
@@ -105,23 +158,23 @@ def order_grid(
 
     m_times_lambda = np.cos(gamma) * (1 / groove_density) * 2 * np.sin(blaze)
 
-    sign_of_blaze = blaze / abs(blaze)
+    sign_of_blaze = -int(blaze / abs(blaze))
 
-    print(f"{sign_of_blaze = }")
+    # print(f"{sign_of_blaze = }")
 
-    min_order = -1 * sign_of_blaze * int((m_times_lambda / min_wl) - 0.5)
-    max_order = -1 * sign_of_blaze * int((m_times_lambda / max_wl) + 0.5)
+    min_order = int(-1 * sign_of_blaze * int((m_times_lambda / min_wl) - 0.5))
+    max_order = int(-1 * sign_of_blaze * int((m_times_lambda / max_wl) + 0.5))
 
-    print(f"{min_order = }")
-    print(f"{max_order = }")
+    # print(f"{min_order = }")
+    # print(f"{max_order = }")
 
     min_wl_blaze = (m_times_lambda / min_order).to(u.nm)
     max_wl_blaze = (m_times_lambda / max_order).to(u.nm)
-    print(f"{min_wl_blaze = }")
-    print(f"{max_wl_blaze = }")
+    # print(f"{min_wl_blaze = !s}")
+    # print(f"{max_wl_blaze = !s}")
 
     alt_increment = int(((max_order - 1) - (min_order + 1)) / (num_configs - 4))
-    print(f"{alt_increment = }")
+    # print(f"{alt_increment = }")
 
     alt_grid = []
 
@@ -130,27 +183,22 @@ def order_grid(
 
     for i in range(1, num_configs - 3):
         m = min_order + 1 + i * alt_increment
-        alt_grid.append(int(m.value))
+        alt_grid.append(m)
 
     alt_grid.append(int(max_order - 1))
     alt_grid.append(int(max_order))
 
-    print(f"{alt_grid=}")
-    print(f"{len(alt_grid)=}")
-    return
-
-    alt_orders = (
-        [min_order.value, min_order.value + 1]
-        + list(
-            range(
-                min_order.value + 1 + alt_increment,
-                max_order.value - 1,
-                num_configs - 4,
-            )
-        )
-        + [max_order.value - 1, max_order.value]
-    )
-    print(alt_orders)
+    # print(f"{alt_grid=}")
+    # print(f"{len(alt_grid)=}")
+    return {
+        "sign_of_blaze": sign_of_blaze,
+        "min_order": min_order,
+        "max_order": max_order,
+        "min_wl_blaze": min_wl_blaze,
+        "max_wl_blaze": max_wl_blaze,
+        "alt_increment": alt_increment,
+        "alt_grid": alt_grid,
+    }
 
 
 # EchelleDesigner / transfer_mirror_length.py
@@ -227,7 +275,12 @@ def Gaussian(x: list | np.ndarray, x0: float = 0, sigma: float = 1) -> np.ndarra
 
 
 def animate_results(
-    results=None, vmin=0, vmax=1, cmap="jet", title="", save=False
+    results,  # noqa: ANN001
+    vmin: float = 0,
+    vmax: float = 1,
+    cmap: str = "jet",
+    title: str = "",
+    save: bool = False,
 ) -> None:
     """ """
 

@@ -1,40 +1,39 @@
+# /// script
+# dependencies = [
+#     "curved_air>=0.1.0",
+# ]
+# [tool.uv.sources]
+# curved_air = { path = "../..", editable = true }
+# ///
+
 """
 A script to optimise and plot a report on a rotational atmospheric dispersion
 corrector for the visible range. These glasses are used for the ADCs for the
 MARVEL facility.
 """
 
-import os
-import sys
-
-script_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(script_path, "../../src"))
-
-from glob import glob
 import re
-
+from pathlib import Path
 
 from astropy import units as u
-
 import matplotlib.pyplot as plt
 
-# from glass_select.glass import GlassCatalogue, _optimise_ADC
 from curved_air.glass import GlassCatalogue
 from curved_air.optics import PrismStack, ADC
-
-from curved_air.plot_style import plot_style
+from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    agf_files = sorted(
-        [
-            f
-            for f in glob(f"{script_path}/../../data/AGFs/*.[Aa][Gg][Ff]")
-            if re.search("ohara|schott", f)
-        ]
+    script_path = Path(__file__).parent
+    agf_dir: Path = script_path / ".." / ".." / "data" / "AGFs"
+
+    agf_files: list[Path] = sorted(
+        [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("ohara|schott", f.name)]
     )
+
+    print(agf_files)
 
     if not agf_files:
         raise FileNotFoundError("No AGF files found in the data directory.")

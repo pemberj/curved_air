@@ -66,8 +66,7 @@ plot_style = {
     "legend.labelspacing": 0.25,
     "legend.handletextpad": 0.25,
     "figure.titlesize": 18,
-    # Default figure size and constrined_layout (previously plt.tight_layout())
-    "figure.figsize": (14 / 2.54, 10 / 2.54),
+    "figure.figsize": (8, 6),
     "figure.dpi": 96,
     "figure.constrained_layout.use": True,
     # Default properties for plotting lines, markers, scatterpoints, etc.

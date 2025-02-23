@@ -18,11 +18,11 @@ from curved_air.other import Model, Air
 
 @dataclass
 class Prism:
-    glass: Glass = None
+    glass: Glass
     apex_angle: Quantity = 60 * u.deg
     min_wl: Quantity = 390 * u.nm
     max_wl: Quantity = 950 * u.nm
-    incidence_angle: Quantity = None
+    incidence_angle: Quantity | None = None
 
     def __post_init__(self) -> None:
         assert self.glass is not None
@@ -524,7 +524,7 @@ class ADC:
             "k--",
             label="2 $\\times$ ("
             + f"$n_1 - {self.epsilon:.5g}n_2 {self.epsilon - 1:+.3g}$)"
-            + f" {self.alpha/2:.3g}$^o$",
+            + f" {self.alpha / 2:.3g}$^o$",
         )
 
         d_air = (
@@ -776,19 +776,18 @@ class Grating:
     catalogue_number: str = ""
     groove_frequency: Quantity = 31.6 / u.mm
     blaze_angle: Quantity = 76 * u.deg
-    gamma_angle: Quantity = 0 * u.deg
+    gamma_angle: Quantity = field(default=0 * u.deg, repr=False)
 
-    min_wl: Quantity = 390 * u.nm
-    max_wl: Quantity = 950 * u.nm
+    min_wl: Quantity = field(default=390 * u.nm, repr=False)
+    max_wl: Quantity = field(default=950 * u.nm, repr=False)
 
-    R: float = field(init=False)
-    m_times_lambda: Quantity = field(init=False)
+    @cached_property
+    def R(self) -> float:
+        return round(np.tan(self.blaze_angle).value, 1)
 
-    def __post_init__(self) -> None:
-        self.R = round(np.tan(self.blaze_angle).value, 1)
-        self.m_times_lambda = (
-            2 * np.cos(self.gamma) * self.sigma * np.sin(self.blaze_angle)
-        ).to(u.um)
+    @cached_property
+    def m_times_lambda(self) -> Quantity:
+        return (2 * np.cos(self.gamma) * self.sigma * np.sin(self.blaze_angle)).to(u.um)
 
     @property
     def gamma(self) -> Quantity:
@@ -922,16 +921,27 @@ class Grating:
 
     def aspect_ratio(
         self,
-        min_wl: Quantity = 385 * u.nm,
-        max_wl: Quantity = 950 * u.nm,
+        min_wl: Quantity | None = None,
+        max_wl: Quantity | None = None,
     ) -> float:
+        if not min_wl:
+            min_wl = self.min_wl
+        if not max_wl:
+            max_wl = self.max_wl
+
         blue_angle = self.order_opening_angle(m=self.order_number(min_wl)).to(u.deg)
         red_angle = self.order_opening_angle(m=self.order_number(max_wl)).to(u.deg)
 
-        print(f"{blue_angle=}")
-        print(f"{red_angle=}")
+        # print(f"{blue_angle=}")
+        # print(f"{red_angle=}")
 
         return red_angle / blue_angle
+
+    def __str__(self) -> str:
+        return f"Grating: {self.catalogue_number}, R{self.R}, {self.groove_frequency.to(1 / u.mm).value:.3g} grooves/mm"
+
+    def __repr__(self) -> str:
+        return f"Grating(catalogue_number = {self.catalogue_number}, groove_frequency = {self.groove_frequency:.3f}, blaze_angle = {self.blaze_angle:.3f}, gamma_angle = {self.gamma_angle:.3f}, min_wl = {self.min_wl:.3f}, max_wl = {self.max_wl:.3f})"
 
 
 # EtalonSim / Etalon.py

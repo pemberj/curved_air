@@ -119,6 +119,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pyfonts" },
     { name = "pyqt6" },
     { name = "ref-index" },
     { name = "scipy" },
@@ -135,6 +136,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.9.2" },
     { name = "numpy", specifier = ">=2.1.3" },
     { name = "pandas", specifier = ">=2.2.3" },
+    { name = "pyfonts", specifier = ">=0.0.2" },
     { name = "pyqt6", specifier = ">=6.8.0" },
     { name = "ref-index", specifier = ">=1.0" },
     { name = "scipy", specifier = ">=1.14.1" },
@@ -510,6 +512,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyfonts"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/09/33/1631ddc10e98164cc2808ed13c81f3e68eca29784d8951805b11dde32325/pyfonts-0.0.2.tar.gz", hash = "sha256:d942ee84db70c33a0a553619a52bff6bf2091c7751648f0f7ca09c56466d254d", size = 5695 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/00/0aebe94c3a55d27a8be1419c577f5f61fd593a8d4b7f18e79559127c6478/pyfonts-0.0.2-py3-none-any.whl", hash = "sha256:8f51c3b6bdb64efdc422d2b3d0aa69c5bb95f90e7419cbc026e90c18aa30ca06", size = 7454 },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -529,6 +543,7 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e9/0a/accbebed526158ab2aedd5c84d238159754bd99f481082b3fe7f374c6a3b/PyQt6-6.8.0.tar.gz", hash = "sha256:6d8628de4c2a050f0b74462e4c9cb97f839bf6ffabbca91711722ffb281570d9", size = 1061357 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d6/ae/30f6f40c8cdf3d5319ec7add820c6edf96d8ed2461984fd548af9e2d9b51/PyQt6-6.8.0-cp39-abi3-macosx_10_14_universal2.whl", hash = "sha256:8c5c05f5fdff31a5887dbc29b27615b09df467631238d7b449283809ffca6228", size = 12104917 },
+    { url = "https://files.pythonhosted.org/packages/06/07/08229a8ae164a0538b2c1ab16c47d39979eb306feab641280194b3d7938b/PyQt6-6.8.0-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:3a4354816f11e812b727206a9ea6e79ff3774f1bb7228ad4b9318442d2c64ff9", size = 8165074 },
     { url = "https://files.pythonhosted.org/packages/b4/7a/a3ecac3327345dde8f34e781d6db1339e4e3b8411ac8ae9747822a0d44e9/PyQt6-6.8.0-cp39-abi3-manylinux_2_35_x86_64.whl", hash = "sha256:452bae5840077bf0f146c798d7777f70d7bdd0c7dcfa9ee7a415c1daf2d10038", size = 8322144 },
     { url = "https://files.pythonhosted.org/packages/d0/52/1e60e38d216c232af83ac16bedf1ece419812368220485fc25af80c7a5d7/PyQt6-6.8.0-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:cf7123caea14e7ecf10bd12cae48e8d9970ef7caf627bc7d7988b0baa209adb3", size = 8101586 },
     { url = "https://files.pythonhosted.org/packages/eb/73/9bae1b8daedf2acff5a3668eae84783720ff513e402b0448a906ab3d5479/PyQt6-6.8.0-cp39-abi3-win_amd64.whl", hash = "sha256:a9913d479f1ffee804bf7f232079baea4fb4b221a8f4890117588917a54ea30d", size = 6661265 },
@@ -540,8 +555,11 @@ name = "pyqt6-qt6"
 version = "6.8.1"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/19/b89eb6cecbdf1e65a44658a083693a967e9d428370026711b624e928a8ca/PyQt6_Qt6-6.8.1-1-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:2f4b8b55b1414b93f340f22e8c88d25550efcdebc4b65a3927dd947b73bd4358", size = 80877444 },
+    { url = "https://files.pythonhosted.org/packages/87/1b/94d3710ee7ef93ee99c1dac512f631de5e310f6b21e43f474ef269f840b6/PyQt6_Qt6-6.8.1-1-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:98aa99fe38ae68c5318284cd28f3479ba538c40bf6ece293980abae0925c1b24", size = 79473622 },
     { url = "https://files.pythonhosted.org/packages/df/0a/c47a1cc272b418faff8af79b121f0cecd32b09d634253254e3a990432220/PyQt6_Qt6-6.8.1-py3-none-macosx_10_14_x86_64.whl", hash = "sha256:1eb8460a1fdb38d0b2458c2974c01d471c1e59e4eb19ea63fc447aaba3ad530e", size = 65754939 },
     { url = "https://files.pythonhosted.org/packages/b1/e6/cc4fbc97a7d0955185e33add3ce00480f0023424d17ac6f864a504f60251/PyQt6_Qt6-6.8.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:9f3790c4ce4dc576e48b8718d55fb8743057e6cbd53a6ca1dd253ffbac9b7287", size = 59956028 },
+    { url = "https://files.pythonhosted.org/packages/01/22/c2997fe76d765d9ba960e9a099238cb419a316362bdde50fedacc23e7c7d/PyQt6_Qt6-6.8.1-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:d6ca5d2b9d2ec0ee4a814b2175f641a5c4299cb80b45e0f5f8356632663f89b3", size = 72561636 },
     { url = "https://files.pythonhosted.org/packages/a1/24/907c7451901e56e5b713d70c6f65191d80a3a3caac1095fea7f2a4b0b25b/PyQt6_Qt6-6.8.1-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:08065d595f1e6fc2dde9f4450eeff89082f4bad26f600a8e9b9cc5966716bfcf", size = 72573711 },
     { url = "https://files.pythonhosted.org/packages/2b/a8/d942bb9f83ad4abd4c296cd4bbf752d1147eaa14523cc132a2b8511a3960/PyQt6_Qt6-6.8.1-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:20843cb86bd94942d1cd99e39bf1aeabb875b241a35a8ab273e4bbbfa63776db", size = 71077917 },
     { url = "https://files.pythonhosted.org/packages/ab/2c/0d45a74ea8eedf5a2a5a2628396fb2e26107ae07f6c73d6d22c7fa3d4403/PyQt6_Qt6-6.8.1-py3-none-win_amd64.whl", hash = "sha256:006d786693d0511fbcf184a862edbd339c6ed1bb3bd9de363d73a19ed4b23dff", size = 71647964 },

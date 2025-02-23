@@ -1,10 +1,17 @@
+# /// script
+# dependencies = [
+#     "curved_air>=0.1.0",
+# ]
+# [tool.uv.sources]
+# curved_air = { path = "..", editable = true }
+# ///
+
 """
 Code grabbed from and old main() function in optimisation.py
 
 """
 
 import re
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,21 +19,17 @@ from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics import match_target_refractive_index
-from curved_air.other import Air
-
-script_path = Path(__file__).parent
-sys.path.append(script_path / "../src")
+from curved_air.optimisation import match_target_refractive_index
 
 
 def main() -> None:
-    agf_dir: Path = script_path / "../data/AGFs"
+    agf_dir: Path = Path(__file__).parent / "../data/AGFs"
 
     agf_files = sorted(
         [
             f
             for f in agf_dir.glob("*.[Aa][Gg][Ff]")
-            if re.search(pattern="ohara|schott", string=f)
+            if re.search(pattern="ohara|schott", string=f.name)
         ]
     )
     if not agf_files:
@@ -36,7 +39,7 @@ def main() -> None:
         GlassCatalogue()
         .read_AGF(agf_filename=agf_files)
         .filter(
-            status_description=["standard", "preferred"],
+            # status_description=["standard", "preferred"],
             min_wl=390 * u.nm,
             max_wl=950 * u.nm,
             min_transmission=0.97,
@@ -50,7 +53,7 @@ def main() -> None:
         min_wl=390 * u.nm,
         max_wl=950 * u.nm,
         num_samples=50,
-        target_refractive_index=Air().refractive_index,
+        target_refractive_index=lambda _wl: 1.5,
     )
 
     for p in ADC.prism_list:

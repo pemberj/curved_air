@@ -245,7 +245,7 @@ def constant_dispersion(
             if num_glasses == 2:  # noqa: PLR2004
 
                 def residuals(
-                    kmbi: ArrayLike = [1.0, target_dispersion, 0.0, 0.0],
+                    kmbi: tuple | list | ArrayLike = (1.0, target_dispersion, 0.0, 0.0),
                 ) -> float:
                     k, m, b, i = kmbi
                     return np.sum(
@@ -291,12 +291,12 @@ def constant_dispersion(
 
 
 def match_target_refractive_index(
-    g1: Glass = None,
-    g2: Glass = None,
+    g1: Glass,
+    g2: Glass,
+    target_refractive_index: Callable,
     min_wl: Quantity = 385 * u.nm,
     max_wl: Quantity = 950 * u.nm,
     num_samples: int = 20,
-    target_refractive_index: Callable | None = None,
 ) -> PrismStack:
     min_wl = min_wl.to(u.um).value
     max_wl = max_wl.to(u.um).value
@@ -310,8 +310,6 @@ def match_target_refractive_index(
         print(e)
     except UnitConversionError as e:
         print(e)
-
-    wls = np.linspace(min_wl, max_wl, num_samples)
 
     def residuals(
         wls: list[float],  # Wavelengths in nanometers!
@@ -347,9 +345,10 @@ def match_target_refractive_index(
     mid_wl = ((min_wl + max_wl) / 2) * 1000
     min_wl = min_wl * 1000
     max_wl = max_wl * 1000
+    wls = np.linspace(min_wl, max_wl, num_samples)
 
     try:
-        [alpha_fit, lam_0_fit], cov = curve_fit(
+        (alpha_fit, lam_0_fit), cov = curve_fit(
             f=residuals,
             xdata=wls,
             ydata=[0.0] * len(wls),
@@ -359,8 +358,8 @@ def match_target_refractive_index(
                 [np.inf, mid_wl + 2 * abs(mid_wl - max_wl)],
             ],
         )
-    except Exception as e:
-        print(e)
+    except TypeError as e:
+        raise TypeError(e) from e
 
     # print(alpha_fit, lam_0_fit)
 
