@@ -16,10 +16,8 @@ from matplotlib import pyplot as plt
 from curved_air.optics import Grating
 
 
-# Echelledesigner / read-csv.py
 def richardson_gratings(
     filename: str | None = None,
-    plot: bool = False,
     selection_query: str = "Ruled_width >= 400",
 ) -> list[Grating]:
     """
@@ -48,84 +46,6 @@ def richardson_gratings(
             strict=False,
         )
     ]
-
-    if plot:
-        fig = plt.figure("Wavelength as a function of order number")
-        ax = fig.gca()
-
-        for g in gratings:
-            ms = g.diffraction_orders
-            blaze_wavelengths = g.blaze_wavelength(ms)
-            blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
-            ax.plot(
-                ms,
-                blaze_wavelengths,
-                marker=".",
-                markersize=10,
-                markeredgecolor="k",
-                markeredgewidth=0.5,
-                alpha=0.5,
-                label=f"R={g.R}, {g.gpmm.value} g/mm: {len(ms)} orders",
-            )
-
-        ax.set_xlabel("Order number $m$")
-        ax.set_ylabel("Blaze wavelength $\\lambda$ [microns]")
-
-        ax.legend()
-
-        fig = plt.figure("Order opening angle as a function of order number")
-        ax = fig.gca()
-
-        for g in gratings:
-            ms = g.diffraction_orders
-            angles = g.order_opening_angle(ms)
-            angles = [a.to(u.deg).value for a in angles]
-
-            ax.plot(
-                ms,
-                angles,
-                marker=".",
-                markersize=10,
-                markeredgecolor="k",
-                markeredgewidth=0.5,
-                alpha=0.5,
-                label=f"R={g.R}, {g.gpmm.value} g/mm",
-            )
-
-        ax.set_xlabel("Order number $m$")
-        ax.set_ylabel("Order FSR opening angle [degrees]")
-
-        ax.legend()
-
-        fig = plt.figure("Opening angle as a function of blaze wavelength")
-        ax = fig.gca()
-
-        for g in gratings:
-            ms = g.diffraction_orders
-            blaze_wavelengths = g.blaze_wavelength(ms)
-            blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
-
-            ms = g.diffraction_orders
-            angles = g.order_opening_angle(ms)
-            angles = [a.to(u.deg).value for a in angles]
-
-            ax.plot(
-                blaze_wavelengths,
-                angles,
-                marker=".",
-                markersize=10,
-                markeredgecolor="k",
-                markeredgewidth=0.5,
-                alpha=0.5,
-                label=f"R={g.R}, {g.gpmm.value} g/mm: {len(ms)} orders",
-            )
-
-        ax.set_xlabel("Blaze wavelength $\\lambda$ [microns]")
-        ax.set_ylabel("Order FSR opening angle [degrees]")
-
-        ax.legend()
-
-        plt.show()
 
     return gratings
 
