@@ -19,6 +19,7 @@ from itertools import combinations
 from typing import TYPE_CHECKING
 from dataclasses import dataclass, field
 
+from tqdm import tqdm
 from astropy import units as u
 from astropy.units import Quantity, UnitConversionError
 import matplotlib.pyplot as plt
@@ -1145,25 +1146,39 @@ class GlassCatalogue(dict):
 
         from curved_air.optics import ADC, PrismStack
 
-        results: list[ADC] = []
+        ADCs: list[ADC] = []
+        results: list[dict] = []
 
         columns = [
             "Glass 1",
             "Glass 2",
             "Apex angle",
+            "Compound angle",
             "Zero-deviation wavelength",
             "PTV Residuals",
         ]
 
-        print(
-            f"{columns[0]:<12}\t"
-            f"{columns[1]:<12}\t"
-            f"{columns[2]:<12}\t"
-            f"{columns[3]:<24}\t"
-            f"{columns[4]:<12}"
+        print_output = (
+            f"{columns[0]:<16}\t"
+            f"{columns[1]:<16}\t"
+            f"{columns[2]:<16}\t"
+            f"{columns[3]:<16}\t"
+            f"{columns[4]:<16}\t"
+            f"{columns[5]:<16}\n"
         )
 
-        for g1, g2 in combinations(self.glasses, 2):
+        n = len(self.glasses)
+        num_combinations = int((n * (n - 1)) / 2)
+
+        for g1, g2 in tqdm(
+            combinations(self.glasses, 2),
+            desc="Optimising ADCs",
+            total=num_combinations,
+            position=0,
+            leave=True,
+            unit="ADC",
+            ncols=100,
+        ):
             adc: ADC = ADC(
                 prism_stack=PrismStack([g1, g2]),
                 min_wl=min_wl,
@@ -1177,16 +1192,29 @@ class GlassCatalogue(dict):
             adc.optimise(num_samples=num_samples)
 
             if adc.residuals_PTV <= max_residuals:
-                results.append(adc)
-                print(
-                    f"{g1.name:<12}\t"
-                    f"{g2.name:<12}\t"
-                    f"{f'{adc.alpha:.5g}':<12}\t"
-                    f"{f'{adc.wl_0:.5g}':<24}\t"
-                    f"{f'{adc.residuals_PTV:.5g}':<12}\t"
+                ADCs.append(adc)
+                results.append(
+                    {
+                        columns[0]: g1.name,
+                        columns[1]: g2.name,
+                        columns[2]: f"{adc.alpha.to(u.deg).value:.5g}",
+                        columns[3]: f"{adc.beta.to(u.deg).value:.5g}",
+                        columns[4]: f"{adc.wl_0.to(u.um).value:.5g}",
+                        columns[5]: f"{adc.residuals_PTV.to(u.mas).value:.5g}",
+                    }
+                )
+                print_output += (
+                    f"{g1.name:<16}\t"
+                    f"{g2.name:<16}\t"
+                    f"{adc.alpha:<16.5g}\t"
+                    f"{adc.beta:<16.5g}\t"
+                    f"{adc.wl_0:<16.5g}\t"
+                    f"{adc.residuals_PTV:<16.5g}\n"
                 )
 
-        return results
+        print(print_output)
+
+        return ADCs, results
 
     def __str__(self) -> str:
         return "\n".join([f.summary for f in self.values()])

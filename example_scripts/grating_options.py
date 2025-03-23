@@ -161,7 +161,7 @@ def main() -> None:
         # print(grid)
 
     plot_grating_options(gratings)
-    # plot_wavelength_vs_m(gratings)
+    plot_wavelength_vs_m(gratings)
     # plot_angle_vs_m(gratings)
     # plot_opening_angle_vs_blaze_wavelength(gratings)
 

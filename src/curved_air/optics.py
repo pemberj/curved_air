@@ -851,7 +851,10 @@ class Grating:
 
         return float((self.m_times_lambda / wl).si)
 
-    def order_FSR(self, m: int, FSR_fraction: float = 1.0) -> Quantity:
+    def order_FSR(self, m: int | list[int], FSR_fraction: float = 1.0) -> Quantity:
+        if isinstance(m, list | tuple):
+            return [self.order_FSR(im) for im in m]
+
         m_wavelength = self.blaze_wavelength(m=m)
         m_plus_one_wavelength = self.blaze_wavelength(m=m + 1)
 

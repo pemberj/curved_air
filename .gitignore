@@ -11,6 +11,9 @@ old_scripts/
 
 .ruff_cache/
 
+
+tempCodeRunnerFile.py
+
 # Default Github-generated Python .gitignore file
 #
 # Byte-compiled / optimized / DLL files

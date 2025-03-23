@@ -1,6 +1,7 @@
 # /// script
 # dependencies = [
 #     "curved_air>=0.1.0",
+#     "pandas",
 # ]
 # [tool.uv.sources]
 # curved_air = { path = "..", editable = true }
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import astropy.units as u
 from matplotlib import pyplot as plt
+from pandas import DataFrame
 
 from curved_air.glass import GlassCatalogue
 from curved_air.plotting import plot_style
@@ -39,21 +41,22 @@ def main() -> None:
 
     print(agf_files)
 
-    catalogue = (
-        GlassCatalogue()
-        .read_AGF(agf_filename=agf_files)
-        .filter(
-            min_wl=380 * u.nm,
-            max_wl=950 * u.nm,
-            min_transmission=0.98,
-            min_average_transmission=0.99,
-            # status_description="preferred",
-        )
+    catalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+
+    catalogue = catalogue.filter(
+        min_wl=380 * u.nm,
+        max_wl=950 * u.nm,
+        min_transmission=0.97,
+        min_average_transmission=0.99,
+        # status_description="preferred",
     )
 
     # catalogue.plot_Abbe_diagram()
 
-    catalogue.compute_ADCs(max_residuals=25 * u.mas)
+    ADCs, results = catalogue.compute_ADCs()
+
+    results_df = DataFrame(results)
+    results_df.to_csv(script_path / "ADCs_from_catalogue.csv")
 
 
 if __name__ == "__main__":
