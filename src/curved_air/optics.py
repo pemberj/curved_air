@@ -2,18 +2,18 @@
 Originally from 'EchelleDesigner' project
 """
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from functools import cached_property
-from collections.abc import Callable, Iterable
 
 import numpy as np
-from numpy.typing import ArrayLike
 from astropy import units as u
 from astropy.units import Quantity
+from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 
 from curved_air.glass import Glass
-from curved_air.other import Model, Air
+from curved_air.other import Air, Model
 
 
 @dataclass
@@ -939,6 +939,34 @@ class Grating:
         # print(f"{red_angle=}")
 
         return red_angle / blue_angle
+
+    def angular_dispersion(self, m: int, wl: None | Quantity = None) -> Quantity:
+        """
+        Returns the angular dispersion of the grating at a given order and wavelength
+
+        If no wavelength is passed, the dispersion is calculated at the blaze wavelength
+
+        Args:
+            m (int): _description_
+            wl (Quantity, optional): _description_. Defaults to 550*u.nm.
+
+        Returns:
+            Quantity: _description_
+        """
+
+        if wl is None:
+            wl = self.blaze_wavelength(m=m)
+
+        delta_wl = self.order_FSR(m=m) / 100
+        delta_theta = self.diffraction_angle(
+            m=m, wl=wl + delta_wl
+        ) - self.diffraction_angle(m=m, wl=wl)
+
+        return delta_theta / delta_wl
+
+    @property
+    def reddest_order_separation(self) -> Quantity:
+        return self.order_FSR(m=self.order_number(self.max_wl), FSR_fraction=1.0)
 
     def __str__(self) -> str:
         return f"Grating: {self.catalogue_number}, R{self.R}, {self.groove_frequency.to(1 / u.mm).value:.3g} grooves/mm"

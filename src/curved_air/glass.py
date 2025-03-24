@@ -13,24 +13,25 @@ agf2yml.py
 from __future__ import annotations
 
 import re
-import numpy as np
-from pathlib import Path
-from itertools import combinations
-from typing import TYPE_CHECKING
 from dataclasses import dataclass, field
+from itertools import combinations
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
 from astropy import units as u
 from astropy.units import Quantity, UnitConversionError
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from curved_air.other import _fraunhofer_lines
 from curved_air.plotting import plot_style
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Generator
-    from numpy.typing import ArrayLike
+    from collections.abc import Generator, Iterator
+
     from matplotlib.backend_bases import MouseEvent
+    from numpy.typing import ArrayLike
 
 plt.style.use(plot_style)
 
@@ -487,6 +488,8 @@ class GlassCatalogue(dict):
         p = agf_filename
         try:
             agf = p.open(encoding="utf-8", newline="\r\n")
+            for _, _line in enumerate(agf):
+                break  # Causes UnicodeDecodeError
         except UnicodeDecodeError:
             agf = p.open(encoding="utf-16", newline="\r\n")
 
