@@ -13,9 +13,9 @@ Compute the inter-order spacing for a given cross-disperser in an echelle spectr
 import re
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
 
 from curved_air.glass import GlassCatalogue
 from curved_air.optics import Prism
