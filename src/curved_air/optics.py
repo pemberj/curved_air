@@ -64,6 +64,20 @@ class Prism:
             )
         )
 
+    def exitance_angle(
+        self,
+        wl: ArrayLike = 0.6328 * u.um,
+        incidence_angle: Quantity = None,
+    ) -> Quantity:
+        if incidence_angle is None:
+            incidence_angle = self.incidence_angle
+
+        return (
+            self.deviation_angle(wl=wl, incidence_angle=incidence_angle)
+            + self.apex_angle
+            - incidence_angle
+        )
+
     def find_incidence_angle(
         self,
         min_wl: Quantity = 385 * u.nm,

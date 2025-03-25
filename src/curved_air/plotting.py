@@ -3,13 +3,13 @@ A place for functions to plot image arrays, orders, matching wavelength lines,
 wavelength solution functions,
 """
 
-from typing import overload
 import colorsys
+from typing import overload
 
+import matplotlib.font_manager as fm
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
-import matplotlib.font_manager as fm
 from pyfonts import load_font
 
 # load Quicksand font
@@ -106,9 +106,14 @@ def wavelength_to_rgb(
     Based on code by Dan Bruton (http://www.physics.sfasu.edu/astro/color/spectra.html)
     """
 
+    try:
+        wavelength = wavelength.to("nm").value
+    except AttributeError:
+        pass
+
     if isinstance(wavelength, list | np.ndarray):
         return [
-            wavelength_to_rgb(wl, gamma=gamma, face_factor=fade_factor)
+            wavelength_to_rgb(wl, gamma=gamma, fade_factor=fade_factor)
             for wl in wavelength
         ]
 
