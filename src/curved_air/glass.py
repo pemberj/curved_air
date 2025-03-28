@@ -18,7 +18,6 @@ Zemax/OpticStudio), as well as for plotting various properties of the glasses.
 
 Some code originally forked from
 https://github.com/polyanskiy/refractiveindex.info-scripts
-agf2yml.py
 """
 
 from __future__ import annotations
