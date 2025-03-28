@@ -495,6 +495,7 @@ class ADC:
         self,
         num_samples: int = 100,
         save_filename: str | None = None,
+        layout: bool = True,
         show: bool = True,
     ) -> None:
         wls = self.wls(n=num_samples)
@@ -508,9 +509,16 @@ class ADC:
         gap = 6 * u.mm
         D_ADC = 25.4 * u.mm
 
-        fig, axs = plt.subplots(4, 1, figsize=(8, 10), tight_layout=True)
+        num_subplots = 4 if layout else 3
 
-        fig.suptitle(f"Optimised ADC using {self.g1.name} and {self.g2.name}", size=18)
+        fig, axs = plt.subplots(
+            num_subplots,
+            1,
+            figsize=(8, 2.5 * num_subplots),
+            tight_layout=True,
+        )
+
+        # fig.suptitle(f"Optimised ADC using {self.g1.name} and {self.g2.name}", size=18)
 
         # Plot refractive indices of the two glasses
         ax = axs[0]
@@ -521,7 +529,7 @@ class ADC:
         ax.set_xticklabels([])
         # ax.ticklabel_format(axis="y", useOffset=1.00000000001)
         ax.set_ylabel("Refractive index $n$")
-        ax.legend()
+        ax.legend(frameon=True)
 
         # Plot scaled difference against the normalised refractivity of air
         ax = axs[1]
@@ -537,8 +545,8 @@ class ADC:
             ADC_index,
             "k--",
             label="2 $\\times$ ("
-            + f"$n_1 - {self.epsilon:.5g}n_2 {self.epsilon - 1:+.3g}$)"
-            + f" {self.alpha / 2:.3g}$^o$",
+            + f"$n_1 - {self.epsilon:.5g}n_2 {self.epsilon - 1:+.3g}$) "
+            + f"{self.alpha / 2:.3g}",
         )
 
         d_air = (
@@ -566,7 +574,7 @@ class ADC:
         ax.set_xticklabels([])
         ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
         ax.set_ylabel("Refractivity $\\approx n-1$")
-        ax.legend()
+        ax.legend(frameon=True)
 
         # residuals_curve = (ADC_index - d_air).to(u.mas)
         residuals_curve = self.residuals_function(wls=wls)
@@ -587,136 +595,140 @@ class ADC:
         ax.axvline(x=self.wl_0.to(u.um).value, color="k", ls="--", lw=1)
         ax.set_xlabel("Wavelength (microns)")
         ax.set_ylabel("Angular dispersion\n" + "residuals at $z_{max}$ (mas)")
-        ax.legend()
+        ax.legend(frameon=True)
 
-        # Plot cross-sectional layout of physical compound prisms
-        ax = axs[3]
+        if layout:
+            # Plot cross-sectional layout of physical compound prisms
+            ax = axs[3]
 
-        ax.axhline(y=0, c="k", ls="--", lw=1)
+            ax.axhline(y=0, c="k", ls="--", lw=1)
 
-        sign = self.first_apex_angle / abs(self.first_apex_angle)
-        R_ADC = D_ADC / 2
+            sign = self.first_apex_angle / abs(self.first_apex_angle)
+            R_ADC = D_ADC / 2
 
-        x1 = D_ADC * np.sin(np.radians(self.first_apex_angle))
-        x2 = D_ADC * np.sin(np.radians(self.second_apex_angle))
-        d = (min_thickness.value - x1.value) / 2 if x1 < min_thickness else 0
+            x1 = D_ADC * np.sin(np.radians(self.first_apex_angle))
+            x2 = D_ADC * np.sin(np.radians(self.second_apex_angle))
+            d = (min_thickness.value - x1.value) / 2 if x1 < min_thickness else 0
 
-        # Plot first Amici prism
-        ax.plot([0, 0], [-R_ADC.value, R_ADC.value], color="k", lw=1.3)
-        ax.plot(
-            [d, d + x1.value],
-            [sign * R_ADC.value, -sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
-        ax.plot(
-            [d + x1.value + d, d + d + x2.value],
-            [-sign * R_ADC.value, sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
-        ax.plot(
-            [0, d + d + x2.value],
-            [sign * R_ADC.value, sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
-        ax.plot(
-            [0, x1.value + 2 * d],
-            [-sign * R_ADC.value, -sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
+            # Plot first Amici prism
+            ax.plot([0, 0], [-R_ADC.value, R_ADC.value], color="k", lw=1.3)
+            ax.plot(
+                [d, d + x1.value],
+                [sign * R_ADC.value, -sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [d + x1.value + d, d + d + x2.value],
+                [-sign * R_ADC.value, sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [0, d + d + x2.value],
+                [sign * R_ADC.value, sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [0, x1.value + 2 * d],
+                [-sign * R_ADC.value, -sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
 
-        ax.annotate(
-            text=f"{D_ADC:.3g}",
-            xy=(-gap.value, R_ADC.value),
-            xytext=(-gap.value, 0),
-            arrowprops={"arrowstyle": "->"},
-            ha="center",
-            va="center",
-            bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
-        )
-        ax.annotate(
-            text=f"{D_ADC:.3g}",
-            xy=(-gap.value, -R_ADC.value),
-            xytext=(-gap.value, 0),
-            arrowprops={"arrowstyle": "->"},
-            ha="center",
-            va="center",
-            bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
-        )
+            ax.annotate(
+                text=f"{D_ADC:.3g}",
+                xy=(-gap.value, R_ADC.value),
+                xytext=(-gap.value, 0),
+                arrowprops={"arrowstyle": "->"},
+                ha="center",
+                va="center",
+                bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
+            )
+            ax.annotate(
+                text=f"{D_ADC:.3g}",
+                xy=(-gap.value, -R_ADC.value),
+                xytext=(-gap.value, 0),
+                arrowprops={"arrowstyle": "->"},
+                ha="center",
+                va="center",
+                bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
+            )
 
-        # Plot second Amici prism
-        xoffset = (max(x1, x2) + 2 * d * u.mm + gap).value
-        ax.plot(
-            [xoffset + 0, xoffset + 0], [-R_ADC.value, R_ADC.value], color="k", lw=1.3
-        )
-        ax.plot(
-            [xoffset + 0 + d, xoffset + x1.value + d],
-            [-sign * R_ADC.value, sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
-        ax.plot(
-            [xoffset + d + x1.value + d, xoffset + d + d + x2.value],
-            [sign * R_ADC.value, -sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
-        ax.plot(
-            [xoffset + 0, xoffset + x1.value + 2 * d],
-            [sign * R_ADC.value, sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
-        ax.plot(
-            [xoffset + 0, xoffset + x2.value + 2 * d],
-            [-sign * R_ADC.value, -sign * R_ADC.value],
-            color="k",
-            lw=1.3,
-        )
+            # Plot second Amici prism
+            xoffset = (max(x1, x2) + 2 * d * u.mm + gap).value
+            ax.plot(
+                [xoffset + 0, xoffset + 0],
+                [-R_ADC.value, R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [xoffset + 0 + d, xoffset + x1.value + d],
+                [-sign * R_ADC.value, sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [xoffset + d + x1.value + d, xoffset + d + d + x2.value],
+                [sign * R_ADC.value, -sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [xoffset + 0, xoffset + x1.value + 2 * d],
+                [sign * R_ADC.value, sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
+            ax.plot(
+                [xoffset + 0, xoffset + x2.value + 2 * d],
+                [-sign * R_ADC.value, -sign * R_ADC.value],
+                color="k",
+                lw=1.3,
+            )
 
-        # Plot annotations of distances
-        xtotal = xoffset + (max(x1, x2) + 2 * d * u.mm).value
-        ax.annotate(
-            text=f"{xtotal:.3g}",
-            xy=(0, -R_ADC.value / 2),
-            xytext=(xtotal / 2, -R_ADC.value / 2),
-            arrowprops={"arrowstyle": "->"},
-            ha="center",
-            va="center",
-            bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
-        )
+            # Plot annotations of distances
+            xtotal = xoffset + (max(x1, x2) + 2 * d * u.mm).value
+            ax.annotate(
+                text=f"{xtotal:.3g}",
+                xy=(0, -R_ADC.value / 2),
+                xytext=(xtotal / 2, -R_ADC.value / 2),
+                arrowprops={"arrowstyle": "->"},
+                ha="center",
+                va="center",
+                bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
+            )
 
-        ax.annotate(
-            text=f"{xtotal:.3g}",
-            xy=(xtotal, -R_ADC.value / 2),
-            xytext=(xtotal / 2, -R_ADC.value / 2),
-            arrowprops={"arrowstyle": "->"},
-            ha="center",
-            va="center",
-            bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
-        )
+            ax.annotate(
+                text=f"{xtotal:.3g}",
+                xy=(xtotal, -R_ADC.value / 2),
+                xytext=(xtotal / 2, -R_ADC.value / 2),
+                arrowprops={"arrowstyle": "->"},
+                ha="center",
+                va="center",
+                bbox={"boxstyle": "round", "fc": "white", "ec": "black", "pad": 0.2},
+            )
 
-        # For the legend only
-        ax.plot(
-            0,
-            0,
-            lw=0,
-            label="Apex angles:\n"
-            + f"$\\alpha_1 = ${self.first_apex_angle:.3f}\n"
-            + f"$\\alpha_2 = ${self.second_apex_angle:.3f}",
-        )
+            # For the legend only
+            ax.plot(
+                0,
+                0,
+                lw=0,
+                label="Apex angles:\n"
+                + f"$\\alpha_1 = ${self.first_apex_angle:.3f}\n"
+                + f"$\\alpha_2 = ${self.second_apex_angle:.3f}",
+            )
 
-        # ax.plot(0, 0, label=f"Minimum compound\nprism thickness: "\
-        # +"{abs(x1) + abs(max(abs(x1-x2), abs(x2-x1))):.3f}", lw=0)
+            # ax.plot(0, 0, label=f"Minimum compound\nprism thickness: "\
+            # +"{abs(x1) + abs(max(abs(x1-x2), abs(x2-x1))):.3f}", lw=0)
 
-        ax.axis("equal")
-        ax.set_xlabel("Optical axis distance (mm)")
-        ax.set_ylabel("Lateral axis\ndistance (mm)")
+            ax.axis("equal")
+            ax.set_xlabel("Optical axis distance (mm)")
+            ax.set_ylabel("Lateral axis\ndistance (mm)")
 
-        ax.legend()
+            ax.legend()
 
         if save_filename is not None:
             plt.savefig(save_filename)
