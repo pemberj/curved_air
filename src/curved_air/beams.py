@@ -1,21 +1,21 @@
 """
-A simple implementation of Gaussian Beams using Python.
+curved_air
 
-Dependencies: numpy, astropy (for units), matplotlib (for plots)
+beams
+
+This module contains definitions of a few types of analyticall-described optical beams.
+
+These include Gaussian beams, plane waves, and spherical waves. This code was originally
+written for the EtalonSim project, but has been adapted to be more general and reusable
+here.
 """
 
-from dataclasses import dataclass
-from dataclasses import field
-
-import numpy as np
-from numpy.typing import ArrayLike
+from dataclasses import dataclass, field
 
 import astropy.units as u
+import numpy as np
 from astropy.units import Quantity
-
-import pprint
-
-pp = pprint.PrettyPrinter(indent=4)
+from numpy.typing import ArrayLike
 
 
 @dataclass
@@ -377,7 +377,7 @@ class PlanarBeam(Beam):
 
     def __post_init__(self) -> None:
         if self.debug_level > 0:
-            pp.pprint(self.__dict__)
+            print(self.__dict__)
 
     @property
     def k_scalar(self) -> float:

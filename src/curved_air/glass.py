@@ -1,9 +1,20 @@
 """
-The core of the library - this file contains definitions of Glass and
-GlassCatalogue classes, which are used to hold information about optical glasses,
-to filter a collection of glasses by certain criteria, to inspect and plot
-properties of single glasses or collections of glasses, and to output a filtered
-or selected collection to an external file for use in Zemax/OpticStudio
+curved_air
+
+glass
+
+Contains classes Glass and GlassCatalogue, which are used to hold information about
+optical glasses, to filter a collection of glasses by certain criteria, to inspect
+and plot properties of single glasses or collections of glasses, and to output
+a filtered or selected collection to an external file for use in Zemax/OpticStudio
+and other optical design software.
+
+The Glass class contains all the parameters for a single type of optical glass,
+including refractive index, Abbe number, and environmental resistance properties.
+The GlassCatalogue class is a dictionary-like object that holds multiple Glass objects
+and provides methods for filtering and searching through them. The classes also provide
+methods for reading and writing catalogues in AGF format (suitable for working in
+Zemax/OpticStudio), as well as for plotting various properties of the glasses.
 
 Some code originally forked from
 https://github.com/polyanskiy/refractiveindex.info-scripts

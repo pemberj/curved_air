@@ -1,15 +1,20 @@
 """
-Several functions to find optimal solutions for compound prisms, achromatic
-lenses, etc.
+curved_air
+
+optimisation
+
+This module includes several functions to find optimal solutions for compound prisms,
+achromatic lenses, etc.
 """
 
+from collections.abc import Callable
+
+import astropy.units as u
 import numpy as np
+import scipy.optimize
+from astropy.units import Quantity, UnitConversionError
 from numpy.typing import ArrayLike
 from scipy.optimize import curve_fit
-import scipy.optimize
-import astropy.units as u
-from astropy.units import Quantity, UnitConversionError
-from collections.abc import Callable
 
 from curved_air.glass import Glass, GlassCatalogue
 from curved_air.optics import Prism, PrismStack

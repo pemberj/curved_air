@@ -1,6 +1,10 @@
 """
-A place for functions to plot image arrays, orders, matching wavelength lines,
-wavelength solution functions,
+curved_air
+
+plotting
+
+This modules contains the main plotting stylesheet that is used by curved_air, as well
+as a function to convert wavelengths to RGB values, also used in certain plots.
 """
 
 import colorsys

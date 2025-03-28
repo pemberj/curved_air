@@ -3,7 +3,7 @@ curved_air
 
 utils
 
-Utility functions
+This module contains utility functions that are used throughout the curved_air package.
 """
 
 from pathlib import Path

@@ -1,22 +1,22 @@
 """
-Contains functions that model the refractive index of air, the airmass of the
-atmosphere under different angles, ...
+curved_air
 
-Contains wavelength definitions of Fraunhofer lines
+other
 
+Contains functions that model the refractive index of air, the airmass of the atmosphere
+under different angles, etc.
+
+Also contains wavelength definitions of Fraunhofer lines
 """
 
-from dataclasses import dataclass, field
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 import numpy as np
-from numpy.typing import ArrayLike
-
+import ref_index
 from astropy import units as u
 from astropy.units import Quantity
-
-import ref_index
-
+from numpy.typing import ArrayLike
 
 _fraunhofer_lines = {
     "i": 365.01 * u.nm,

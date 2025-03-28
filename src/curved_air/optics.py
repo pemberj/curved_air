@@ -1,5 +1,11 @@
 """
-Originally from 'EchelleDesigner' project
+curved_air
+
+optics
+
+Definitions of several optical components, including Prisms, compound prisms (here
+PrismStacks), ADCs (a PrismStack to be optimised to match the dispersion of air),
+Gratings, and Etalons.
 """
 
 from collections.abc import Callable, Iterable

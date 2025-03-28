@@ -1,15 +1,18 @@
 """
-TODO:
+curved_air
 
-Move this funtion into the GlassCatalogue class as a method.
+multi_optimisation
+
+This module contains functions for optimising the design of multi-element prisms using
+a catalogue of glasses. This code is largely unfinished...
 """
 
 import itertools
 from typing import TYPE_CHECKING
 
-import scipy.optimize
 import astropy.units as u
 import numpy as np
+import scipy.optimize
 from numpy.typing import ArrayLike
 
 if TYPE_CHECKING:
@@ -27,7 +30,9 @@ def constant_dispersion(
     target_dispersion: float = 0.0,
     dispersion_range: float = 0.1,
 ) -> dict:
-    """ """
+    """
+    TODO: Move this funtion into the GlassCatalogue class as a method?
+    """
 
     if len(glass_catalogue) >= 20 and num_glasses >= 3:  # noqa: PLR2004
         n = len(glass_catalogue)
