@@ -45,14 +45,28 @@ def main() -> None:
     Xs = np.zeros_like(Zs)
     Ys = np.zeros_like(Zs)
 
-    c = 6e-3 / 7692 * 1e9
+    target_wavelength = 780 * u.nm
+
+    mode_number = int((mirror_spacing / target_wavelength).si.value)
+
+    central_wavelength = (mirror_spacing / mode_number).to(u.nm).value
     w = 0.01
-    wavelengths = np.linspace(c - w / 2, c + w / 2, 301) * u.nm
+    wavelengths = np.linspace(
+        central_wavelength - w / 2,
+        central_wavelength + w / 1.5,
+        301,
+    )
+
+    wavelengths *= u.nm
 
     # Three peaks:
     # wavelengths = np.linspace(499.975, 500.025, 200) * u.nm
 
-    output = {"gaussian": [], "planar": []}
+    output = {
+        "gaussian": [],
+        "planar": [],
+        # "spherical": [],
+    }
 
     for wavelength in wavelengths:
         beam = GaussianBeam(
@@ -76,6 +90,16 @@ def main() -> None:
         intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
         output["planar"].append(intensity**0.5)
 
+        # beam = SphericalBeam(
+        #     wavelength=wavelength,
+        #     plane_normal=(0, 0, 1),
+        #     f_number=20,
+        # )
+        # results = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
+        # dimmed = results * reflectivity
+        # intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
+        # output["spherical"].append(intensity**0.5)
+
     fig = plt.figure()
     ax = fig.gca()
 
@@ -90,7 +114,9 @@ def main() -> None:
     ax.plot(
         wavelengths,
         analytic_intensity / np.max(analytic_intensity),
-        label=f"Analytic\nreflection-limited peak\nFWHM={analytic_fwhm:.4f}\nFinesse={analytic_finesse:.2f}",
+        label="Analytic reflection-limited peak\n"
+        + f"FWHM = {analytic_fwhm:.4f}\n"
+        + f"Finesse = {analytic_finesse:.2f}",
     )
 
     for _, [beam_type, values] in enumerate(output.items()):
@@ -98,28 +124,36 @@ def main() -> None:
         # Corresponds to the very first mirror reflection
         values = values / np.max(values) - (1 - np.sqrt(mirror_reflectivity))  # noqa: PLW2901
 
-        peak_fwhm = np.diff(FWHM(wavelengths.to("pm").value, values))[0] * u.pm
-        calculated_finesse = distance_between_peaks / peak_fwhm
+        try:
+            peak_fwhm = np.diff(FWHM(wavelengths.to("pm").value, values))[0] * u.pm
+            calculated_finesse = distance_between_peaks / peak_fwhm
+        except (IndexError, ValueError):
+            calculated_finesse = np.nan
 
         ax.plot(
             wavelengths,
             values / np.max(values),
             ls="--",
-            label=f"{beam_type}\nFWHM={peak_fwhm:.4f}\n"
-            + f"Finesse={calculated_finesse:.2f}",
+            label=f"{beam_type.title()} beam\n"
+            + f"FWHM = {peak_fwhm:.4f}\n"
+            + f"Finesse = {calculated_finesse:.2f}",
         )
 
     ax.set_xlabel("Wavelength (nm)")
     ax.set_ylabel("Normalised intensity")
     # ax.set_yticklabels([])
     ax.set_xlim(min(wavelengths).to("nm").value, max(wavelengths).to("nm").value)
+
+    ax.get_xaxis().get_major_formatter().set_scientific(True)
+    ax.get_xaxis().get_major_formatter().set_useOffset(False)
+
     ax.set_ylim(-0.05, 1.1)
     ax.legend()
 
     Path(SCRIPT_PATH / "plots").mkdir(parents=True, exist_ok=True)
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png")
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":

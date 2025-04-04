@@ -58,7 +58,7 @@ def main() -> None:
 
     mirror_spacing = 25.4 * u.mm  # 1 inch beamsplitter cube
     # even 3 reflections gets very low power left indeed, here I go overboard
-    num_round_trips = 50
+    num_round_trips = 20
     # 2% reflection from antireflection-coated outer cube surface
     mirror_reflectivity = 0.02
 
@@ -66,7 +66,7 @@ def main() -> None:
     baseline_transmission = 1 - np.sum(reflectivity)
 
     # Work out where to sample the beam - starting from the back surface of the BSC
-    backfocus = 60.5 * u.mm
+    backfocus = 85 * u.mm
     start_z = -(backfocus + mirror_spacing)
     stop_z = start_z + (2 * mirror_spacing) * (num_round_trips - 1)
 
@@ -79,7 +79,14 @@ def main() -> None:
     Zs = Zs * u.mm
 
     # wavelengths = np.linspace(380, 930, 3000) * u.nm
-    wavelengths = np.linspace(499.99, 500.01, 100) * u.nm
+    mid_wl = 500 * u.nm
+    width = 10 * u.pm
+    wavelengths = np.linspace(
+        (mid_wl - width / 2).to(u.nm).value,
+        (mid_wl + width / 2).to(u.nm).value,
+        200,
+    )
+    wavelengths *= u.nm
 
     output = []
 
@@ -94,7 +101,8 @@ def main() -> None:
             f_number=f_number,
         )
 
-        results = beam.summed_E_field(z=Zs, max_radius=5 * u.mm)
+        # results = beam.summed_E_field(z=Zs, max_radius=10 * u.mm, force_radius=True)
+        results = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
 
         # Multiply by the reflectivity attenuation
         dimmed = np.array(
@@ -115,21 +123,27 @@ def main() -> None:
     plt.rcParams["axes.autolimit_mode"] = "data"
 
     transmission = baseline_transmission - output
-    ax.plot(wavelengths, transmission, label="")
+    max_transmission = np.nanmax(transmission)
+    delta_wls = (wavelengths - mid_wl).to(u.pm)
+
+    ax.plot(delta_wls, transmission / max_transmission - 1, label="")
 
     # ax.set_title("Beamsplitter cube etalon, gaussian beam illumination")
-    ax.set_xlabel("Wavelength (nm)")
-    ax.set_ylabel("Relative transmission")
+    ax.set_xlabel(f"(Wavelength - {mid_wl:.0f}) [pm]")
+    ax.set_ylabel("Relative transmission - 1")
     # ax.set_yticklabels([])
-    ax.set_xlim(min(wavelengths).value, max(wavelengths).value)
-    ax.set_ylim(min(transmission), max(transmission))
+    # ax.set_xlim(min(wavelengths).value, max(wavelengths).value)
+    # ax.set_ylim(min(transmission), max(transmission))
+
+    ax.get_yaxis().get_major_formatter().set_useOffset(False)
+    ax.get_yaxis().get_major_formatter().set_scientific(True)
 
     # ax.legend()
 
     Path(SCRIPT_PATH / "plots").mkdir(parents=True, exist_ok=True)
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png")
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":

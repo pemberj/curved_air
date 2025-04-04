@@ -518,13 +518,39 @@ class SphericalBeam(Beam):
         def integrand(r: float) -> float:
             sqrtr2x2 = np.sqrt(r**2 + z**2)
 
-            # print((1 / sqrtr2x2) * np.exp(-1j * k * sqrtr2x2))# * r
+            return (1 / sqrtr2x2) * np.exp(-1j * k * sqrtr2x2) * r
 
-            return (1 / sqrtr2x2) * np.exp(-1j * k * sqrtr2x2)  # * r
-
-        I, error = quad(integrand, 0, radius.to(u.mm).value, limit=50)  # noqa: E741
+        I, error = quad(integrand, 0, radius.to(u.mm).value, limit=100)  # noqa: E741
 
         return 2 * np.pi * self.E_0 * I
+
+    def integrated_E_field(
+        self,
+        z: Quantity = 0 * u.mm,
+        radius: Quantity = 10 * u.mm,
+    ) -> Quantity:
+        """Use the analytic expression for a slice through the beam at a distance z"""
+
+        if isinstance(z, list):
+            return [self.integrated_E_field(z=zi, radius=radius) for zi in z]
+
+        if isinstance(z, Quantity):
+            z = z.to(u.mm).value
+
+        if isinstance(radius, Quantity):
+            radius = radius.to(u.mm).value
+
+        beam_edge = z / self.f_number
+
+        R = np.minimum(radius, beam_edge)
+
+        k = self.k_scalar.to(1 / u.mm).value
+
+        constant = (2 * np.pi * self.E_0) / (1j * k)
+        exponent_1 = 1j * (k * np.sqrt(R**2 + z**2))
+        exponent_2 = 1j * (k * z)
+
+        return constant * (np.exp(exponent_1) * np.exp(-exponent_2))
 
 
 def main() -> None: ...

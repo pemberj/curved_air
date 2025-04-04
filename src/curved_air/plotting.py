@@ -21,8 +21,11 @@ url = (
     "https://github.com/andrew-paglinawan/QuicksandFamily/blob/master/"
     + "fonts/statics/Quicksand-Regular.ttf"
 )
-quicksand = load_font(font_url=f"{url}?raw=true")
-fm.FontManager.addfont(fm.fontManager, path=quicksand._file)
+try:
+    quicksand = load_font(font_url=f"{url}?raw=true")
+    fm.FontManager.addfont(fm.fontManager, path=quicksand._file)
+except Exception:
+    ...
 
 lw = 1.3
 

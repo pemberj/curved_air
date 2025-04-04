@@ -31,26 +31,27 @@ def main() -> None:
     mirror_spacing: Quantity = 10 * u.um  # Glue gap thickness in beamsplitter cube
     mirror_reflectivity = 0.01  # Calculated reflectivity due to refractive
     # index mismatch between the glue and the glass
-    num_round_trips = 11
+    num_round_trips = 20
 
     reflectivity = np.array([mirror_reflectivity**i for i in range(1, num_round_trips)])
     baseline_transmission = 1 - np.sum(reflectivity)
     print(f"{baseline_transmission = }")
 
     # Work out where to sample the beam - starting from the back surface of the BSC
-    backfocus = 60.5 * u.mm
+    backfocus = 80 * u.mm
     start_z = -(backfocus + mirror_spacing)
     stop_z = start_z + (2 * mirror_spacing) * (num_round_trips - 1)
 
     # numpy doesn't enjoy working with astropy.units sometimes...
-    Zs = (
-        np.linspace(
-            start_z.to("mm").value, stop_z.to("mm").value, (num_round_trips - 1)
-        )
-        * u.mm
+    Zs = np.linspace(
+        start_z.to("mm").value,
+        stop_z.to("mm").value,
+        (num_round_trips - 1),
     )
 
-    wavelengths = np.linspace(499.9, 500.1, 100) * u.nm
+    Zs *= u.mm
+
+    wavelengths = np.linspace(490, 510, 200) * u.nm
 
     output = []
 
@@ -64,7 +65,8 @@ def main() -> None:
             debug_level=0,
         )
 
-        results = beam.summed_E_field(z=Zs, max_radius=2 * u.mm)
+        # results = beam.summed_E_field(z=Zs, max_radius=2 * u.mm)
+        results = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
 
         # Multiply by the reflectivity attenuation
         dimmed = np.array(
@@ -91,14 +93,16 @@ def main() -> None:
     ax.set_xlabel("Wavelength (nm)")
     ax.set_ylabel("Relative transmission")
     # ax.set_yticklabels([])
-    ax.set_ylim(min(transmission), max(transmission))
     ax.set_xlim(min(wavelengths).value, max(wavelengths).value)
-    # ax.legend()
+    ax.set_ylim(min(transmission), max(transmission))
+
+    # ax.get_yaxis().get_major_formatter().set_scientific(True)
+    # ax.get_yaxis().get_major_formatter().set_useOffset(False)
 
     Path(SCRIPT_PATH / "plots").mkdir(parents=True, exist_ok=True)
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png")
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":

@@ -52,10 +52,10 @@ def main() -> None:
     fig = plt.figure()
     ax = fig.gca()
 
-    G = ax.plot(Zs, gouy, ls="--", label="Gouy phase")
-    R = ax.plot(Zs, radi, ls="-.", color=G[0].get_color(), label="Radial phase")  # noqa: F841
+    ax.plot(Zs, gouy, ls="--", label="Gouy phase")
+    ax.plot(Zs, radi, ls="-.", label="Radial phase")
 
-    ax.plot(Zs, gouy + radi, color=G[0].get_color(), alpha=0.5, label="Sum")
+    ax.plot(Zs, gouy + radi, color="k", label="Sum")
 
     ax.legend()
 
