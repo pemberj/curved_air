@@ -9,6 +9,7 @@
 # ///
 
 
+import numpy as np
 from astropy import units as u
 from astropy.units import Quantity  # noqa: F401
 from matplotlib import pyplot as plt
@@ -277,7 +278,9 @@ def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
     ax: plt.axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        ax.plot(
+        slit_magnification = g.R / 2.6
+
+        marker = ax.plot(
             g.R,
             g.reddest_order_separation,
             marker=markers[i],
@@ -289,10 +292,35 @@ def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
             label=f"R={g.R}, {g.gpmm.value} g/mm",
         )
 
+        if slit_magnification != 1:
+            ax.plot(
+                g.R,
+                g.reddest_order_separation / slit_magnification,
+                marker=markers[i],
+                markersize=5,
+                markeredgecolor="k",
+                markeredgewidth=0.5,
+                lw=0,
+                alpha=0.75,
+                color=marker[0].get_color(),
+            )
+
+            ax.plot(
+                [g.R, g.R],
+                [
+                    (g.reddest_order_separation / slit_magnification).value,
+                    g.reddest_order_separation.value,
+                ],
+                linestyle=":",
+                color="k",
+                alpha=0.25,
+                zorder=-10,
+            )
+
         if g.catalogue_number == "53-*-417E":
             ax.plot(
                 g.R + 0.025,
-                g.reddest_order_separation,
+                g.reddest_order_separation / slit_magnification,
                 marker="o",
                 markersize=35,
                 markeredgecolor="r",
@@ -301,11 +329,42 @@ def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
                 lw=0,
             )
 
-    ax.text(3.75, 50, "Lower required cross-dispersion", ha="center", fontsize=14)
-    ax.text(3.75, 5, "Higher required cross-dispersion", ha="center", fontsize=14)
+    ax.text(2.3, 50, "Lower required cross-dispersion", ha="left", fontsize=14)
+    ax.text(2.3, 2, "Higher required cross-dispersion", ha="left", fontsize=14)
 
     ax.set_xlabel("Grating R-number")
-    ax.set_ylabel("Reddest orders' separation [nm]")
+    ax.set_ylabel("Reddest orders' separation [nm] divided by slit magnification")
+
+    ax.set_ylim(0, 70)
+
+    ax.legend()
+
+    plt.show()
+
+
+def plot_order_separation(gratings: list[Grating]) -> None:
+    fig: plt.figure = plt.figure("Reddest orders separation")
+    ax: plt.axes = fig.gca()
+
+    for i, g in enumerate(gratings):
+        order_numbers = g.diffraction_orders
+
+        separations = np.diff(g.blaze_wavelength(order_numbers))
+
+        ax.plot(
+            g.diffraction_orders,
+            separations,
+            marker=markers[i],
+            markersize=15,
+            markeredgecolor="k",
+            markeredgewidth=0.5,
+            lw=0,
+            alpha=0.75,
+            label=f"R={g.R}, {g.gpmm.value} g/mm",
+        )
+
+    ax.set_xlabel("Grating R-number")
+    ax.set_ylabel("Order separation [nm]")
 
     ax.legend()
 
@@ -324,7 +383,7 @@ def main() -> None:
         # grid = order_grid(grating=g)
         # print(grid)
 
-    plot_grating_options(gratings)
+    # plot_grating_options(gratings)
     # plot_wavelength_vs_m(gratings)
     # plot_opening_angle_vs_m(gratings)
     # plot_opening_angle_vs_blaze_wavelength(gratings)
@@ -333,7 +392,9 @@ def main() -> None:
     # plot_opening_angle_times_R_number(gratings)
 
     # plot_angular_dispersion_vs_R_and_gpmm(gratings)
-    # plot_reddest_orders_separation(gratings)
+    plot_reddest_orders_separation(gratings)
+
+    # plot_order_separation(gratings)
 
 
 if __name__ == "__main__":
