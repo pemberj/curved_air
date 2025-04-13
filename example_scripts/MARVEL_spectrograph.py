@@ -39,7 +39,7 @@ schott = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
 
 def main() -> None:
-    MARVEL_min_wl = 390 * u.nm
+    MARVEL_min_wl = 380 * u.nm
     MARVEL_max_wl = 950 * u.nm
     MARVEL_beam_diameter = 160 * u.mm
 
@@ -57,6 +57,7 @@ def main() -> None:
         apex_angle=60 * u.deg,
         min_wl=MARVEL_min_wl,
         max_wl=MARVEL_max_wl,
+        incidence_angle=54.7 * u.deg,
     )
 
     MARVEL = Spectrograph(
@@ -79,25 +80,26 @@ def main() -> None:
 
     MARVEL.plot_detector_edge(ax=ax)
 
-    for m in MARVEL.spectral_orders:
-        wls = MARVEL.order_wavelengths(m=m)
-        mean_wl = np.mean(wls)
-        print(f"{m = }, mean_wl={mean_wl.to(u.nm):.1f}")
+    for i in range(5):
+        offset = i * 130 * u.um
+        for m in MARVEL.spectral_orders:
+            wls = MARVEL.order_wavelengths(m=m)
+            mean_wl = np.mean(wls)
+            # print(f"{m = }, mean_wl={mean_wl.to(u.nm):.1f}")
 
-        edge_wls = MARVEL.order_wavelengths(m=m, FSR_fraction=3)
+            edge_wls = MARVEL.order_wavelengths(m=m, FSR_fraction=3)
 
-        xs, ys = MARVEL.image_plane_position(m=m, wavelength=edge_wls)
-        ax.plot(xs, ys, color=wavelength_to_rgb(mean_wl, fade_factor=0.3))
+            xs, ys = MARVEL.image_plane_position(m=m, wavelength=edge_wls)
+            ax.plot(xs + offset, ys, color=wavelength_to_rgb(mean_wl, fade_factor=0.3))
 
-        xs, ys = MARVEL.image_plane_position(m=m, wavelength=wls)
-        ax.plot(xs, ys, color="w")
-        ax.plot(
-            xs,
-            ys,
-            color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
-            lw=3,
-            path_effects=stroke(thickness=3.5),
-        )
+            xs, ys = MARVEL.image_plane_position(m=m, wavelength=wls)
+            ax.plot(
+                xs + offset,
+                ys,
+                color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
+                lw=3,
+                path_effects=stroke(thickness=3.5),
+            )
 
     ax.set_xlim(50, -50)
     ax.set_ylim(-50, 50)
