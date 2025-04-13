@@ -11,6 +11,7 @@ import colorsys
 from typing import overload
 
 import matplotlib.font_manager as fm
+import matplotlib.patheffects as pe
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
@@ -87,6 +88,14 @@ plot_style = {
     "errorbar.capsize": 3,
     "hist.bins": 20,
 }
+
+
+def stroke(thickness: float = 4) -> list:
+    """
+    A cheap and cheerful wrapper around matplotlib.patheffects objects to provide a
+    stroke effect around any line or text object
+    """
+    return [pe.Stroke(linewidth=thickness, foreground="k"), pe.Normal()]
 
 
 @overload

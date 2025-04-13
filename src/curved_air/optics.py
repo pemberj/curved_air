@@ -15,6 +15,7 @@ from functools import cached_property
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
+from matplotlib import pyplot as plt
 from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 
@@ -50,6 +51,25 @@ class Prism:
         """Alias of refractive_index"""
 
         return self.refractive_index
+
+    @cached_property
+    def mid_wavelength(self) -> Quantity:
+        """
+        Calculate the mid-wavelength of the prism.
+        """
+
+        mid_refractive_index = (
+            self.glass.refractive_index(self.min_wl)
+            + self.glass.refractive_index(self.max_wl)
+        ) / 2
+
+        wls = np.linspace(
+            self.min_wl.to(u.um).value,
+            self.max_wl.to(u.um).value,
+            500,
+        )
+
+        return wls[np.argmin(abs(self.glass.n(wls) - mid_refractive_index))] * u.um
 
     def deviation_angle(
         self,
@@ -106,22 +126,27 @@ class Prism:
         self, wl: ArrayLike = 632.8 * u.nm
     ) -> Quantity:
         """
-        Calculate the incidence angle that provides the minimum deviation
-        condition for the prism at a given wavelength.
-
-        Parameters
-        ----------
-        wl : ArrayLike, optional
-            Single or multiple wavelengths, with linear units from astropy.units
-            The default value is 0.6328 um, the wavelength of a HeNe laser.
-
-        Returns
-        -------
-        A single angle or an array of incidence angles at which minimum
-        deviation occurs
+        Calculate the incidence angle that provides the minimum deviation condition for
+        the prism at a given wavelength.
         """
 
         return (self.apex_angle + self.minimum_deviation_angle(wl)) / 2
+
+    def dispersion_angle(
+        self,
+        wl: Quantity | list[Quantity],
+    ) -> Quantity | list[Quantity]:
+        """ """
+        zero_angle = self.deviation_angle(wl=self.mid_wavelength)
+
+        return self.deviation_angle(wl=wl) - zero_angle
+
+    def angular_spread(self, min_wl: Quantity, max_wl: Quantity) -> Quantity:
+        """ """
+
+        min_angle = self.dispersion_angle(wl=min_wl)
+        max_angle = self.dispersion_angle(wl=max_wl)
+        return max_angle - min_angle
 
     def trace(
         self,
@@ -805,10 +830,14 @@ def _refract(
 
 @dataclass
 class Grating:
+    name: str = ""
     catalogue_number: str = ""
     groove_frequency: Quantity = 31.6 / u.mm
     blaze_angle: Quantity = 76 * u.deg
     gamma_angle: Quantity = field(default=0 * u.deg, repr=False)
+
+    groove_length: Quantity | None = None
+    ruled_width: Quantity | None = None
 
     min_wl: Quantity = field(default=390 * u.nm, repr=False)
     max_wl: Quantity = field(default=950 * u.nm, repr=False)
@@ -855,6 +884,10 @@ class Grating:
         max_m = self.order_number(self.min_wl, quantised=True)
 
         return list(range(min_m, max_m + 1))
+
+    @property
+    def beam_diameter(self) -> Quantity:
+        return self.ruled_width / self.R
 
     def order_containing_500nm(self, quantised: bool = True) -> int:
         return self.order_number(wl=500 * u.nm, quantised=quantised)
@@ -925,10 +958,14 @@ class Grating:
         wl: Quantity = 550 * u.nm,
     ) -> Quantity:
         if isinstance(wl, Quantity) and wl.size > 1:
-            return [self.diffraction_angle(m, iwl) for iwl in wl]
+            return [
+                self.diffraction_angle(m, iwl).to(u.degree).value for iwl in wl
+            ] * u.degree
 
         if isinstance(wl, list | tuple):
-            return [self.diffraction_angle(iwl) for iwl in wl]
+            return [
+                self.diffraction_angle(iwl).to(u.degree).value for iwl in wl
+            ] * u.degree
 
         if isinstance(wl, float):
             print(f"No wavelength units passed ({wl}). Assuming nanometers")
@@ -1005,6 +1042,127 @@ class Grating:
 
     def __repr__(self) -> str:
         return f"Grating(catalogue_number = {self.catalogue_number}, groove_frequency = {self.groove_frequency:.3f}, blaze_angle = {self.blaze_angle:.3f}, gamma_angle = {self.gamma_angle:.3f}, min_wl = {self.min_wl:.3f}, max_wl = {self.max_wl:.3f})"
+
+
+@dataclass
+class Spectrograph:
+    name: str = ""
+    grating: Grating = field(default_factory=Grating)
+    prism: Prism = field(default_factory=Prism)
+    beam_diameter: Quantity | None = None
+    min_wl: Quantity = 390 * u.nm
+    max_wl: Quantity = 950 * u.nm
+    collimator_focal_length: Quantity = 1125 * u.mm
+    slit_length: Quantity = 0.5 * u.mm
+    slit_native_focal_ratio: float = 3.85
+    camera_focal_length: Quantity = 730 * u.mm
+    detector_pixel_size: Quantity = 9 * u.um
+    detector_nx: int = 10560
+    detector_ny: int = 10560
+
+    def __post_init__(self) -> None:
+        if self.beam_diameter is None:
+            self.beam_diameter = self.grating.beam_diameter
+
+    @property
+    def detector_size(self) -> tuple[Quantity, Quantity]:
+        return (
+            self.detector_pixel_size * self.detector_nx,
+            self.detector_pixel_size * self.detector_ny,
+        )
+
+    def plot_detector_edge(self, ax: plt.axes) -> None:
+        halfx = self.detector_size[0].to(u.mm).value / 2
+        halfy = self.detector_size[1].to(u.mm).value / 2
+
+        ax.plot(
+            [-halfx, -halfx, halfx, halfx, -halfx],
+            [-halfy, halfy, halfy, -halfy, -halfy],
+            ls="--",
+            color="k",
+            alpha=0.5,
+        )
+
+    @property
+    def collimator_focal_ratio(self) -> float:
+        return self.collimator_focal_length / self.beam_diameter
+
+    @property
+    def slit_magnification(self) -> float:
+        return self.collimator_focal_ratio / self.slit_native_focal_ratio
+
+    @property
+    def spectral_orders(self) -> list[int]:
+        """ """
+
+        return self.grating.diffraction_orders
+
+    def order_wavelengths(
+        self,
+        m: int,
+        num: int = 100,
+        FSR_fraction: float = 1,
+    ) -> list[Quantity]:
+        """ """
+
+        min_m_wl, max_m_wl = self.grating.order_FSR_bounds(
+            m=m,
+            FSR_fraction=FSR_fraction,
+        )
+
+        return np.linspace(min_m_wl.to(u.um).value, max_m_wl.to(u.um).value, num) * u.um
+
+    def full_wavelengths(self) -> dict[int, list[Quantity]]:
+        """ """
+
+        return {m: self.order_wavelengths(m) for m in self.spectral_orders}
+
+    @property
+    def collimator_plate_scale(self) -> Quantity:
+        return (1 * u.radian / self.collimator_focal_length).to(u.deg / u.mm)
+
+    @property
+    def camera_plate_scale(self) -> Quantity:
+        return (1 * u.radian / self.camera_focal_length).to(u.deg / u.mm)
+
+    def image_plane_position(
+        self,
+        m: int,
+        wavelength: Quantity | list[Quantity],
+    ) -> tuple[Quantity, Quantity]:
+        """ """
+
+        if isinstance(wavelength, list | tuple):
+            return [self.image_plane_position(m, wl) for wl in wavelength]
+
+        grating_angle = self.grating.diffraction_angle(m=m, wl=wavelength)
+
+        prism_angle = self.prism.dispersion_angle(wl=wavelength)
+
+        return (
+            prism_angle / self.camera_plate_scale,
+            grating_angle / self.camera_plate_scale,
+        )
+
+    @cached_property
+    def reddest_order_image_plane_separation(self) -> Quantity:
+        """ """
+
+        o1, o2, *_ = sorted(self.spectral_orders)
+
+        wl1 = self.grating.blaze_wavelength(m=o1)
+        wl2 = self.grating.blaze_wavelength(m=o2)
+
+        x1 = self.image_plane_position(
+            m=o1,
+            wavelength=wl1,
+        )
+        x2 = self.image_plane_position(
+            m=o2,
+            wavelength=wl2,
+        )
+
+        return abs(x1[0] - x2[0])
 
 
 # EtalonSim / Etalon.py
