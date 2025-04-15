@@ -26,9 +26,10 @@ from curved_air.other import Air, Model
 @dataclass
 class Prism:
     glass: Glass
+    name: str = ""
     apex_angle: Quantity = 60 * u.deg
-    min_wl: Quantity = 390 * u.nm
-    max_wl: Quantity = 950 * u.nm
+    min_wl: Quantity | None = None
+    max_wl: Quantity | None = None
     incidence_angle: Quantity | None = None
 
     def __post_init__(self) -> None:
@@ -132,12 +133,38 @@ class Prism:
 
         return (self.apex_angle + self.minimum_deviation_angle(wl)) / 2
 
+    def effective_apex_angle(self, field_angle: Quantity = 0 * u.deg) -> Quantity:
+        """
+        I don't know why this works. The 74° is empirically determined, but matches very
+        well up to a field angle of ~10°.
+        """
+        return self.apex_angle + 74 * u.deg * (1 - np.cos(field_angle))
+
     def dispersion_angle(
         self,
         wl: Quantity | list[Quantity],
+        field_angle: Quantity = 0 * u.deg,
     ) -> Quantity | list[Quantity]:
         """ """
+
+        if hasattr(wl.value, "__len__") and hasattr(field_angle.value, "__len__"):
+            return [
+                self.dispersion_angle(wl=w, field_angle=f).value
+                for w, f in zip(wl, field_angle, strict=False)
+            ] * u.deg
+
         zero_angle = self.deviation_angle(wl=self.mid_wavelength)
+
+        if field_angle.value != 0:
+            effective_apex_angle = self.effective_apex_angle(field_angle=field_angle)
+
+            _self = Prism(
+                glass=self.glass,
+                apex_angle=effective_apex_angle,
+                incidence_angle=self.incidence_angle,
+            )
+
+            return _self.deviation_angle(wl=wl) - zero_angle
 
         return self.deviation_angle(wl=wl) - zero_angle
 
@@ -834,13 +861,13 @@ class Grating:
     catalogue_number: str = ""
     groove_frequency: Quantity = 31.6 / u.mm
     blaze_angle: Quantity = 76 * u.deg
-    gamma_angle: Quantity = field(default=0 * u.deg, repr=False)
+    gamma_angle: Quantity = 0 * u.deg
 
     groove_length: Quantity | None = None
     ruled_width: Quantity | None = None
 
-    min_wl: Quantity = field(default=390 * u.nm, repr=False)
-    max_wl: Quantity = field(default=950 * u.nm, repr=False)
+    min_wl: Quantity | None = None
+    max_wl: Quantity | None = None
 
     @cached_property
     def R(self) -> float:
@@ -1045,14 +1072,15 @@ class Grating:
 
 
 @dataclass
-class Spectrograph:
+class EchelleSpectrograph:
     name: str = ""
     grating: Grating = field(default_factory=Grating)
-    prism: Prism = field(default_factory=Prism)
+    cross_disperser: Prism = field(default_factory=Prism)
     beam_diameter: Quantity | None = None
     min_wl: Quantity = 390 * u.nm
     max_wl: Quantity = 950 * u.nm
     collimator_focal_length: Quantity = 1125 * u.mm
+    slit_width: Quantity = 40 * u.um
     slit_length: Quantity = 0.5 * u.mm
     slit_native_focal_ratio: float = 3.85
     camera_focal_length: Quantity = 730 * u.mm
@@ -1063,6 +1091,16 @@ class Spectrograph:
     def __post_init__(self) -> None:
         if self.beam_diameter is None:
             self.beam_diameter = self.grating.beam_diameter
+
+        if self.grating.min_wl is None:
+            self.grating.min_wl = self.min_wl
+        if self.grating.max_wl is None:
+            self.grating.max_wl = self.max_wl
+
+        if self.cross_disperser.min_wl is None:
+            self.cross_disperser.min_wl = self.min_wl
+        if self.cross_disperser.max_wl is None:
+            self.cross_disperser.max_wl = self.max_wl
 
     @property
     def detector_size(self) -> tuple[Quantity, Quantity]:
@@ -1079,8 +1117,9 @@ class Spectrograph:
             [-halfx, -halfx, halfx, halfx, -halfx],
             [-halfy, halfy, halfy, -halfy, -halfy],
             ls="--",
+            lw=4,
             color="k",
-            alpha=0.5,
+            alpha=0.25,
         )
 
     @property
@@ -1088,8 +1127,20 @@ class Spectrograph:
         return self.collimator_focal_length / self.beam_diameter
 
     @property
+    def camera_focal_ratio(self) -> float:
+        return self.camera_focal_length / self.beam_diameter
+
+    @property
     def slit_magnification(self) -> float:
-        return self.collimator_focal_ratio / self.slit_native_focal_ratio
+        return float((self.camera_focal_ratio / self.slit_native_focal_ratio).si.value)
+
+    @property
+    def slit_sampling(self, slit_width: Quantity | None = None) -> Quantity:
+        if slit_width is None:
+            slit_width = self.slit_width
+
+        slit_image_width = slit_width * self.slit_magnification
+        return float((slit_image_width / self.detector_pixel_size).si.value)
 
     @property
     def spectral_orders(self) -> list[int]:
@@ -1137,7 +1188,10 @@ class Spectrograph:
 
         grating_angle = self.grating.diffraction_angle(m=m, wl=wavelength)
 
-        prism_angle = self.prism.dispersion_angle(wl=wavelength)
+        prism_angle = self.cross_disperser.dispersion_angle(
+            wl=wavelength,
+            field_angle=grating_angle,
+        )
 
         return (
             prism_angle / self.camera_plate_scale,

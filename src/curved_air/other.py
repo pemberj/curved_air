@@ -35,6 +35,49 @@ _fraunhofer_lines = {
     "t": 1013.98 * u.nm,
 }
 
+_atomic_lines = {
+    # Balmer lines of Hydrogen
+    "H$\\alpha$": 656.48131 * u.nm,
+    "H$\\beta$": 486.33582 * u.nm,
+    "H$\\gamma$": 434.12202 * u.nm,
+    "H$\\delta$": 410.17103 * u.nm,
+    # Sodium
+    "Na $D_1$": 589.592 * u.nm,
+    "Na $D_2$": 588.995 * u.nm,
+    "NaI": 819.12515 * u.nm,
+    # Silicon
+    "SiIII$_1$": 455.2622 * u.nm,
+    "SiIII$_2$": 456.7840 * u.nm,
+    "SiIII$_3$": 457.4757 * u.nm,
+    # Calcium misc
+    "CaI$_{422}$": 422.67270 * u.nm,
+    "CaI$_{616}$": 616.42055 * u.nm,
+    # Calcium-II doublet
+    "CaII-K": 393.36614 * u.nm,
+    "CaII-H": 396.84673 * u.nm,
+    # Calcium Triplet
+    "CaII$_1$": 849.802 * u.nm,
+    "CaII$_2$": 854.209 * u.nm,
+    "CaII$_3$": 866.2140 * u.nm,
+    # Iron
+    "FeI$_1$": 438.48318 * u.nm,
+    "FeI$_2$": 440.60371 * u.nm,
+    "FeI$_{869}$": 869.13867 * u.nm,
+    "FeH": 9940 * u.nm,
+    # Helium d-line
+    "He-d": 587.5618 * u.nm,
+    # Manganese
+    "MnI": 539.47 * u.nm,
+    # Magnesium
+    "MgI": 517.4141 * u.nm,
+    # Rubidium
+    "Rb-B$_1$": 792.9781 * u.nm,
+    "Rb-B$_2$": 796.97918 * u.nm,
+    # Calcium hydride
+    "CaH2": 683.1862 * u.nm,
+    "CaH3": 697.69239 * u.nm,
+}
+
 
 """
 Wrappers to functions from the `ref_index` library

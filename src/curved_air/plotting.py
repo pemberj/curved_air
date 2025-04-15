@@ -8,6 +8,8 @@ as a function to convert wavelengths to RGB values, also used in certain plots.
 """
 
 import colorsys
+import multiprocessing  # noqa: F401
+import time  # noqa: F401
 from typing import overload
 
 import matplotlib.font_manager as fm
@@ -17,16 +19,32 @@ from astropy import units as u
 from astropy.units import Quantity
 from pyfonts import load_font
 
-# load Quicksand font
-url = (
-    "https://github.com/andrew-paglinawan/QuicksandFamily/blob/master/"
-    + "fonts/statics/Quicksand-Regular.ttf"
-)
-try:
-    quicksand = load_font(font_url=f"{url}?raw=true")
-    fm.FontManager.addfont(fm.fontManager, path=quicksand._file)
-except Exception:
-    ...
+quicksand = None
+
+
+def load_custom_font() -> None:
+    # load Quicksand font
+    url = (
+        "https://github.com/andrew-paglinawan/QuicksandFamily/blob/master/"
+        + "fonts/statics/Quicksand-Regular.ttf"
+    )
+
+    try:
+        quicksand = load_font(font_url=f"{url}?raw=true")
+        fm.FontManager.addfont(fm.fontManager, path=quicksand._file)
+    except Exception:
+        ...
+
+
+p = multiprocessing.Process(target=load_custom_font)
+p.start()
+p.join(timeout=3)
+
+if p.is_alive():
+    p.terminate()
+    p.join()
+    print("Failed to load custom font. Using default font instead.")
+
 
 lw = 1.3
 
