@@ -40,7 +40,7 @@ gc = GlassCatalogue().read_AGF(agf_filename=agf_files)
 F2 = gc["F2"]
 
 
-def plot_mid_wavelength() -> None:
+def plot_mid_dispersion_wavelength() -> None:
     """ """
 
     prism = Prism(
@@ -50,7 +50,7 @@ def plot_mid_wavelength() -> None:
         max_wl=950 * u.nm,
     )
 
-    fig = plt.figure("Prism deviation angles as a function of wavelength")
+    fig = plt.figure("Mid-dispersion wavelength of prism")
     ax = fig.gca()
 
     wls = np.linspace(390, 950, 100) * u.nm
@@ -92,7 +92,7 @@ def plot_mid_wavelength() -> None:
     ax.text(
         494.3 + 25,
         prism.deviation_angle(494.3 * u.nm).value,
-        "Mid-wavelength: 494.3 nm",
+        "Mid-dispersion wavelength: 494.3 nm",
         ha="left",
         va="center",
         fontsize=12,
@@ -253,7 +253,7 @@ def plot_deviation_angle_by_incidence_angle() -> None:
 
 
 if __name__ == "__main__":
-    plot_mid_wavelength()
+    plot_mid_dispersion_wavelength()
 
     # plot_deviation_angle_by_wavelength()
 

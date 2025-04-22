@@ -168,12 +168,29 @@ class Prism:
 
         return self.deviation_angle(wl=wl) - zero_angle
 
-    def angular_spread(self, min_wl: Quantity, max_wl: Quantity) -> Quantity:
+    def angular_spread(
+        self,
+        min_wl: Quantity | None = None,
+        max_wl: Quantity | None = None,
+    ) -> Quantity:
         """ """
 
-        min_angle = self.dispersion_angle(wl=min_wl)
-        max_angle = self.dispersion_angle(wl=max_wl)
+        if min_wl is None:
+            min_wl = self.min_wl
+        if max_wl is None:
+            max_wl = self.max_wl
+
+        min_angle = -self.deviation_angle(wl=min_wl)
+        max_angle = -self.deviation_angle(wl=max_wl)
         return max_angle - min_angle
+
+    def local_angular_dispersion(self, wl: Quantity) -> Quantity:
+        delta_wavelength = 1 * u.nm
+
+        wl1 = wl - delta_wavelength / 2
+        wl2 = wl + delta_wavelength / 2
+
+        return self.angular_spread(min_wl=wl1, max_wl=wl2) / delta_wavelength
 
     def trace(
         self,
@@ -905,14 +922,14 @@ class Grating:
     def min_order(self) -> int:
         return int((self.m_times_lambda / self.max_wl) + 0.5)
 
-    @property
+    @cached_property
     def diffraction_orders(self) -> list[int]:
         min_m = self.order_number(self.max_wl, quantised=True)
         max_m = self.order_number(self.min_wl, quantised=True)
 
         return list(range(min_m, max_m + 1))
 
-    @property
+    @cached_property
     def beam_diameter(self) -> Quantity:
         return self.ruled_width / self.R
 

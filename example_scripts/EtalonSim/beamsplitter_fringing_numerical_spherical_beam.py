@@ -116,7 +116,7 @@ def main() -> None:
 
     output = np.array(output)
 
-    fig = plt.figure()
+    fig = plt.figure("Beamsplitter fringing from spherical f/10 beam", figsize=(8, 4))
     ax = fig.gca()
 
     # Don't use round numbers for this plot
@@ -129,11 +129,15 @@ def main() -> None:
     ax.plot(delta_wls, transmission / max_transmission - 1, label="")
 
     # ax.set_title("Beamsplitter cube etalon, gaussian beam illumination")
-    ax.set_xlabel(f"(Wavelength - {mid_wl:.0f}) [pm]")
+    ax.set_xlabel(f"(Wavelength - {mid_wl:.0f}) (pm)")
     ax.set_ylabel("Relative transmission - 1")
     # ax.set_yticklabels([])
     # ax.set_xlim(min(wavelengths).value, max(wavelengths).value)
     # ax.set_ylim(min(transmission), max(transmission))
+
+    ax.axhline(0, color="k", ls="--", alpha=0.25)
+
+    ax.set_ylim(-2.5e-11, 0.25e-11)
 
     ax.get_yaxis().get_major_formatter().set_useOffset(False)
     ax.get_yaxis().get_major_formatter().set_scientific(True)

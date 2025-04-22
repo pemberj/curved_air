@@ -8,6 +8,7 @@
 # curved_air = { path = "..", editable = true }
 # ///
 
+import re
 from pathlib import Path
 
 from astropy import units as u
@@ -15,11 +16,29 @@ from astropy.units import Quantity  # noqa: F401
 from matplotlib import pyplot as plt
 from rich import print  # noqa: A004
 
-from curved_air.optics import Grating
+from curved_air.glass import GlassCatalogue
+from curved_air.optics import Grating, Prism
 from curved_air.plotting import plot_style, wavelength_to_rgb
 from curved_air.utils import richardson_gratings
 
 plt.style.use(plot_style)
+
+SCRIPT_PATH = Path(__file__).parent
+OUT_PATH = Path("/home/jake/Nextcloud-IvS/Thesis Plots")
+
+agf_dir = SCRIPT_PATH / "../data/AGFs"
+
+agf_files = [
+    f
+    for f in agf_dir.glob("*.[Aa][Gg][Ff]")
+    if re.search(pattern="schott", string=f.name)
+]
+
+if not agf_files:
+    raise FileNotFoundError("No AGF files found in the data directory.")
+
+schott = GlassCatalogue().read_AGF(agf_filename=agf_files)
+
 
 markers = ["o", "s", "D", "P", "v", "^", "<", ">", "h", "H", "p", "*", "+", "X"]
 
@@ -399,34 +418,150 @@ def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
     )
 
 
+def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
+    """ """
+    prism = Prism(
+        glass=schott["F2"],
+        apex_angle=60 * u.deg,
+    )
+    angular_dispersion_950 = prism.local_angular_dispersion(wl=950 * u.nm).to(
+        u.deg / u.nm
+    )
+    print(f"{angular_dispersion_950 = }")
+
+    slit_length = 1.08 * u.mm
+
+    # MARVEL magnification
+    slit_angular_size = (slit_length * (u.radian / (1125 * u.mm))).to(u.deg)
+
+    yoffset = slit_angular_size
+
+    fig: plt.figure = plt.figure("Required cross-dispersion", figsize=(8, 5))
+    ax: plt.axes = fig.gca()
+
+    for i, g in enumerate(gratings):
+        slit_magnification = g.R / 2.7
+
+        slit_angular_size = (
+            slit_length * (u.radian / (1125 * u.mm)) * slit_magnification
+        ).to(u.deg)
+
+        print(f"{g.R = }")
+        print(f"{slit_angular_size = }")
+
+        reddest_m = g.min_order
+
+        wl1 = g.blaze_wavelength(reddest_m + 1)
+        wl2 = g.blaze_wavelength(reddest_m)
+
+        # print(wl1, wl2)
+
+        reddest_angular_spread = prism.angular_spread(min_wl=wl1, max_wl=wl2).to(u.deg)
+        delta_wavelength = (wl2 - wl1).to(u.nm)
+
+        # print(f"{reddest_angular_spread / delta_wavelength = }")
+
+        y = slit_angular_size / reddest_angular_spread
+
+        print(y)
+
+        _markers = ax.plot(
+            g.R,
+            y,
+            marker=markers[i],
+            markersize=15,
+            markeredgecolor="k",
+            markeredgewidth=0.5,
+            lw=0,
+            alpha=0.75,
+            label=f"R={g.R}, {g.gpmm.value} g/mm",
+        )
+
+        color = wavelength_to_rgb(wavelength=650 * u.nm, fade_factor=0.6)
+
+        if g.catalogue_number == "53-*-417E":
+            ax.plot(
+                g.R + 0.025,
+                y,
+                marker="o",
+                markersize=35,
+                markeredgecolor=color,
+                markeredgewidth=2.6,
+                markerfacecolor="none",
+                lw=0,
+            )
+
+    ax.axhline(
+        y=1,
+        color="k",
+        xmax=0.71,
+        linestyle="--",
+        alpha=0.25,
+        zorder=-10,
+    )
+
+    ax.text(
+        5.4,
+        1,
+        "Single $60\\degree$ F2 prism",
+        ha="right",
+        va="bottom",
+        fontsize=12,
+        color="k",
+        alpha=0.75,
+    )
+
+    ax.set_xlabel("Grating R-number")
+    ax.set_ylabel(
+        "Required cross-dispersion\nrelative to a single $60\\degree$ F2 prism"
+    )
+
+    ax.set_xlim(1.5, 7)
+    ax.set_ylim(0.2, 15)
+    ax.set_yscale("log")
+
+    ax.text(3.5, 5, "Higher required cross-dispersion", ha="center", fontsize=14)
+    ax.text(3.5, 0.3, "Lower required cross-dispersion", ha="center", fontsize=14)
+
+    ax.legend(frameon=True, fontsize=12, markerscale=0.8, loc="lower right")
+
+    plt.savefig(
+        Path(OUT_PATH / "grating-required-cross-dispersion.png"),
+        dpi=300,
+    )
+
+    # plt.show()
+
+
 def main() -> None:
-    global OUT_PATH  # noqa: PLW0603
-
-    OUT_PATH = Path("/home/jake/Nextcloud-IvS/Thesis Plots")
-
     gratings: list[Grating] = richardson_gratings(
         selection_query="Ruled_width>=400 and Grooves_per_mm<=110",
     )
 
     for g in gratings:
+        g.min_wl = 380 * u.nm
+        g.max_wl = 950 * u.nm
+
         g.sign_of_blaze = -1
         print(f"{g}")
         # print(f"Aspect ratio: {g.aspect_ratio()}")
         # grid = order_grid(grating=g)
         # print(grid)
 
-    plot_grating_options(gratings)
-    plot_wavelength_vs_m(gratings)
-    plot_opening_angle_vs_m(gratings)
-    plot_opening_angle_vs_blaze_wavelength(gratings)
-    plot_opening_angle_vs_R_and_gpmm(gratings)
+    # plot_grating_options(gratings)
+    # plot_wavelength_vs_m(gratings)
+    # plot_opening_angle_vs_m(gratings)
+    # plot_opening_angle_vs_blaze_wavelength(gratings)
+    # plot_opening_angle_vs_R_and_gpmm(gratings)
 
-    plot_opening_angle_times_R_number(gratings)
+    # plot_opening_angle_times_R_number(gratings)
 
-    plot_angular_dispersion_vs_R_and_gpmm(gratings)
-    plot_reddest_orders_separation(gratings)
+    # plot_angular_dispersion_vs_R_and_gpmm(gratings)
+    # plot_reddest_orders_separation(gratings)
 
     # plot_order_separation(gratings)
+
+    plot_required_cross_dispersion(gratings)
 
 
 if __name__ == "__main__":
