@@ -33,8 +33,12 @@ class Beam:
     debug_level: int = 0
 
     @property
-    def k_scalar(self) -> float:
-        return 2 * np.pi / self.wavelength
+    def k_scalar(self) -> Quantity:
+        return 2 * np.pi * self.n / self.wavelength
+
+    @property
+    def k(self) -> Quantity:
+        return self.k_scalar
 
     def __str__(self) -> str:
         vals = "".join([f"{p:>12}: {val:<6}\n" for p, val in self.__dict__.items()])
@@ -60,11 +64,6 @@ class GaussianBeam(Beam):
                 print(f"{p}: {val}")
 
     @property
-    def k(self) -> Quantity:
-        """k, wavenumber"""
-        return ((2 * np.pi * self.n) / self.wavelength).si
-
-    @property
     def z_R(self) -> Quantity:
         """
         z_R, Rayleigh range, sometimes z_0
@@ -72,13 +71,6 @@ class GaussianBeam(Beam):
         """
 
         return ((np.pi * self.n * self.w_0**2) / self.wavelength).si
-
-    def q(self, z: Quantity = 0 * u.mm) -> Quantity:
-        """
-        q, complex beam parameter
-        """
-
-        return z + 1j * self.z_R
 
     def w_squared(self, z: Quantity = 0 * u.mm) -> Quantity:
         """
@@ -130,25 +122,6 @@ class GaussianBeam(Beam):
         R[np.isnan(R)] = np.inf * u.m
 
         return R
-
-    def curvature(self, z: Quantity = 0 * u.mm) -> Quantity:
-        """
-        Curvature of the wavefront at a distance z from the beam waist
-        """
-
-        return 1 / self.R(z)
-
-    def sag(self, z: Quantity = 0 * u.mm, D: Quantity = 4 * u.mm) -> Quantity:
-        """
-        Returns the sag (sagitta) between the wavefront at a distance z from the
-        beam waist and at a diameter D from the propagation axis
-
-        Modified definition to avoid a singularity at z=0, infinite radius
-        """
-
-        R = self.R(z)
-
-        return R - np.sign(R) * np.sqrt(R**2 - (D / 2) ** 2)
 
     def amplitude(
         self,

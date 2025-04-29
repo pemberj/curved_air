@@ -31,16 +31,16 @@ def main() -> None:
     mirror_spacing: Quantity = 6 * u.mm  # mm
     round_trip = 2 * mirror_spacing
     round_trip_mm = round_trip.to("mm").value
-    num_round_trips = 3000  # number of reflections on the OUTPUT surface
-    mirror_reflectivity = 0.95
+    num_round_trips = 50  # number of reflections on the OUTPUT surface
+    mirror_reflectivity = 0.9
 
     analytic_etalon = Etalon(thickness=mirror_spacing, R_1=mirror_reflectivity)
 
     reflectivity = np.array(
-        [mirror_reflectivity ** (n) for n in range(1, num_round_trips)]
+        [mirror_reflectivity ** (n) for n in range(1, num_round_trips + 1)]
     )
 
-    Zs = np.arange(0, round_trip_mm * (num_round_trips - 1), round_trip_mm) * u.mm
+    Zs = np.arange(0, round_trip_mm * num_round_trips, round_trip_mm) * u.mm
     # two same-length placeholder arrays for the plane-wave version
     Xs = np.zeros_like(Zs)
     Ys = np.zeros_like(Zs)
@@ -56,17 +56,9 @@ def main() -> None:
         central_wavelength + w / 1.5,
         301,
     )
-
     wavelengths *= u.nm
 
-    # Three peaks:
-    # wavelengths = np.linspace(499.975, 500.025, 200) * u.nm
-
-    output = {
-        "gaussian": [],
-        "planar": [],
-        # "spherical": [],
-    }
+    gaussian_intensity = []
 
     for wavelength in wavelengths:
         beam = GaussianBeam(
@@ -79,32 +71,13 @@ def main() -> None:
         results = beam.summed_E_field(z=Zs)
         dimmed = results * reflectivity
         intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
-        output["gaussian"].append(
-            intensity**0.5
-        )  # I don't know why taking the square root here makes it work as expected!
+        gaussian_intensity.append(intensity)
 
-        # Now the same for the planar beam (only evaluated on-axis)
-        beam = PlanarBeam(wavelength=wavelength, plane_normal=(0, 0, 1))
-        results = np.real(beam.E_field(x=Xs, y=Ys, z=Zs))
-        dimmed = results * reflectivity
-        intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
-        output["planar"].append(intensity**0.5)
-
-        # beam = SphericalBeam(
-        #     wavelength=wavelength,
-        #     plane_normal=(0, 0, 1),
-        #     f_number=20,
-        # )
-        # results = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
-        # dimmed = results * reflectivity
-        # intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
-        # output["spherical"].append(intensity**0.5)
-
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.gca()
 
     distance_between_peaks = analytic_etalon.delta_lambda()
-    analytic_intensity = analytic_etalon.intensity(wavelengths)
+    analytic_intensity = analytic_etalon.intensity(wavelengths) ** 2
 
     analytic_fwhm = (
         np.diff(FWHM(wavelengths.to("pm").value, np.real(analytic_intensity)))[0] * u.pm
@@ -115,32 +88,34 @@ def main() -> None:
         wavelengths,
         analytic_intensity / np.max(analytic_intensity),
         label="Analytic reflection-limited peak\n"
+        + "(Plane wave)\n"
         + f"FWHM = {analytic_fwhm:.4f}\n"
         + f"Finesse = {analytic_finesse:.2f}",
     )
 
-    for _, [beam_type, values] in enumerate(output.items()):
-        # Why am I getting a zero-offset in the numerical ones?
-        # Corresponds to the very first mirror reflection
-        values = values / np.max(values) - (1 - np.sqrt(mirror_reflectivity))  # noqa: PLW2901
+    gaussian_intensity = gaussian_intensity / np.max(gaussian_intensity) - (
+        1 - np.sqrt(mirror_reflectivity)
+    )  # noqa: PLW2901
 
-        try:
-            peak_fwhm = np.diff(FWHM(wavelengths.to("pm").value, values))[0] * u.pm
-            calculated_finesse = distance_between_peaks / peak_fwhm
-        except (IndexError, ValueError):
-            calculated_finesse = np.nan
-
-        ax.plot(
-            wavelengths,
-            values / np.max(values),
-            ls="--",
-            label=f"{beam_type.title()} beam\n"
-            + f"FWHM = {peak_fwhm:.4f}\n"
-            + f"Finesse = {calculated_finesse:.2f}",
+    try:
+        peak_fwhm = (
+            np.diff(FWHM(wavelengths.to("pm").value, gaussian_intensity))[0] * u.pm
         )
+        calculated_finesse = distance_between_peaks / peak_fwhm
+    except (IndexError, ValueError):
+        calculated_finesse = np.nan
+
+    ax.plot(
+        wavelengths,
+        gaussian_intensity / np.max(gaussian_intensity),
+        ls="--",
+        label="Gaussian beam\n"
+        + f"FWHM = {peak_fwhm:.4f}\n"
+        + f"Finesse = {calculated_finesse:.2f}",
+    )
 
     ax.set_xlabel("Wavelength (nm)")
-    ax.set_ylabel("Normalised intensity")
+    ax.set_ylabel("Relative transmitted intensity")
     # ax.set_yticklabels([])
     ax.set_xlim(min(wavelengths).to("nm").value, max(wavelengths).to("nm").value)
 

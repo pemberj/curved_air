@@ -5,7 +5,7 @@
 #     "rich>=10.0.0",
 # ]
 # [tool.uv.sources]
-# curved_air = { path = "..", editable = true }
+# curved_air = { path = "/home/jake/Desktop/curved_air", editable = true }
 # ///
 
 import re
@@ -18,7 +18,7 @@ from matplotlib import pyplot as plt
 from curved_air.glass import GlassCatalogue
 from curved_air.optics import EchelleSpectrograph, Grating, Prism
 from curved_air.other import _atomic_lines
-from curved_air.plotting import plot_style, stroke, wavelength_to_rgb
+from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 
 plt.style.use(plot_style)
 
@@ -79,26 +79,69 @@ def main() -> None:
 
     MARVEL.plot_detector_edge(ax=ax)
 
-    for i in range(1):  # number of fibres
-        offset = i * 130 * u.um * MARVEL.slit_magnification
+    ax.text(
+        46,
+        -46,
+        "Detector edge",
+        fontsize=18,
+        ha="left",
+        va="bottom",
+        alpha=0.5,
+    )
+
+    b = 50
+
+    ax.set_xlim(b, -b)
+    ax.set_ylim(-b, b)
+
+    ax.set_aspect("equal")
+
+    for f in range(1):  # number of fibres
+        offset = f * 130 * u.um * MARVEL.slit_magnification
         for m in MARVEL.spectral_orders:
             wls = MARVEL.order_wavelengths(m=m)
             mean_wl = np.mean(wls)
-            # print(f"{m = }, mean_wl={mean_wl.to(u.nm):.1f}")
-
-            # edge_wls = MARVEL.order_wavelengths(m=m, FSR_fraction=3)
-
-            # xs, ys = MARVEL.image_plane_position(m=m, wavelength=edge_wls)
-            # ax.plot(xs + offset, ys, color=wavelength_to_rgb(mean_wl, fade_factor=0.3))
 
             xs, ys = MARVEL.image_plane_position(m=m, wavelength=wls)
             ax.plot(
                 xs + offset,
                 ys,
                 color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
-                lw=3,
-                path_effects=stroke(thickness=3.5),
+                lw=3.5,
+                # path_effects=stroke(thickness=3.5),
             )
+
+            if m % 5 == 0:
+                if m == 90:  # noqa: PLR2004
+                    mtext = f"{m = }"
+                    wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
+                else:
+                    mtext = f"{m}"
+                    wltext = f"{wls[0].to(u.nm).value:.0f}"
+
+                if abs(ys[0].value) + 5 > b:
+                    continue
+
+                ax.text(
+                    (xs[0] + offset).value,
+                    ys[0].value - 1.5,
+                    mtext,
+                    fontsize=14,
+                    ha="center",
+                    va="top",
+                )
+
+                if abs(ys[-1].value) + 5 > b:
+                    continue
+
+                ax.text(
+                    (xs[-1] + offset).value,
+                    ys[-1].value + 1.5,
+                    wltext,
+                    fontsize=14,
+                    ha="center",
+                    va="bottom",
+                )
 
             min_FSR_wl, max_FSR_wl = MARVEL.grating.order_FSR_bounds(m=m)
 
@@ -111,22 +154,24 @@ def main() -> None:
                         x.value,
                         y.value,
                         f"{name}",
-                        fontsize=12,
+                        fontsize=14,
                         ha="center",
                         va="center",
                         bbox={
                             "facecolor": "w",
-                            "edgecolor": "w",
-                            "pad": 0.5,
-                            "alpha": 0.8,
+                            "edgecolor": "k",
+                            "alpha": 0.75,
+                            "boxstyle": "round,pad=0.25",
                         },
                     )
 
-    ax.set_xlim(50, -50)
-    ax.set_ylim(-50, 50)
-
     # ax.patch.set_facecolor("black")
     ax.axis("off")
+
+    # plt.savefig(
+    #     "/home/jake/Syncthing/thesis/chapters/02-marvel-optics/image/MARVEL-spectral-format.png",
+    #     dpi=300,
+    # )
 
     plt.show()
 

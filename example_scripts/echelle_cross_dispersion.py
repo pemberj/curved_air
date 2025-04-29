@@ -96,7 +96,7 @@ def main() -> None:
     raw_slit_length = 4 * fibre_spacing + fibre_width
     print(f"{raw_slit_length = }")
 
-    slit_length = 620 * u.um - required_gap_pixels * pixel_size / slit_magnification
+    slit_length = 730 * u.um - required_gap_pixels * pixel_size / slit_magnification
 
     sigma = 1 / (52.67 / u.mm)
     gamma = 0.3 * u.deg

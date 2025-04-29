@@ -236,6 +236,16 @@ class Prism:
 
         return rays.to(u.degree)
 
+    def __repr__(self) -> str:
+        return (
+            f"Prism(name={self.name}, "
+            f"glass={self.glass.name}, "
+            f"apex_angle={self.apex_angle:.0f}, "
+            f"min_wl={self.min_wl:.0f}, "
+            f"max_wl={self.max_wl:.0f}, "
+            f"incidence_angle={self.incidence_angle:.3f})"
+        )
+
 
 @dataclass
 class PrismStack:
@@ -1236,7 +1246,67 @@ class EchelleSpectrograph:
         return abs(x1[0] - x2[0])
 
 
-# EtalonSim / Etalon.py
+@dataclass
+class DoublePassEchelleSpectrograph(EchelleSpectrograph):
+    """
+    Description of a double-pass echelle spectrograph
+
+    Extends the EchelleSpectrograph class to include a second pass through the
+    cross-disperser. It needs to redefine the Grating after the first pass for each
+    wavelength.
+
+    WIP
+    """
+
+    def image_plane_position(
+        self,
+        m: int,
+        wavelength: Quantity | list[Quantity],
+    ) -> tuple[Quantity, Quantity]:
+        """ """
+
+        if (isinstance(wavelength, Quantity) and wavelength.size > 1) or isinstance(
+            wavelength.value, list | tuple
+        ):
+            return [
+                self.image_plane_position(m, wl).to(u.mm).value for wl in wavelength
+            ] * u.mm
+
+        prism_first_pass_angle = self.cross_disperser.dispersion_angle(
+            wl=wavelength,
+            field_angle=0 * u.deg,
+        )
+
+        _grating: Grating = Grating(
+            groove_frequency=self.grating.groove_frequency,
+            blaze_angle=self.grating.blaze_angle,
+            gamma_angle=self.grating.gamma_angle + prism_first_pass_angle,
+            min_wl=self.grating.min_wl,
+            max_wl=self.grating.max_wl,
+        )
+
+        grating_angle = _grating.diffraction_angle(m=m, wl=wavelength)
+
+        _prism_second_pass: Prism = Prism(
+            glass=self.cross_disperser.glass,
+            apex_angle=self.cross_disperser.apex_angle,
+            min_wl=self.cross_disperser.min_wl,
+            max_wl=self.cross_disperser.max_wl,
+            incidence_angle=self.cross_disperser.incidence_angle
+            + prism_first_pass_angle,
+        )
+
+        prism_second_pass_angle = 2 * _prism_second_pass.dispersion_angle(
+            wl=wavelength,
+            field_angle=grating_angle,
+        )
+
+        return (
+            (prism_second_pass_angle / self.camera_plate_scale).to(u.mm).value,
+            (grating_angle / self.camera_plate_scale).to(u.mm).value,
+        ) * u.mm
+
+
 @dataclass
 class Etalon:
     """Description of plane wave illumination of an etalon a la Wikipedia"""
