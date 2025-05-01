@@ -2,10 +2,9 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "curved-air>=0.1.0",
-#     "rich>=10.0.0",
 # ]
 # [tool.uv.sources]
-# curved_air = { path = "/home/jake/Desktop/curved_air", editable = true }
+# curved_air = { path = "..", editable = true }
 # ///
 
 import re
