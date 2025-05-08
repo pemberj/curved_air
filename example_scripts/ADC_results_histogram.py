@@ -8,6 +8,7 @@
 # ///
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -41,7 +42,7 @@ def main() -> None:
     compound_cutoff = 1  # noqa: F841
 
     selected = results.query(
-        "`PTV Residuals` <= @residuals_cutoff and abs(`Apex angle`) <= @apex_cutoff and abs(`Compound angle`) <= @compound_cutoff"
+        "`PTV Residuals` <= @residuals_cutoff and abs(`Apex angle`) <= @apex_cutoff and abs(`Compound angle`) <= @compound_cutoff and `Zero-deviation wavelength` >= 0.38 and `Zero-deviation wavelength` <= 0.95"
     )
 
     selected_sorted = selected.sort_values("PTV Residuals")
@@ -51,72 +52,110 @@ def main() -> None:
         "`PTV Residuals` > @residuals_cutoff or abs(`Apex angle`) > @apex_cutoff or abs(`Compound angle`) > @compound_cutoff"
     )
 
-    fig = plt.figure("Angular residuals histogram")
-    ax = fig.gca()
+    fig = plt.figure("Angular residuals histograms", figsize=(12, 8))
+
+    axs = fig.subplot_mosaic(
+        [
+            ["main", "apex"],
+            ["main", "compound"],
+            ["main", "lambda_0"],
+        ],
+        width_ratios=[3, 2],
+    )
+
+    ax = axs["main"]
     ax.hist(
         [selected["PTV Residuals"], rejected["PTV Residuals"]],
-        bins=np.linspace(0, 100, 51),
+        bins=np.linspace(0, 100, 31),
         edgecolor="k",
         alpha=0.75,
         label=[
-            f"PTV residuals$\\leq${residuals_cutoff} mas",
-            f"Rejected, PTV$>${residuals_cutoff} mas",
+            "Candidates meeting criteria",
+            "Rejected candidates",
         ],
         histtype="barstacked",
+        align="mid",
     )
-    ax.set_xlabel("Angular residuals [milliarcseconds]")
-    ax.set_ylabel("Frequency")
+    ax.axvline(
+        residuals_cutoff,
+        color="r",
+        linestyle="--",
+        lw=3,
+        label="Selection cutoffs",
+    )
+    ax.set_xlabel(
+        "PTV angular residuals (milliarcseconds projected on sky)", fontsize=16
+    )
+    ax.set_ylabel("Number of candidate designs", fontsize=16)
     ax.set_xlim(0, 110)
-    ax.legend()
+    ax.legend(fontsize=16, loc="upper right", frameon=True)
 
-    fig, axs = plt.subplots(3, 1, figsize=(8, 8))
-
-    ax = axs[0]
+    ax = axs["apex"]
     ax.hist(
         [abs(selected["Apex angle"]), abs(rejected["Apex angle"])],
-        bins=np.linspace(0, 25, 26),
+        bins=np.linspace(0, 20, 31),
         edgecolor="k",
         alpha=0.75,
-        label=[
-            f"PTV residuals$\\leq${residuals_cutoff} mas",
-            f"Rejected, PTV$>${residuals_cutoff} mas",
-        ],
         histtype="barstacked",
+        align="mid",
     )
-    ax.set_xlabel("Apex angle [degrees]")
+    ax.axvline(
+        apex_cutoff,
+        color="r",
+        linestyle="--",
+        lw=3,
+    )
+    ax.set_xlim(0, 20)
+    ax.set_xlabel("Apex angle (degrees)", fontsize=16)
+    # ax.set_ylabel("Frequency")
 
-    ax = axs[1]
+    ax = axs["compound"]
     ax.hist(
         [abs(selected["Compound angle"]), abs(rejected["Compound angle"])],
-        bins=np.linspace(0, 3, 31),
+        bins=np.linspace(0, 1.5, 31),
         edgecolor="k",
         alpha=0.75,
-        label=[
-            f"PTV residuals$\\leq${residuals_cutoff} mas",
-            f"Rejected, PTV$>${residuals_cutoff} mas",
-        ],
         histtype="barstacked",
+        align="mid",
     )
-    ax.set_xlabel("Compound angle [degrees]")
+    ax.axvline(
+        compound_cutoff,
+        color="r",
+        linestyle="--",
+        lw=3,
+    )
+    ax.set_xlim(0, 1.5)
+    ax.set_xlabel("Compound angle (degrees)", fontsize=16)
+    # ax.set_ylabel("Frequency")
 
-    ax = axs[2]
+    ax = axs["lambda_0"]
     ax.hist(
         [selected["Zero-deviation wavelength"], rejected["Zero-deviation wavelength"]],
-        bins=np.linspace(0.39, 1.6, 26),
+        bins=np.linspace(0.39, 1.5, 31),
         edgecolor="k",
         alpha=0.75,
-        label=[
-            f"PTV residuals$\\leq${residuals_cutoff} mas",
-            f"Rejected, PTV$>${residuals_cutoff} mas",
-        ],
         histtype="barstacked",
+        align="mid",
     )
-    ax.set_xlabel("Zero-deviation wavelength [microns]")
+    ax.axvline(
+        0.38,
+        color="r",
+        linestyle="--",
+        lw=3,
+    )
+    ax.axvline(
+        0.95,
+        color="r",
+        linestyle="--",
+        lw=3,
+    )
+    ax.set_xlim(0.35, 1.55)
     ax.set_yscale("log")
+    ax.set_xlabel("Zero-deviation wavelength (µm)", fontsize=16)
+    # ax.set_ylabel("Frequency")
 
-    for ax in axs:
-        ax.set_ylabel("Frequency")
-        # ax.legend()
+    # for ext in ["svg", "png"]:
+    #     fig.savefig(SCRIPT_PATH / f"adc-histograms.{ext}")
 
     plt.show()
 
