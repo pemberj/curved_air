@@ -74,7 +74,7 @@ def main() -> None:
 
     # assert MARVEL.slit_length < MARVEL.reddest_order_image_plane_separation
 
-    fig = plt.figure("MARVEL spectral format", figsize=(12, 12))
+    fig = plt.figure("MARVEL spectral format", figsize=(10, 10))
     ax = fig.gca()
 
     MARVEL.plot_detector_edge(ax=ax)
@@ -168,10 +168,7 @@ def main() -> None:
     # ax.patch.set_facecolor("black")
     ax.axis("off")
 
-    # plt.savefig(
-    #     "/home/jake/Syncthing/thesis/chapters/02-marvel-optics/image/MARVEL-spectral-format.png",
-    #     dpi=300,
-    # )
+    # plt.savefig(SCRIPT_PATH / "MARVEL-spectral-format.png", dpi=300)
 
     plt.show()
 
