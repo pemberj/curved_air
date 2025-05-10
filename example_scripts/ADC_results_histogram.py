@@ -70,8 +70,8 @@ def main() -> None:
         edgecolor="k",
         alpha=0.75,
         label=[
-            "Candidates meeting criteria",
-            "Rejected candidates",
+            f"Candidates meeting criteria (n={len(selected)})",
+            f"Rejected candidates (n={len(rejected)})",
         ],
         histtype="barstacked",
         align="mid",
@@ -88,7 +88,7 @@ def main() -> None:
     )
     ax.set_ylabel("Number of candidate designs", fontsize=16)
     ax.set_xlim(0, 110)
-    ax.legend(fontsize=16, loc="upper right", frameon=True)
+    ax.legend(fontsize=14, loc="upper right", frameon=True)
 
     ax = axs["apex"]
     ax.hist(
@@ -154,10 +154,13 @@ def main() -> None:
     ax.set_xlabel("Zero-deviation wavelength (µm)", fontsize=16)
     # ax.set_ylabel("Frequency")
 
-    # for ext in ["svg", "png"]:
-    #     fig.savefig(SCRIPT_PATH / f"adc-histograms.{ext}")
+    for ext in ["svg", "png"]:
+        fig.savefig(
+            Path("/home/jake/Syncthing/thesis/chapters/06-marvel-telescope-units/image")
+            / f"adc-histograms.{ext}"
+        )
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":
