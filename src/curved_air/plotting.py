@@ -7,6 +7,7 @@ This modules contains the main plotting stylesheet that is used by curved_air, a
 as a function to convert wavelengths to RGB values, also used in certain plots.
 """
 
+from typing import no_type_check
 import colorsys
 import multiprocessing  # noqa: F401
 import time  # noqa: F401
@@ -118,6 +119,12 @@ def stroke(thickness: float = 4) -> list:
 
 @overload
 def wavelength_to_rgb(
+    wavelength: Quantity, gamma: float, fade_factor: float
+) -> tuple[float, float, float]: ...
+
+
+@overload
+def wavelength_to_rgb(
     wavelength: float, gamma: float, fade_factor: float
 ) -> tuple[float, float, float]: ...
 
@@ -128,8 +135,9 @@ def wavelength_to_rgb(
 ) -> list[tuple[float, float, float]]: ...
 
 
+@no_type_check
 def wavelength_to_rgb(
-    wavelength: Quantity = 0.55 * u.um,
+    wavelength: Quantity | float | list = 0.55 * u.um,
     gamma: float = 0.8,
     fade_factor: float = 0.8,
 ) -> tuple[float, float, float] | list[tuple[float, float, float]]:
@@ -200,6 +208,8 @@ def fade(
     Applies a saturation fade to a given RGB colour tuple.
     """
 
-    h, s, v = colorsys.rgb_to_hsv(*rgb)
+    r, g, b = rgb
+
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
 
     return colorsys.hsv_to_rgb(h=h, s=fade_factor * s, v=v)
