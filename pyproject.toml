@@ -20,6 +20,7 @@ dependencies = [
     "pyfonts>=0.0.2",
     "pyqt6>=6.8.0",
     "ref-index>=1.0",
+    "rich>=14.0.0",
     "scipy>=1.14.1",
     "tqdm>=4.67.1",
 ]
@@ -121,3 +122,6 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.ty.rules]
+unresolved-attribute = "ignore"
