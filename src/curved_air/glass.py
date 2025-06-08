@@ -62,6 +62,7 @@ class Glass:
     """
 
     name: str = ""
+    manufacturer: str = ""
     formula: int = -1
     glasscode: float = -1.0
     nd: float = -1.0
@@ -100,6 +101,9 @@ class Glass:
 
         if self.nd != -1.0 and self.vd in [-1.0, 0.0]:
             self.vd = (self.n_d - 1) / (self.n_F - self.n_C)
+
+        if self.original_file:
+            self.manufacturer = self.original_file.split(".")[0]
 
         # if self.n_d == -1:
         #     print(f"WARNING! No refractive index provided for glass {self.name}")
