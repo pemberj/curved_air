@@ -1146,7 +1146,7 @@ class Grating:
 
     def relative_intensity(
         self,
-        m: int,
+        # m: int,
         wl: Quantity["length"] | ArrayLike,  # noqa: F821, UP037
     ) -> float | ArrayLike:
         """
@@ -1156,15 +1156,15 @@ class Grating:
         TODO: fix this up!
         """
 
-        N = 400 * u.mm / self.groove_period  # Number of grooves illuminated
+        # N = 400 * u.mm / self.groove_period  # Number of grooves illuminated
 
         frac_m = np.array(self.order_number(wl=wl, quantised=False))
 
-        beta = self.diffraction_angle(m=m, wl=wl)
+        # beta = self.diffraction_angle(m=m, wl=wl)
 
-        p: Quantity["angle"] = (  # noqa: F821, UP037
-            (np.pi * self.groove_period / wl) * (np.sin(self.theta_B) + np.sin(beta))
-        ).si * u.radian
+        # p: Quantity["angle"] = (  # noqa: F821, UP037
+        #     (np.pi * self.groove_period / wl) * (np.sin(self.theta_B) + np.sin(beta))
+        # ).si * u.radian
 
         # H: Quantity["angle"] = (  # noqa: F821, UP037
         #     (np.pi * self.groove_period * np.cos(self.theta_B) / wl)
