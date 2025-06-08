@@ -46,7 +46,7 @@ def main() -> None:
         max_wl=950 * u.nm,
         D_telescope=0.8 * u.m,
         D_ADC=15 * u.mm,
-        z_max=67 * u.degree,
+        z_max=63 * u.degree,
         criterion="PTV",
     )
 
@@ -58,7 +58,7 @@ def main() -> None:
         max_wl=950 * u.nm,
         D_telescope=0.8 * u.m,
         D_ADC=15 * u.mm,
-        z_max=67 * u.degree,
+        z_max=63 * u.degree,
         criterion="RMS",
     )
 
@@ -70,7 +70,7 @@ def main() -> None:
         max_wl=950 * u.nm,
         D_telescope=0.8 * u.m,
         D_ADC=15 * u.mm,
-        z_max=67 * u.degree,
+        z_max=63 * u.degree,
         criterion="RMS",
     )
 
