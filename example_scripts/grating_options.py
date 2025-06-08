@@ -2,7 +2,6 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "curved-air>=0.1.0",
-#     "rich>=10.0.0",
 # ]
 # [tool.uv.sources]
 # curved_air = { path = "..", editable = true }
@@ -14,7 +13,7 @@ from pathlib import Path
 from astropy import units as u
 from astropy.units import Quantity  # noqa: F401
 from matplotlib import pyplot as plt
-from rich import print  # noqa: A004
+from rich import print as rprint  # noqa: A004, F401
 
 from curved_air.glass import GlassCatalogue
 from curved_air.optics import Grating, Prism
@@ -317,8 +316,8 @@ def plot_angular_dispersion_vs_R_and_gpmm(gratings: list[Grating]) -> None:
 
 
 def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
-    fig: plt.figure = plt.figure("Reddest orders separation")
-    ax: plt.axes = fig.gca()
+    fig: plt.Figure = plt.figure("Reddest orders separation")
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
         slit_magnification = g.R / 2.7
@@ -427,7 +426,7 @@ def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
     angular_dispersion_950 = prism.local_angular_dispersion(wl=950 * u.nm).to(
         u.deg / u.nm
     )
-    print(f"{angular_dispersion_950 = }")
+    rprint(f"{angular_dispersion_950 = }")
 
     slit_length = 1.08 * u.mm
 
@@ -436,8 +435,8 @@ def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
 
     yoffset = slit_angular_size
 
-    fig: plt.figure = plt.figure("Required cross-dispersion", figsize=(8, 5))
-    ax: plt.axes = fig.gca()
+    fig: plt.Figure = plt.figure("Required cross-dispersion", figsize=(8, 5))
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
         slit_magnification = g.R / 2.7
@@ -446,24 +445,24 @@ def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
             slit_length * (u.radian / (1125 * u.mm)) * slit_magnification
         ).to(u.deg)
 
-        print(f"{g.R = }")
-        print(f"{slit_angular_size = }")
+        rprint(f"{g.R = }")
+        rprint(f"{slit_angular_size = }")
 
         reddest_m = g.min_order
 
         wl1 = g.blaze_wavelength(reddest_m + 1)
         wl2 = g.blaze_wavelength(reddest_m)
 
-        # print(wl1, wl2)
+        # rprint(wl1, wl2)
 
         reddest_angular_spread = prism.angular_spread(min_wl=wl1, max_wl=wl2).to(u.deg)
-        delta_wavelength = (wl2 - wl1).to(u.nm)
+        # delta_wavelength: Quantity = (wl2 - wl1).to(u.nm)
 
-        # print(f"{reddest_angular_spread / delta_wavelength = }")
+        # rprint(f"{reddest_angular_spread / delta_wavelength = }")
 
         y = slit_angular_size / reddest_angular_spread
 
-        print(y)
+        rprint(y)
 
         _markers = ax.plot(
             g.R,
@@ -543,10 +542,10 @@ def main() -> None:
         g.max_wl = 950 * u.nm
 
         g.sign_of_blaze = -1
-        print(f"{g}")
-        # print(f"Aspect ratio: {g.aspect_ratio()}")
+        rprint(f"{g}")
+        # rprint(f"Aspect ratio: {g.aspect_ratio()}")
         # grid = order_grid(grating=g)
-        # print(grid)
+        # rprint(grid)
 
     # plot_grating_options(gratings)
     # plot_wavelength_vs_m(gratings)

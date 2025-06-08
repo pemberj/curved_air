@@ -143,27 +143,27 @@ def main() -> None:
                     va="bottom",
                 )
 
-            min_FSR_wl, max_FSR_wl = MARVEL.grating.order_FSR_bounds(m=m)
+    min_FSR_wl, max_FSR_wl = MARVEL.grating.order_FSR_bounds(m=m)
 
-            for name, wl in _atomic_lines.items():
-                # for name, wl in _fraunhofer_lines.items():
-                if min_FSR_wl <= wl <= max_FSR_wl:
-                    x, y = MARVEL.image_plane_position(m=m, wavelength=wl)
+    for name, wl in _atomic_lines.items():
+        # for name, wl in _fraunhofer_lines.items():
+        if min_FSR_wl <= wl <= max_FSR_wl:
+            x, y = MARVEL.image_plane_position(m=m, wavelength=wl)
 
-                    ax.text(
-                        x.value,
-                        y.value,
-                        f"{name}",
-                        fontsize=14,
-                        ha="center",
-                        va="center",
-                        bbox={
-                            "facecolor": "w",
-                            "edgecolor": "k",
-                            "alpha": 0.75,
-                            "boxstyle": "round,pad=0.25",
-                        },
-                    )
+            ax.text(
+                x.value,
+                y.value,
+                f"{name}",
+                fontsize=14,
+                ha="center",
+                va="center",
+                bbox={
+                    "facecolor": "w",
+                    "edgecolor": "k",
+                    "alpha": 0.75,
+                    "boxstyle": "round,pad=0.25",
+                },
+            )
 
     # ax.patch.set_facecolor("black")
     ax.axis("off")

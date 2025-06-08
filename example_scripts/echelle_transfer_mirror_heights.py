@@ -12,13 +12,13 @@ spectrograph as a function of the collimator parameters and the parameters of
 the echelle grating.
 """
 
-import numpy as np
 import astropy.units as u
+import numpy as np
 from matplotlib import pyplot as plt
 
 from curved_air.optics import Grating
-from curved_air.utils import calculate_transfer_mirror_height
 from curved_air.plotting import plot_style
+from curved_air.utils import calculate_transfer_mirror_height
 
 plt.style.use(plot_style)
 

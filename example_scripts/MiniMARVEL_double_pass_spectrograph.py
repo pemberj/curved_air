@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "curved-air>=0.1.0",
+#     "curved-air>=0.2.0",
 # ]
 # [tool.uv.sources]
 # curved_air = { path = "..", editable = true }
@@ -82,7 +82,7 @@ def main() -> None:
 
     # assert MARVEL.slit_length < MARVEL.reddest_order_image_plane_separation
 
-    fig = plt.figure("MiniMARVEL spectral format", figsize=(9, 11))
+    fig = plt.figure("MiniMARVEL spectral format", figsize=(8, 10))
     ax = fig.gca()
 
     MiniMARVEL.plot_detector_edge(ax=ax)
@@ -91,7 +91,7 @@ def main() -> None:
         -6.25,
         -9.5,
         "Detector edge",
-        fontsize=18,
+        fontsize=20,
         ha="left",
         va="bottom",
         alpha=0.5,
@@ -138,9 +138,15 @@ def main() -> None:
                     (-xs[0] + offset).value - 0.25,
                     ys[0].value - 0.25,
                     mtext,
-                    fontsize=14,
+                    fontsize=16,
                     ha="right",
                     va="top",
+                    bbox={
+                        "facecolor": "w",
+                        "edgecolor": "none",
+                        "alpha": 0.85,
+                        "boxstyle": "round,pad=0.25",
+                    },
                 )
 
                 if abs(ys[-1].value) > ax.get_ylim()[1]:
@@ -150,9 +156,15 @@ def main() -> None:
                     (-xs[-1] + offset).value - 0.25,
                     ys[-1].value + 0.25,
                     wltext,
-                    fontsize=14,
+                    fontsize=16,
                     ha="right",
                     va="bottom",
+                    bbox={
+                        "facecolor": "w",
+                        "edgecolor": "none",
+                        "alpha": 0.85,
+                        "boxstyle": "round,pad=0.25",
+                    },
                 )
 
             min_FSR_wl, max_FSR_wl = MiniMARVEL.grating.order_FSR_bounds(m=m)
@@ -169,13 +181,13 @@ def main() -> None:
                         -x.value,
                         y.value,
                         f"{name}",
-                        fontsize=14,
+                        fontsize=16,
                         ha="center",
                         va="center",
                         bbox={
                             "facecolor": "w",
                             "edgecolor": "k",
-                            "alpha": 0.75,
+                            "alpha": 0.85,
                             "boxstyle": "round,pad=0.25",
                         },
                     )
@@ -184,8 +196,10 @@ def main() -> None:
     # ax.axis("off")
     ax.set_aspect("equal")
 
-    ax.set_xlabel("Image plane position (mm)", size=14)
-    ax.set_ylabel("Image plane position (mm)", size=14)
+    # ax.set_xlabel("Image plane position (mm)", size=16)
+    # ax.set_ylabel("Image plane position (mm)", size=16)
+
+    plt.axis("off")
 
     plt.show()
 

@@ -100,7 +100,7 @@ def plot_spectral_format(grating: Grating) -> None:
     ax.set_xlabel("Diffraction order $m$")
     ax.set_ylabel("Diffraction angle [deg]")
 
-    ax.set_xlim(97, 34)
+    ax.set_xlim(grating.max_order + 5, grating.min_order - 5)
     ax.set_ylim(-5, 5)
 
     plt.show()
@@ -189,8 +189,19 @@ def main() -> None:
         max_wl=950 * u.nm,
     )
 
+    NEID_grating: Grating = Grating(
+        catalogue_number="53-*-417E",
+        groove_frequency=31.6 / u.mm,
+        blaze_angle=76 * u.deg,
+        gamma_angle=0.3 * u.deg,
+        min_wl=385 * u.nm,
+        max_wl=950 * u.nm,
+    )
+
     # plot_FSR(MARVEL_grating)
     plot_spectral_format(MARVEL_grating)
+
+    plot_spectral_format(NEID_grating)
 
     # plot_ideal_grating_parameters()
 

@@ -46,7 +46,7 @@ def main() -> None:
         max_wl=950 * u.nm,
         D_telescope=0.8 * u.m,
         D_ADC=15 * u.mm,
-        z_max=75 * u.degree,
+        z_max=65 * u.degree,
         criterion="PTV",
     )
 

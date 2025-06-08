@@ -33,7 +33,7 @@ def main() -> None:
     round_trip_mm = round_trip.to("mm").value
     num_round_trips = 30  # number of reflections on the OUTPUT surface
     mirror_reflectivity = 0.8
-    f_number = 100
+    f_number = 1000
     num_wavelengths = 500
     z_0 = 0 * u.mm
     # z_0 = -1 * round_trip * num_round_trips
@@ -96,7 +96,7 @@ def main() -> None:
             plane_normal=(0, 0, 1),
             debug_level=0,
         )
-        results = beam.summed_E_field(z=Zs, max_radius=10 * u.mm)
+        results = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
         dimmed = results * reflectivity
         intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
         if "Spherical" not in output:
