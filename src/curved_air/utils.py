@@ -175,8 +175,11 @@ def FWHM(x_values: list | np.ndarray, y_values: list | np.ndarray) -> tuple[floa
     y_values /= max(y_values)
 
     signs = np.sign(np.add(y_values, -0.5))
-    zero_crossings = (signs[0:-2]) != signs[1:-1]
+    zero_crossings = signs[0:-2] != signs[1:-1]
     zero_crossings_i = np.where(zero_crossings)[0]
+
+    if len(zero_crossings_i) < 2:  # noqa: PLR2004
+        return np.nan, np.nan
 
     return (
         lin_interp(x_values, y_values, zero_crossings_i[0], 0.5),
