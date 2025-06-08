@@ -75,12 +75,39 @@ class Prism:
     def deviation_angle(
         self,
         wl: ArrayLike = 0.6328 * u.um,
-        incidence_angle: Quantity = None,
+        incidence_angle: Quantity | None = None,
+        field_angle: Quantity = 0 * u.deg,
     ) -> Quantity:
         if incidence_angle is None:
             incidence_angle = self.incidence_angle
 
         i = incidence_angle
+
+        if hasattr(wl.value, "__len__") and hasattr(field_angle.value, "__len__"):
+            return [
+                self.dispersion_angle(wl=w, field_angle=f).value
+                for w, f in zip(wl, field_angle, strict=False)
+            ] * u.deg
+
+        if field_angle.value != 0:
+            effective_apex_angle = self.effective_apex_angle(field_angle=field_angle)
+
+            _self = Prism(
+                glass=self.glass,
+                apex_angle=effective_apex_angle,
+                incidence_angle=self.incidence_angle,
+            )
+
+            return (
+                i
+                - _self.apex_angle
+                + np.arcsin(
+                    _self.glass.n(wl)
+                    * np.sin(
+                        _self.apex_angle - np.arcsin(np.sin(i) / _self.glass.n(wl))
+                    )
+                )
+            )
 
         return (
             i
@@ -195,7 +222,7 @@ class Prism:
     def trace(
         self,
         wls: ArrayLike = None,
-        incidence_angle: Quantity = None,
+        incidence_angle: Quantity | None = None,
         debug_level: float = 0,
     ) -> ArrayLike:
         """
@@ -1346,7 +1373,8 @@ class Etalon:
         Maximum reflectivity, R_max
         """
         return (4 * self.R) / ((1 + self.R) ** 2)
-
+            - 2 * self.grating.gamma_angle
+            - 2 * prism_first_pass_angle,
     def delta_lambda(self, wavelength: Quantity = 780 * u.nm) -> Quantity:
         """
         Calculate the free spectral range of the etalon, defaults to wavelength = 780nm
