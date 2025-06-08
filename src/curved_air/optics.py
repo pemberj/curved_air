@@ -8,19 +8,24 @@ PrismStacks), ADCs (a PrismStack to be optimised to match the dispersion of air)
 Gratings, and Etalons.
 """
 
-from collections.abc import Callable, Iterable
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from functools import cached_property
 
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
-from matplotlib import pyplot as plt
-from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 
-from curved_air.glass import Glass
 from curved_air.other import Air, Model
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+    from matplotlib import pyplot as plt
+    from curved_air.glass import Glass
+    from numpy.typing import ArrayLike
 
 
 @dataclass
@@ -121,7 +126,7 @@ class Prism:
     def exitance_angle(
         self,
         wl: ArrayLike = 0.6328 * u.um,
-        incidence_angle: Quantity = None,
+        incidence_angle: Quantity | None = None,
     ) -> Quantity:
         if incidence_angle is None:
             incidence_angle = self.incidence_angle
@@ -412,7 +417,7 @@ class ADC:
         return self.prism_stack.prism_list[1]
 
     @property
-    def epsilon(self) -> Quantity:
+    def epsilon(self) -> Quantity | None:
         if self.wl_0 is None:
             return None
         return (self.g1.refractive_index(self.wl_0) - 1) / (
@@ -462,7 +467,7 @@ class ADC:
         self,
         plot: bool = False,
         num_samples: int = 20,
-    ) -> dict:
+    ) -> dict | None:
         """
         This function finds the best main apex angle and zero-deviation
         wavelength for the ADC's dispersion to match the dispersion of air.
@@ -493,7 +498,7 @@ class ADC:
             wls: ArrayLike = wls,
             return_residuals: bool = False,
             verbose: bool = False,
-        ) -> Quantity:
+        ) -> Quantity | float:
             # Fully parameterised by alpha and wl_0
             alpha, wl_0 = x
 
@@ -559,7 +564,7 @@ class ADC:
         # residuals_PTV = residuals(x = result.x)
         # residuals_curve = residuals(x = result.x, return_residuals=True)
 
-        def residuals_function(wls: ArrayLike = wls) -> Quantity:
+        def residuals_function(wls: ArrayLike = wls) -> Quantity | float:
             return residuals(
                 x=(self.alpha.to(u.degree).value, self.wl_0.to(u.um).value),
                 wls=wls,
@@ -877,7 +882,7 @@ def _refract(
     n_1: float | Callable,
     n_2: float | Callable,
     theta_in: Quantity = 0 * u.deg,
-    wavelength: Quantity = None,
+    wavelength: Quantity | None = None,
     debug_level: float = 0.0,  # TODO: use this!  # noqa: ARG001
 ) -> Quantity:
     # Compute the refracted angle of a ray or rays at a single material
@@ -890,19 +895,21 @@ def _refract(
         _n_2 = n_2
 
     else:
-        try:
-            _n_1 = n_1(wavelength)
-        except TypeError:
-            _n_1 = n_1
-        try:
-            _n_2 = n_2(wavelength)
-        except TypeError:
-            _n_2 = n_2
+        if callable(n_1):
+            try:
+                _n_1 = n_1(wavelength)
+            except TypeError:
+                _n_1 = n_1
+        if callable(n_2):
+            try:
+                _n_2 = n_2(wavelength)
+            except TypeError:
+                _n_2 = n_2
 
     # By this point, _n_1 and _n_2 should be either floats, ints, or
     # lists/arrays of such
     assert not callable(_n_1)
-    assert not callable(_n_1)
+    assert not callable(_n_2)
 
     theta_out = np.arcsin((_n_1 / _n_2) * np.sin(theta_in))
 
@@ -985,7 +992,6 @@ class Grating:
         quantised: bool = False,
     ) -> int | list[int] | float | list[float]:
         if isinstance(wl, tuple) or (isinstance(wl, Quantity) and wl.size > 1):
-            print(f"Iterating over wavelengths {wl}")
             return [self.order_number(iwl) for iwl in wl]
 
         if isinstance(wl, int | float):
@@ -1113,6 +1119,59 @@ class Grating:
         ) - self.diffraction_angle(m=m, wl=wl)
 
         return delta_theta / delta_wl
+
+    def anamorphic_magnification(self, m: int, wl: Quantity) -> float:
+        return np.cos(self.blaze_angle) / np.cos(
+            self.blaze_angle - self.diffraction_angle(m=m, wl=wl)
+        )
+
+    def relative_anamorphic_magnification(
+        self,
+        m: int | None = None,
+        FSR_fraction: float = 1.0,
+    ) -> float:
+        """
+        Returns the relative anamorphic magnification of the grating for wavelengths at
+        the ends of a given diffraction order.
+        """
+
+        if m is None:
+            m = self.order_number(self.max_wl, quantised=True)
+
+        wls = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
+
+        return self.anamorphic_magnification(
+            m=m, wl=wls[0]
+        ) / self.anamorphic_magnification(m=m, wl=wls[1])
+
+    def relative_intensity(
+        self,
+        m: int,
+        wl: Quantity["length"] | ArrayLike,  # noqa: F821, UP037
+    ) -> float | ArrayLike:
+        """
+        Calculate the relative intensity of a particular wavelength or wavelengths in a
+        given diffraction order.
+        """
+
+        N = 400 * u.mm / self.groove_period  # Number of grooves illuminated
+
+        frac_m = np.array(self.order_number(wl=wl, quantised=False))
+
+        beta = self.diffraction_angle(m=m, wl=wl)
+
+        p: Quantity["angle"] = (  # noqa: F821, UP037
+            (np.pi * self.groove_period / wl) * (np.sin(self.theta_B) + np.sin(beta))
+        ).si * u.radian
+
+        # H: Quantity["angle"] = (  # noqa: F821, UP037
+        #     (np.pi * self.groove_period * np.cos(self.theta_B) / wl)
+        #     * np.sin(self.theta_B - beta)
+        # ).si * u.radian
+
+        # return (np.sin(p) / p) ** 2  # * (np.sin(N * p) ** 2 / np.sin(p) ** 2)
+
+        return 1 - np.sinc(frac_m * u.radian) ** 2
 
     @property
     def reddest_order_separation(self) -> Quantity:
@@ -1320,7 +1379,8 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
             min_wl=self.cross_disperser.min_wl,
             max_wl=self.cross_disperser.max_wl,
             incidence_angle=self.cross_disperser.incidence_angle
-            + prism_first_pass_angle,
+            - 2 * self.grating.gamma_angle
+            - 2 * prism_first_pass_angle,
         )
 
         prism_second_pass_angle = 2 * _prism_second_pass.dispersion_angle(
@@ -1373,8 +1433,7 @@ class Etalon:
         Maximum reflectivity, R_max
         """
         return (4 * self.R) / ((1 + self.R) ** 2)
-            - 2 * self.grating.gamma_angle
-            - 2 * prism_first_pass_angle,
+
     def delta_lambda(self, wavelength: Quantity = 780 * u.nm) -> Quantity:
         """
         Calculate the free spectral range of the etalon, defaults to wavelength = 780nm
