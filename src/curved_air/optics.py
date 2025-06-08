@@ -1152,6 +1152,8 @@ class Grating:
         """
         Calculate the relative intensity of a particular wavelength or wavelengths in a
         given diffraction order.
+
+        TODO: fix this up!
         """
 
         N = 400 * u.mm / self.groove_period  # Number of grooves illuminated
