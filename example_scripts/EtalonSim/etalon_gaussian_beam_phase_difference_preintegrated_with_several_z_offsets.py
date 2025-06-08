@@ -49,7 +49,7 @@ def main() -> None:
             [mirror_reflectivity ** (n) for n in range(1, len(Zs) + 1)]
         )
 
-        waist_radii = np.linspace(0.5, 4, 100) * u.mm
+        waist_radii = np.linspace(0.5, 8, 100) * u.mm
         # Zoom in to close-to-zero region
         # waist_radii = np.linspace(0.05, 1.75, 50) * u.mm
 
@@ -65,24 +65,42 @@ def main() -> None:
         ax.plot(
             waist_radii,
             summed_average_phase_differences,
-            label=f"z_0={(z0 * u.mm).to('m')}",
+            label=f"$z_0 = ${(z0 * u.mm).to(u.m)}",
         )
 
-    # ax.set_yscale("log")
-    # ax.set_ylim(-1.5, 1.5)
+        if int(z0) == z0:
+            text = f"$z_0 = ${(z0 * u.mm).to(u.m)}"
+        else:
+            text = f"$z_0 = ${z0 * u.mm:.2f}"
 
-    ax.set_xlabel("Beam waist radius, $w_0$ [mm]")
-    ax.set_ylabel(f"Sum of average phase\nover {num_round_trips} round trips [waves]")
+        ax.text(
+            waist_radii[-1].value + 0.25,
+            summed_average_phase_differences[-1],
+            s=text,
+            fontsize=14,
+            ha="left",
+            va="center",
+            # bbox={
+            #     "boxstyle": "round,pad=0.3",
+            #     "facecolor": "white",
+            #     "edgecolor": "black",
+            #     "alpha": 0.5,
+            # },
+        )
 
-    ax.legend()
+    ax.set_xlim(0, 11)
+
+    ax.set_xlabel("Beam waist radius, $w_0$ (mm)", size=14)
+    ax.set_ylabel(
+        f"Integrated phase over {num_round_trips} round trips\n(waves)", size=14
+    )
+
+    # ax.legend(frameon=True, loc="upper left")
 
     Path(SCRIPT_PATH / "plots").mkdir(exist_ok=True)
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png")
 
-    ax.set_yscale("log")
-    plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}_log.png")
-
-    # plt.show()
+    plt.show()
 
 
 if __name__ == "__main__":

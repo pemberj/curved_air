@@ -38,7 +38,7 @@ def main() -> None:
     num_round_trips = 100
     wavelength = mirror_spacing / int(mirror_spacing / (780 * u.nm))
 
-    waist_radii = np.linspace(0.005, 15, 80) * u.mm
+    waist_radii = np.linspace(0.005, 15, 200) * u.mm
 
     z_Rs = []
     R_halfs = []  # beam wavefront radius in middle of etalon
@@ -89,19 +89,15 @@ def main() -> None:
 
     ax.legend()
 
-    ax.set_title(
-        "Normalised beam properties as a function of waist radius $w_0$", size=18
-    )
+    # ax.set_title("Normalised beam properties as a function of waist radius $w_0$")
     ax.set_xlabel("Beam waist $w_0$")
-    # ax.set_ylabel("Phase offset [cycles]")
+    ax.set_ylabel("Normalised value")
 
     ax.set_xlim(0, max(waist_radii).value)
     ax.set_ylim(-0.05, 1.5)
 
     Path(SCRIPT_PATH / "plots").mkdir(parents=True, exist_ok=True)
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png")
-
-    plt.show()
 
 
 if __name__ == "__main__":

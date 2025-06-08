@@ -99,12 +99,12 @@ def main() -> None:
         )
 
     ax.plot(0, 0, color="k", alpha=0.75, ls="--", label="Gouy phase")
-    ax.plot(0, 0, color="k", alpha=0.75, ls="-.", label="radial phase (absolute)")
+    ax.plot(0, 0, color="k", alpha=0.75, ls="-.", label="Radial phase (absolute)")
 
     # ax.set_title(f"Gouy phase and radial phase\nintegrated out to $r={r}$")
 
-    ax.set_xlabel("propagation distance z [mm]")
-    ax.set_ylabel("average phase [cycles]")
+    ax.set_xlabel("Propagation distance z (mm)", size=14)
+    ax.set_ylabel("Integrated phase (waves)", size=14)
 
     ax.legend()
 
@@ -112,8 +112,6 @@ def main() -> None:
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png", dpi=300)
 
     plt.show()
-
-    # plt.savefig(f"plots/{os.path.basename(__file__).split('.')[0]}.png")
 
 
 if __name__ == "__main__":

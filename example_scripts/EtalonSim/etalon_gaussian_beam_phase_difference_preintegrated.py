@@ -65,7 +65,7 @@ def main() -> None:
     ax.plot(
         waist_radii,
         summed_average_phase_differences,
-        label=f"$z_0={z0 * u.mm.to('m')}$, $\\lambda=${wavelength:.0f}",
+        label=f"$z_0 = ${z0 * u.mm.to('m')}, $\\lambda = ${wavelength:.0f}",
     )
 
     # ax.set_yscale("log")
@@ -73,7 +73,7 @@ def main() -> None:
     ax.legend()
 
     ax.set_xlabel("Beam waist radius, $w_0$ [mm]")
-    ax.set_ylabel(f"Sum of average phase\nover {num_round_trips} round trips")
+    ax.set_ylabel(f"Integrated phase over {num_round_trips} round trips\n(waves)")
 
     Path(SCRIPT_PATH / "plots").mkdir(exist_ok=True)
     plt.savefig(SCRIPT_PATH / "plots" / f"{SCRIPT_NAME}.png")

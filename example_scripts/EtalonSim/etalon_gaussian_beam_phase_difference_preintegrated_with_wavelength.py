@@ -70,15 +70,17 @@ def main() -> None:
             ax.plot(
                 waist_radii,
                 summed_average_phase_differences,
-                label=f"$z_0={z0 * u.mm}$, $\\lambda=${wl:.0f}",
+                label=f"$z_0 = ${z0 * u.mm:.0f}, $\\lambda = ${wl:.0f}",
             )
 
     # ax.set_yscale("log")
 
     # ax.set_ylim(-5, 5)
 
-    ax.set_xlabel("Beam waist radius, $w_0$ [mm]")
-    ax.set_ylabel(f"Sum of average phase\nover {num_round_trips} round trips [waves]")
+    ax.set_xlabel("Beam waist radius, $w_0$ (mm)", size=14)
+    ax.set_ylabel(
+        f"Sum of average phase\nover {num_round_trips} round trips (waves)", size=14
+    )
 
     ax.legend()
 
