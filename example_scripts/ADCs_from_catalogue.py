@@ -53,7 +53,7 @@ def main() -> None:
 
     # catalogue.plot_Abbe_diagram()
 
-    ADCs, results = catalogue.compute_ADCs()
+    _ADCs, results = catalogue.compute_ADCs()
 
     results_df = DataFrame(results)
     results_df.to_csv(script_path / "ADCs_from_catalogue.csv")
