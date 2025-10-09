@@ -12,26 +12,26 @@ from pathlib import Path
 
 import numpy as np
 from astropy import units as u
+from typing import TYPE_CHECKING
 from matplotlib import pyplot as plt
 
+if TYPE_CHECKING:
+    from astropy.units import Quantity
+
 from curved_air.glass import GlassCatalogue
-from curved_air.optics import (  # noqa: F401
-    DoublePassEchelleSpectrograph,
-    EchelleSpectrograph,
-    Grating,
-    Prism,
-)
+from curved_air.optics.dispersers import EchelleGrating, Prism
+from curved_air.instruments.echelle import DoublePassEchelleSpectrograph
 from curved_air.other import _atomic_lines
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 
 plt.style.use(plot_style)
 
-SCRIPT_PATH = Path(__file__).parent
+SCRIPT_PATH: Path = Path(__file__).parent
 
 
-agf_dir = SCRIPT_PATH / "../data/AGFs"
+agf_dir: Path = SCRIPT_PATH / "../data/AGFs"
 
-agf_files = [
+agf_files: list[str] = [
     f
     for f in agf_dir.glob("*.[Aa][Gg][Ff]")
     if re.search(pattern="schott", string=f.name)
@@ -40,13 +40,13 @@ agf_files = [
 if not agf_files:
     raise FileNotFoundError("No AGF files found in the data directory.")
 
-schott = GlassCatalogue().read_AGF(agf_filename=agf_files)
+schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
 
 def main() -> None:
-    MiniMARVEL = DoublePassEchelleSpectrograph(
+    MiniMARVEL: DoublePassEchelleSpectrograph = DoublePassEchelleSpectrograph(
         name="MiniMARVEL Double-Pass Single-Mode Spectrograph",
-        grating=Grating(
+        grating=EchelleGrating(
             name="MARVEL Grating",
             catalogue_number="53-*-417E",
             groove_frequency=52.67 / u.mm,
@@ -101,22 +101,24 @@ def main() -> None:
     ax.set_ylim(-12.25, 12.25)
 
     for f in range(1):  # number of fibres
-        offset = f * 130 * u.um * MiniMARVEL.slit_magnification
+        offset: Quantity = f * 130 * u.um * MiniMARVEL.slit_magnification
         for m in MiniMARVEL.spectral_orders:
-            wls = MiniMARVEL.order_wavelengths(m=m)
+            wls: Quantity = MiniMARVEL.order_wavelengths(m=m)
 
             # # just 5 wavelengths
             # wls = np.linspace(wls[0].to(u.nm).value, wls[-1].to(u.nm).value, num=5)
             # wls *= u.nm
 
-            mean_wl = np.mean(wls)
+            mean_wl: Quantity = np.mean(wls)  # ty: ignore[invalid-assignment]
 
             xs, ys = np.transpose(MiniMARVEL.image_plane_position(m=m, wavelength=wls))
 
             ax.plot(
                 -xs + offset,
                 ys,
-                color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
+                color=wavelength_to_rgb(
+                    mean_wl, fade_factor=0.8
+                ),  # ty: ignore[no-matching-overload]
                 lw=2.5,
                 # lw=0,
                 # marker=".",
@@ -125,11 +127,11 @@ def main() -> None:
 
             if m % 5 == 0:
                 if m == 90:  # noqa: PLR2004
-                    mtext = f"{m = }"
-                    wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
+                    mtext: str = f"{m = }"
+                    wltext: str = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
                 else:
-                    mtext = f"{m}"
-                    wltext = f"{wls[0].to(u.nm).value:.0f}"
+                    mtext: str = f"{m}"
+                    wltext: str = f"{wls[0].to(u.nm).value:.0f}"
 
                 if abs(ys[0].value) > ax.get_ylim()[1]:
                     continue
