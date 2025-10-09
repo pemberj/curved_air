@@ -368,7 +368,7 @@ class ADC:
 
         num_subplots = 4 if layout else 3
 
-        fig, axs = plt.subplots(
+        _fig, axs = plt.subplots(
             num_subplots,
             1,
             figsize=(8, 2.5 * num_subplots),

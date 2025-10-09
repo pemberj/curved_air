@@ -17,7 +17,8 @@ from numpy.typing import ArrayLike
 from scipy.optimize import curve_fit
 
 from curved_air.glass import Glass, GlassCatalogue
-from curved_air.optics import Prism, PrismStack
+from curved_air.optics.dispersers import Prism
+from curved_air.instruments.ADC import PrismStack
 
 
 def find_overlapping_refrective_index(
@@ -353,7 +354,7 @@ def match_target_refractive_index(
     wls = np.linspace(min_wl, max_wl, num_samples)
 
     try:
-        (alpha_fit, lam_0_fit), cov = curve_fit(
+        (alpha_fit, lam_0_fit), _cov = curve_fit(
             f=residuals,
             xdata=wls,
             ydata=[0.0] * len(wls),
