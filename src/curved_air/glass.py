@@ -38,7 +38,8 @@ from curved_air.other import _fraunhofer_lines
 from curved_air.plotting import plot_style
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator, Iterator, Callable
+    from typing import Any  # noqa: F401
 
     from matplotlib.backend_bases import MouseEvent
     from numpy.typing import ArrayLike
@@ -61,7 +62,7 @@ class Glass:
     A class to hold all the parameters for a single type of optical glass
     """
 
-    name: str = ""
+    name: str = "_default_"
     manufacturer: str = ""
     formula: int = -1
     glasscode: float = -1.0
@@ -320,16 +321,16 @@ class Glass:
         self,
         metric: str = "n",
         wls: ArrayLike = None,
-        axis: plt.Axes = None,
+        axis: plt.Axes | None = None,
         show: bool = True,
         debug_level: float = 0,
     ) -> Glass:
         """ """
 
         if wls is None:
-            wls = np.linspace(0.39, 0.95, 50) * u.um
+            wls: Quantity = np.linspace(0.39, 0.95, 50) * u.um
 
-        metrics = {
+        metrics: dict[str, Callable] = {
             "n": self.n,
             "refractive_index": self.refractive_index,
             "transmission": self.transmission,
@@ -346,7 +347,7 @@ class Glass:
             return self
 
         try:
-            y = metrics[metric](wls)
+            y: float | list[float] = metrics[metric](wls)
         except Exception as e:
             print(e)
 
@@ -358,10 +359,10 @@ class Glass:
             return self
 
         if not axis:
-            fig = plt.figure()
-            ax = fig.gca()
+            fig: plt.Figure = plt.figure()
+            ax: plt.Axes = fig.gca()
         else:
-            ax = axis
+            ax: plt.Axes = axis
 
         ax.plot(wls, y, label=f"{metric}")
         ax.set_xlabel("Wavelength (um)")
@@ -405,7 +406,7 @@ class Glass:
 
     def to_agf_format(self) -> str:
         try:
-            output = ""
+            output: str = ""
             output += f"NM {self.name} {self.formula:.0f} {self.glasscode:.3f} {self.n_d:.5f} {self.V_d:.2f} {self.status:.0f} {self.meltfreq:.0f}\n"
             output += f"GC {self.comments}\n"
             output += f"ED {self.cte1:.6f} {self.cte2:.6f} {self.density:.6f} {self.dpgf:.6f}\n"
@@ -471,9 +472,9 @@ class GlassCatalogue(dict):
     def itervalues(self) -> Generator:
         return (self[key] for key in self)
 
-    def replace(self, key: str | None = None, replacement: Glass = None) -> None:
-        if replacement:
-            self[key] = replacement
+    def replace(self, key: str, replacement: Glass) -> None:
+        assert isinstance(replacement, Glass)
+        self[key] = replacement
 
     @property
     def glasses(self) -> list[Glass]:
@@ -488,18 +489,28 @@ class GlassCatalogue(dict):
         agf_filename: Path | str | list[Path] | list[str],
         debug_level: int = 0,
     ) -> GlassCatalogue:
+        """
+        This function reads in a Zemax-formatted AGF file (as provided by glass
+        manufacturers) and creates a GlassCatalogue from this.
+        """
+
         if isinstance(agf_filename, list):
             for f in agf_filename:
                 self.read_AGF(f)
             return self
 
         if isinstance(agf_filename, str):
-            agf_filename = Path(agf_filename)
+            agf_filename: Path = Path(agf_filename)
 
-        original_file = agf_filename.name
+        assert isinstance(agf_filename, Path)
+
+        original_file: str = agf_filename.name
 
         print(f"Reading file: {original_file:<20}")
-        p = agf_filename
+
+        p: Path = agf_filename
+
+        # TODO: First find the text encoding (with chardet), and then use `with p.open(.....) as agf:`
         try:
             agf = p.open(encoding="utf-8", newline="\r\n")
             for _, _line in enumerate(agf):
@@ -512,7 +523,7 @@ class GlassCatalogue(dict):
                 self[g.name] = g
             else:
                 print(
-                    f"A glass with the same name ({g.name})"
+                    f"A glass with the same name ({g.name}) "
                     + "already exists in the catalogue!"
                 )
                 if self[g.name].is_the_same_as(g):
@@ -886,7 +897,7 @@ class GlassCatalogue(dict):
         # Refractive index
         min_n: float | None = None,
         max_n: float | None = None,
-        n_wavelength: Quantity = "d",
+        n_wavelength: str | Quantity = "d",
         # Abbe number
         min_V_d: float | None = None,
         max_V_d: float | None = None,
@@ -932,7 +943,7 @@ class GlassCatalogue(dict):
             return self
 
         # Create an empty GlassCatalogue to store our results in
-        results = GlassCatalogue()
+        results: GlassCatalogue = GlassCatalogue()
 
         for _, glass in self.items():
             if min_wl is not None and max_wl is not None:
@@ -951,7 +962,7 @@ class GlassCatalogue(dict):
                         if glass.status != status_code:
                             continue
                     else:  # It is a list or ArrayLike
-                        if glass.status not in status_code:
+                        if glass.status not in status_code:  # ty: ignore
                             continue
                 except TypeError:
                     ...
@@ -1105,7 +1116,7 @@ class GlassCatalogue(dict):
                 # text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))),
                 #                     " ".join([names[n] for n in ind["ind"]]))
                 annot.set_text(text)
-                annot.get_bbox_patch().set_alpha(0.4)
+                annot.get_bbox_patch().set_alpha(0.4)  # type: ignore
 
             def hover(event: MouseEvent) -> None:
                 vis = annot.get_visible()
@@ -1120,7 +1131,7 @@ class GlassCatalogue(dict):
                             annot.set_visible(False)
                             fig.canvas.draw_idle()
 
-            fig.canvas.mpl_connect("motion_notify_event", hover)
+            fig.canvas.mpl_connect("motion_notify_event", hover)  # type: ignore
 
         plt.show()
 
@@ -1156,12 +1167,12 @@ class GlassCatalogue(dict):
         z_max: Quantity = 65 * u.degree,
         num_samples: int = 20,
         max_residuals: Quantity = 100 * u.mas,
-    ) -> list:
+    ) -> tuple[list, list]:
         """
         Optimise ADCs for all possible combinations of glasses in the catalogue
         """
 
-        from curved_air.optics import ADC, PrismStack
+        from curved_air.instruments.ADC import ADC, PrismStack  # noqa: PLC0415
 
         ADCs: list[ADC] = []
         results: list[dict] = []
@@ -1184,7 +1195,7 @@ class GlassCatalogue(dict):
             f"{columns[5]:<16}\n"
         )
 
-        n = len(self.glasses)
+        n: int = len(self.glasses)
         num_combinations = int((n * (n - 1)) / 2)
 
         for g1, g2 in tqdm(
@@ -1214,9 +1225,9 @@ class GlassCatalogue(dict):
                     {
                         columns[0]: g1.name,
                         columns[1]: g2.name,
-                        columns[2]: f"{adc.alpha.to(u.deg).value:.5g}",
-                        columns[3]: f"{adc.beta.to(u.deg).value:.5g}",
-                        columns[4]: f"{adc.wl_0.to(u.um).value:.5g}",
+                        columns[2]: f"{adc.alpha.to(u.deg).value:.5g}",  # ty: ignore
+                        columns[3]: f"{adc.beta.to(u.deg).value:.5g}",  # ty: ignore
+                        columns[4]: f"{adc.wl_0.to(u.um).value:.5g}",  # ty: ignore
                         columns[5]: f"{adc.residuals_PTV.to(u.mas).value:.5g}",
                     }
                 )
@@ -1270,8 +1281,8 @@ def _dispersion_coefficients(
 
     if AGF_formula_number == 1:  # AGF formula number
         # rii_formula_number = 3
-        coeff_list = [None, 2, -2, -4, -6, -8]
-        rii_formula_coefficients = []
+        coeff_list: list[int | None] = [None, 2, -2, -4, -6, -8]
+        rii_formula_coefficients: list[float] = []
         for i, k in zip(coefficients, coeff_list[: len(coefficients)], strict=False):
             rii_formula_coefficients.append(i)
             if k is not None:
@@ -1279,17 +1290,27 @@ def _dispersion_coefficients(
 
     elif AGF_formula_number in [2, 6]:
         # rii_formula_number = 2
-        rii_formula_coefficients = [0, *coefficients]
+        rii_formula_coefficients: list[float] = [0, *coefficients]
 
     elif AGF_formula_number == 3:  # noqa: PLR2004
         # rii_formula_number = 4
-        c = coefficients
-        rii_formula_coefficients = [c[0] + 1, c[1], 2, c[2], 2, c[3], 0, c[4], 2]
+        c: list[float] = coefficients
+        rii_formula_coefficients: list[float] = [
+            c[0] + 1,
+            c[1],
+            2,
+            c[2],
+            2,
+            c[3],
+            0,
+            c[4],
+            2,
+        ]
 
     elif AGF_formula_number == 11:  # noqa: PLR2004
         # rii_formula_number = 3
-        coeff_list = [None, 2, -2, -4, -6, -8, -10, -12]
-        rii_formula_coefficients = []
+        coeff_list: list[int | None] = [None, 2, -2, -4, -6, -8, -10, -12]
+        rii_formula_coefficients: list[float] = []
         for c, k in zip(coefficients, coeff_list, strict=False):
             rii_formula_coefficients.append(c)
             if k is not None:
@@ -1297,8 +1318,8 @@ def _dispersion_coefficients(
 
     elif AGF_formula_number == 12:  # noqa: PLR2004
         # rii_formula_number = 3
-        coeff_list = [None, 2, -2, -4, -6, -8, 4, 6]
-        rii_formula_coefficients = []
+        coeff_list: list[int | None] = [None, 2, -2, -4, -6, -8, 4, 6]
+        rii_formula_coefficients: list[float] = []
         for c, k in zip(coefficients, coeff_list, strict=False):
             rii_formula_coefficients.append(c)
             if k is not None:
@@ -1306,21 +1327,21 @@ def _dispersion_coefficients(
 
     elif AGF_formula_number == 13:  # noqa: PLR2004
         # rii_formula_number = 3
-        coeff_list = [None, 2, 4, -2, -4, -6, -8, -10, -12]
-        rii_formula_coefficients = []
+        coeff_list: list[int | None] = [None, 2, 4, -2, -4, -6, -8, -10, -12]
+        rii_formula_coefficients: list[float] = []
         for c, k in zip(coefficients, coeff_list, strict=False):
             rii_formula_coefficients.append(c)
             if k is not None:
                 rii_formula_coefficients.append(k)
 
     else:
-        rii_formula_coefficients = []
+        raise ValueError(f"Invalid AGF_formula_number: {AGF_formula_number}")
 
     return rii_formula_coefficients
 
 
 def _refractive_index(
-    wavelengths: list[float] | ArrayLike | float,
+    wavelengths: Quantity | float | list[float] | ArrayLike,
     coefficients: list[float],
     formula_number: int,
 ) -> ArrayLike:
@@ -1342,7 +1363,7 @@ def _refractive_index(
     """
 
     try:
-        wavelengths = wavelengths.to("um").value
+        wavelengths: float | list[float] = wavelengths.to("um").value  # ty: ignore
     except UnitConversionError:
         # Wrong units
         ...
@@ -1350,9 +1371,9 @@ def _refractive_index(
         # Not an astropy.units.Quantity
         ...
 
-    wavelengths = np.array(wavelengths)
+    wavelengths: np.ndarray = np.array(wavelengths)
 
-    C = [0] * 18
+    C: list[float] = [0] * 18
     # C[0] = 0
     for i, c in enumerate(coefficients, start=1):
         C[i] = c

@@ -18,29 +18,67 @@ from astropy import units as u
 from astropy.units import Quantity
 from numpy.typing import ArrayLike
 
-_fraunhofer_lines = {
-    "i": 365.01 * u.nm,
-    "h": 404.66 * u.nm,
-    "g": 435.84 * u.nm,
-    "F'": 479.99 * u.nm,
-    "F": 486.13 * u.nm,
-    "e": 546.07 * u.nm,
-    "d": 587.56 * u.nm,
-    "D": 589.3 * u.nm,
-    "C'": 643.85 * u.nm,
-    "C": 656.27 * u.nm,
-    "r": 706.52 * u.nm,
-    "A'": 768.2 * u.nm,
-    "s": 852.11 * u.nm,
-    "t": 1013.98 * u.nm,
+_balmer_lines: dict[str, Quantity] = {
+    "H$\\alpha$": 656.279 * u.nm,
+    "H$\\beta$": 486.135 * u.nm,
+    "H$\\gamma$": 434.0472 * u.nm,
+    "H$\\delta$": 410.1734 * u.nm,
+    "H$\\epsilon$": 397.0075 * u.nm,
+    "H$\\zeta$": 388.9064 * u.nm,
+    "H$\\eta$": 383.5397 * u.nm,
+    "(Balmer break)": 364.5 * u.nm,
 }
 
-_atomic_lines = {
+# TODO: How to handle these separate line lists? Lots of overlap
+
+_fraunhofer_lines: dict[str, Quantity] = {
+    "t": 1013.98 * u.nm,
+    "s": 852.11 * u.nm,
+    "y": 898.765 * u.nm,
+    "Z": 822.696 * u.nm,
+    "A'": 768.2 * u.nm,
+    "A": 759.370 * u.nm,
+    "r": 706.52 * u.nm,
+    "B": 686.719 * u.nm,
+    # "C": 656.281 * u.nm, # Halpha
+    "C'": 643.85 * u.nm,
+    "a": 627.661 * u.nm,
+    # "D1": 589.592 * u.nm,
+    # "D2": 588.995 * u.nm,
+    # "d$_{Na}$": 587.5618 * u.nm,
+    "E2": 527.039 * u.nm,
+    "b1": 518.362 * u.nm,
+    "b2": 517.270 * u.nm,
+    "b3": 516.891 * u.nm,
+    "b4": 516.733 * u.nm,
+    "c": 495.761 * u.nm,
+    # "F": 486.134 * u.nm, # Hbeta
+    "F'": 479.99 * u.nm,
+    "d$_{Fe}$": 466.814 * u.nm,
+    "e": 438.355 * u.nm,
+    "g": 435.84 * u.nm,
+    # "G1": 434.047 * u.nm, # Hgamma
+    "G2&3": 430.78 * u.nm,
+    # "h": 410.175 * u.nm, # Hdelta
+    # "H": 396.847 * u.nm, # Ca-H
+    # "K": 393.366 * u.nm, # Ca-K
+    "L": 382.044 * u.nm,
+    "i": 365.01 * u.nm,
+    "N": 358.121 * u.nm,
+    "P": 336.112 * u.nm,
+    "T": 302.108 * u.nm,
+}
+
+_atomic_lines: dict[str, Quantity] = {
     # Balmer lines of Hydrogen
-    "H$\\alpha$": 656.48131 * u.nm,
-    "H$\\beta$": 486.33582 * u.nm,
-    "H$\\gamma$": 434.12202 * u.nm,
-    "H$\\delta$": 410.17103 * u.nm,
+    "H$\\alpha$": 656.279 * u.nm,
+    "H$\\beta$": 486.135 * u.nm,
+    "H$\\gamma$": 434.0472 * u.nm,
+    "H$\\delta$": 410.1734 * u.nm,
+    "H$\\epsilon$": 397.0075 * u.nm,
+    "H$\\zeta$": 388.9064 * u.nm,
+    "H$\\eta$": 383.5397 * u.nm,
+    "(Balmer break)": 364.5 * u.nm,
     # Sodium
     "Na $D_1$": 589.592 * u.nm,
     "Na $D_2$": 588.995 * u.nm,
@@ -76,6 +114,14 @@ _atomic_lines = {
     # Calcium hydride
     "CaH2": 683.1862 * u.nm,
     "CaH3": 697.69239 * u.nm,
+}
+
+_IR_bands: dict[str, Quantity] = {
+    "I": (731 * u.nm, 880 * u.nm),
+    "Y": (1 * u.um, 1.15 * u.um),
+    "J": (1.2 * u.um, 1.4 * u.um),
+    "H": (1.5 * u.um, 1.8 * u.um),
+    "K": (2 * u.um, 2.5 * u.um),
 }
 
 
@@ -116,7 +162,7 @@ def ciddor(
         highmask = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
         assert np.all(lowmask) and np.all(highmask)
 
-    T_C = T.to("deg_C", equivalencies=u.temperature())
+    T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
     assert -40 <= T_C.value <= 100  # noqa: PLR2004
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
     assert 0 <= h <= 1
@@ -149,11 +195,11 @@ def edlen(
     if isinstance(wavelength.value, float | int):
         assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
     elif isinstance(wavelength.value, list | np.ndarray):
-        lowmask = np.array(wavelength.to("um").value) >= 0.3  # noqa: PLR2004
-        highmask = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
+        lowmask: np.ndarray = np.array(wavelength.to("um").value) >= 0.3  # noqa: PLR2004
+        highmask: np.ndarray = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
         assert np.all(lowmask) and np.all(highmask)
 
-    T_C = T.to("deg_C", equivalencies=u.temperature())
+    T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
     assert -40 <= T_C.value <= 100  # noqa: PLR2004
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
     assert 0 <= h <= 1
@@ -167,12 +213,11 @@ def edlen(
     )
 
 
-air_refractive_index_formulae = {"ciddor": ciddor, "edlen": edlen}
+air_refractive_index_formulae: dict[str, Callable] = {"ciddor": ciddor, "edlen": edlen}
 
 
 """
 Models of refractive index
-
 """
 
 
@@ -182,10 +227,10 @@ class Model:
     A generic model material, acts as a base class for more specific materials
     """
 
-    tabulated: ArrayLike = None
-    function: Callable = None
+    tabulated: np.ndarray | None = None
+    function: Callable | None = None
 
-    def refractive_index(self, wl: Quantity = None) -> Callable | float:
+    def refractive_index(self, wl: Quantity | None = None) -> Callable | float:
         if self.function:
             if wl is None:
                 return self.function
@@ -199,7 +244,7 @@ class Model:
         print("No function or tabulated values found")
         raise NotImplementedError
 
-    def n(self, wl: Quantity = None) -> Callable | float:
+    def n(self, wl: Quantity | None = None) -> Callable | float:
         if wl:
             return self.refractive_index(wl)
 
@@ -207,7 +252,7 @@ class Model:
 
     @property
     def n_D(self) -> float:
-        wl_D = 587.6 * u.nm
+        wl_D: Quantity = 587.6 * u.nm
 
         return self.n(wl_D)
 
@@ -230,7 +275,7 @@ class Air(Model):
 
     def __post_init__(self) -> None:
         if self.air_model:
-            f = air_refractive_index_formulae[self.air_model]
+            f: Callable = air_refractive_index_formulae[self.air_model]
             super().__init__(function=f)
 
         else:
@@ -243,16 +288,14 @@ class Linear(Model):
     A simple linear model - linear refractive index as a function of wavelength
     """
 
-    m: float = None
-    b: float = None
+    m: float | None = None
+    b: float | None = None
 
     def __post_init__(self) -> None:
-        if self.m and self.b:
+        def f(wls: ArrayLike) -> ArrayLike:
+            return self.m * wls + self.b
 
-            def f(wls: ArrayLike) -> ArrayLike:
-                return self.m * wls + self.b
-
-            super().__init__(function=f)
+        super().__init__(function=f)
 
 
 @dataclass
@@ -262,7 +305,7 @@ class Constant(Model):
     Constant refractive index, regardless of wavelength
     """
 
-    c: float = None
+    c: float | None = None
 
     def __post_init__(self) -> None:
         if self.c:
@@ -360,7 +403,7 @@ def _(wls: ArrayLike) -> ArrayLike:
     raise NotImplementedError
 
 
-atmosphere_model_functions = {
+atmosphere_model_functions: dict[str, Callable] = {
     "plane-parallel": _plane_parallel,
     "young-irvine": _young_irvine,
     "hardie": _hardie,
@@ -391,7 +434,6 @@ class Atmosphere:
         if self.atmosphere_model:
             self.refraction_function = atmosphere_model_functions[self.atmosphere_model]
 
-    @property
     def refractive_index(self, wls: ArrayLike) -> ArrayLike:
         """
         Access the underlying refractive index model

@@ -8,23 +8,24 @@ a catalogue of glasses. This code is largely unfinished...
 """
 
 import itertools
-from typing import TYPE_CHECKING
 
 import astropy.units as u
 import numpy as np
 import scipy.optimize
 from numpy.typing import ArrayLike
+from typing import TYPE_CHECKING
+
+from curved_air.glass import GlassCatalogue
+from curved_air.optics.dispersers import Prism
+from curved_air.instruments.ADC import PrismStack
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
-from curved_air.glass import Glass, GlassCatalogue
-from curved_air.optics import Prism, PrismStack
+    from astropy.units import Quantity
 
 
 def constant_dispersion(
-    glass_catalogue: GlassCatalogue = None,
-    wavelength_range: ArrayLike = None,
+    glass_catalogue: GlassCatalogue,
+    wavelengths: np.ndarray | None = None,
     num_glasses: int = 3,
     max_apex_ratio: float = 3.0,  # TODO: use this!  # noqa: ARG001
     target_dispersion: float = 0.0,
@@ -35,8 +36,8 @@ def constant_dispersion(
     """
 
     if len(glass_catalogue) >= 20 and num_glasses >= 3:  # noqa: PLR2004
-        n = len(glass_catalogue)
-        r = num_glasses
+        n: int = len(glass_catalogue)
+        r: int = num_glasses
 
         num_combinations = (
             np.math.factorial(n + r - 1)
@@ -53,14 +54,14 @@ def constant_dispersion(
             + "You may wish to try with fewer materials in your catalogue."
         )
 
-    if wavelength_range is None:
-        wavelength_range = np.linspace(0.39, 0.95, 20) * u.um  # default value
+    if wavelengths is None:
+        wavelengths: np.ndarray = np.linspace(0.39, 0.95, 20) * u.um  # default value
 
-    combinations: Generator[tuple[Glass, Glass]] = (
+    combinations: itertools.combinations_with_replacement = (
         itertools.combinations_with_replacement(glass_catalogue.glass_list, num_glasses)
     )
 
-    results = {"glasses": [], "i": [], "A": [], "m": [], "b": [], "residuals": []}
+    results: dict = {"glasses": [], "i": [], "A": [], "m": [], "b": [], "residuals": []}
 
     for combination in combinations:
         if np.any(np.array(combination[:-1]) == np.array(combination[1:])):
@@ -80,22 +81,22 @@ def constant_dispersion(
 
             # print(f"{i=} {A=} {m=} {b=}")
 
-            stack = PrismStack(
+            stack: PrismStack = PrismStack(
                 [
                     Prism(glass=glass_catalogue[g], apex_angle=a * u.deg)
                     for g, a in zip(combination, A, strict=False)  # noqa: B023
                 ]
             )
-            dispersion = stack.trace(wavelength_range, incidence_angle=i).to("deg")
+            dispersion: Quantity = stack.trace(wavelengths, incidence_angle=i).to("deg")
             return np.sum(
-                np.power((dispersion - (m * wavelength_range + b)).to("deg").value, 2)
+                np.power((dispersion - (m * wavelengths + b)).to("deg").value, 2)
             )
 
-        A_start = np.ones(num_glasses) * 10
+        A_start: np.ndarray = np.ones(num_glasses) * 10
         A_start[1::2] *= -1.0
-        A_start = list(A_start)
+        A_start: list[float] = list(A_start)
 
-        bounds = (
+        bounds: list[tuple[float, float]] = (
             [(-0.05, 0.05)]
             + [(-10.0, 10.0)] * num_glasses
             + [
@@ -108,7 +109,7 @@ def constant_dispersion(
         )
 
         #     i      A     m  b
-        x0 = [0, *A_start, 1, 0]
+        x0: list[float] = [0, *A_start, 1, 0]
 
         res = scipy.optimize.minimize(
             fun=residuals,
@@ -121,11 +122,10 @@ def constant_dispersion(
             print(f"{combination}\n{res.message}")
             continue
 
-        i = res.x[0] * u.deg
-        A = res.x[1:-2]
-        m, b = res.x[-2:]
-        m *= u.rad / u.um  # Give 'm' units of radians per micron
-        b *= u.rad  # Give 'b' units of radians
+        i: Quantity = res.x[0] * u.deg
+        A: list[float] = res.x[1:-2]
+        m: Quantity = res.x[-2] * u.rad / u.um
+        b: Quantity = res.x[-1] * u.rad
 
         results["glasses"].append(combination)
         results["i"].append(i)
