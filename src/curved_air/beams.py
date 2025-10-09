@@ -16,6 +16,7 @@ import astropy.units as u
 import numpy as np
 from astropy.units import Quantity
 from numpy.typing import ArrayLike
+from scipy.integrate import quad
 
 
 @dataclass
@@ -41,9 +42,9 @@ class Beam:
         return self.k_scalar
 
     def __str__(self) -> str:
-        vals = "".join([f"{p:>12}: {val:<6}\n" for p, val in self.__dict__.items()])
-
-        return "Beam:\n" + vals
+        return "Beam:\n" + "".join(
+            [f"{p:>12}: {val:<6}\n" for p, val in self.__dict__.items()]
+        )
 
 
 # EtalonSim / GaussianBeam.py
@@ -77,7 +78,7 @@ class GaussianBeam(Beam):
         Square of the beam width
         """
 
-        _z = (z / self.z_R).si
+        _z: Quantity = (z / self.z_R).si
 
         if self.debug_level > 0 and not self.printed.get("w(z)^2"):
             self.printed["w(z)^2"] = True
@@ -108,7 +109,7 @@ class GaussianBeam(Beam):
         R, radius of curvature of the wavefront
         """
 
-        _z = (self.z_R / z).si
+        _z: Quantity = (self.z_R / z).si
 
         if self.debug_level > 0 and not self.printed.get("R(z)"):
             self.printed["R(z)"] = True
@@ -117,7 +118,7 @@ class GaussianBeam(Beam):
             print("R(z):")
             print((z * (1 + (_z) ** 2)).si)
 
-        R = (z * (1 + (_z) ** 2)).si
+        R: Quantity = (z * (1 + (_z) ** 2)).si
         # Account for infinite radius of curvature at beam waist
         R[np.isnan(R)] = np.inf * u.m
 
@@ -133,7 +134,7 @@ class GaussianBeam(Beam):
         """
         The amplitude of the electric field at the given coordinates
         """
-        r = np.sqrt(x**2 + y**2).si if r is None else r.si
+        r: Quantity = np.sqrt(x**2 + y**2).si if r is None else r.si
 
         return (
             self.E_0
@@ -170,7 +171,7 @@ class GaussianBeam(Beam):
         """
         The radial phase of the E field at the given coordinates
         """
-        r = np.sqrt(x**2 + y**2) if r is None else r.si
+        r: Quantity = np.sqrt(x**2 + y**2) if r is None else r.si
 
         return (self.k.si * (r**2).si) / (2 * self.R(z).si)
 
@@ -214,24 +215,26 @@ class GaussianBeam(Beam):
                 Defaults to "amplitude longitudinal".
         """
 
-        r = np.sqrt(x**2 + y**2) if r is None else r.si
-        E = 1.0
+        r: Quantity = np.sqrt(x**2 + y**2) if r is None else r.si
+        E: float = 1.0
 
         if "amplitude" in include.lower():
             # print("Computing amplitude")
-            E = E * self.amplitude(r=r, z=z)
+            E: Quantity = E * self.amplitude(r=r, z=z)
 
         if "longitudinal" in include.lower():
             # print("Computing longitudinal phase")
-            E = E * np.exp(-1j * self.longitudinal_phase(z=z))
+            E: Quantity = E * np.exp(-1j * self.longitudinal_phase(z=z))
 
         if "radial" in include.lower():
             # print("Computing radial phase")
-            E = E * np.exp(-1j * self.radial_phase(r=r, z=z))
+            E: Quantity = E * np.exp(-1j * self.radial_phase(r=r, z=z))
 
         if "gouy" in include.lower():
             # print("Computing Gouy phase")
-            E = E * np.exp(+1j * self.Gouy_phase(z=z))
+            E: Quantity = E * np.exp(+1j * self.Gouy_phase(z=z))
+
+        assert isinstance(E, Quantity), "Something went wrong! {include = }"
 
         return E
 
@@ -242,7 +245,7 @@ class GaussianBeam(Beam):
         waist.
         """
 
-        ret = (
+        ret: Quantity = (
             self.E_0
             * self.w_0
             * self.w(z=z)
@@ -253,7 +256,7 @@ class GaussianBeam(Beam):
         if np.isinf(r):
             return ret
 
-        exponent = -((r**2) / (self.w(z) ** 2)).si
+        exponent: Quantity = -((r**2) / (self.w(z) ** 2)).si
         ret *= 1 - np.exp(exponent)
         return ret
 
@@ -266,7 +269,7 @@ class GaussianBeam(Beam):
         distance z from the beam waist.
         """
 
-        ret = (
+        ret: Quantity = (
             self.E_0
             * (self.w_0 / self.w(z=z)).si
             * np.pi
@@ -281,10 +284,11 @@ class GaussianBeam(Beam):
             # print(f"{self.R(z=z) = }")
             return ret
 
-        exponent1 = -(r**2) * (1 / self.w(z=z) ** 2).si
-        exponent2 = -(r**2) * ((1j * self.k) / (2 * self.R(z=z))).si
-        exponent = exponent1 + exponent2
+        exponent1: Quantity = -(r**2) * (1 / self.w(z=z) ** 2).si
+        exponent2: Quantity = -(r**2) * ((1j * self.k) / (2 * self.R(z=z))).si
+        exponent: Quantity = exponent1 + exponent2
         ret *= 1 - np.exp(exponent)
+
         return ret
 
     def summed_E_field(self, z: Quantity = 0 * u.mm, exclude: str = "none") -> Quantity:
@@ -295,12 +299,14 @@ class GaussianBeam(Beam):
         Fabry-Perot etalon.
         """
 
-        A = (u.m**2 / self.w(z) ** 2) + 1j * ((self.k * u.m**2) / (2 * self.R(z)))
-        integral_over_r = np.pi / A
+        A: Quantity = (u.m**2 / self.w(z) ** 2) + 1j * (
+            (self.k * u.m**2) / (2 * self.R(z))
+        )
+        integral_over_r: Quantity = np.pi / A
 
         # baseline result, including only the amplitude and longitudinal phase,
         # ie. a plane wave beam
-        ret = (
+        ret: Quantity = (
             self.E_0 * (self.w_0 / self.w(z)) * np.exp(-1j * self.longitudinal_phase(z))
         )
 
@@ -369,12 +375,14 @@ class PlanarBeam(Beam):
         https://en.wikipedia.org/wiki/Electromagnetic_wave_equation
         """
 
-        x, y, z = x.to(u.mm).value, y.to(u.mm).value, z.to(u.mm).value
+        x: float = x.to(u.mm).value
+        y: float = y.to(u.mm).value
+        z: float = z.to(u.mm).value
 
         # Position vector r
-        r_unitless = np.array([x, y, z])
+        r_unitless: np.ndarray = np.array([x, y, z])
         # r = r_unitless * u.mm
-        k_vector_unitless = self.k_vector.to(1 / u.mm).value
+        k_vector_unitless: np.ndarray = self.k_vector.to(1 / u.mm).value
 
         return self.E_0 * np.exp(-1j * np.dot(k_vector_unitless, r_unitless))
 
@@ -411,35 +419,35 @@ class SphericalBeam(Beam):
         """
 
         if isinstance(x, Quantity):
-            x = x.to(u.mm).value
+            x: float = x.to(u.mm).value
         if isinstance(y, Quantity):
-            y = y.to(u.mm).value
+            y: float = y.to(u.mm).value
         if isinstance(z, Quantity):
-            z = z.to(u.mm).value
+            z: float = z.to(u.mm).value
 
-        x_shape = np.shape(x)
+        x_shape: tuple[int] = np.shape(x)
         # y_shape = np.shape(y)  # TODO: don't assume x, y, and z are the same shape
         # z_shape = np.shape(z)
 
-        x = np.array(x).flatten()
-        y = np.array(y).flatten()
+        x: np.ndarray = np.array(x).flatten()
+        y: np.ndarray = np.array(y).flatten()
 
         if isinstance(z, float):
-            z = z * np.ones_like(x)
+            z: np.ndarray = z * np.ones_like(x)
 
         print(f"{np.shape(x) = }")
         print(f"{np.shape(y) = }")
         print(f"{np.shape(z) = }")
 
-        r = np.array([x, y, z]) * u.mm
+        r: Quantity = np.array([x, y, z]) * u.mm
 
         # r_norm = np.linalg.norm(r, axis=0)
 
         # area = np.pi * (r_norm / (2 * self.f_number))**2
-        area = 1 * u.mm**2
+        area: Quantity = 1 * u.mm**2
 
-        E = self.E_0 / area.value
-        phase = np.exp(1j * (np.dot(self.k_vector, r).si))
+        E: Quantity = self.E_0 / area.value
+        phase: Quantity = np.exp(1j * (np.dot(self.k_vector, r).si))
 
         return np.array(E * phase).reshape(x_shape)
 
@@ -448,7 +456,7 @@ class SphericalBeam(Beam):
         z: Quantity = 0 * u.mm,
         max_radius: Quantity | None = None,
         force_radius: bool = False,
-    ) -> Quantity:
+    ) -> Quantity | list[Quantity]:
         """
         Using the analytic expression for a spherical beam, this function
         calculates the integral of the E field over a circular aperture
@@ -456,11 +464,11 @@ class SphericalBeam(Beam):
         """
 
         if isinstance(z, Quantity):
-            z = z.to(u.mm).value
+            z: float = z.to(u.mm).value
 
         try:
             len(z)
-            out = []
+            out: list[Quantity] = []
 
             for i, zi in enumerate(z):
                 if self.debug_level > 0:
@@ -468,6 +476,7 @@ class SphericalBeam(Beam):
                 out.append(self.summed_E_field(zi, max_radius))
 
             return out
+
         except TypeError:
             pass
 
@@ -475,17 +484,14 @@ class SphericalBeam(Beam):
             return self.E_0
 
         if force_radius:
-            radius = max_radius
-        elif max_radius is None:
-            radius = self.beam_diameter(z * u.mm) / 2
-        else:
-            radius = min(max_radius, self.beam_diameter(z * u.mm) / 2)
+            if isinstance(max_radius, Quantity):
+                radius: Quantity = max_radius
+            elif max_radius is None:
+                radius: Quantity = self.beam_diameter(z * u.mm) / 2
+        elif isinstance(max_radius, Quantity):
+            radius: Quantity = min(max_radius, self.beam_diameter(z * u.mm) / 2)
 
-        out = []
-
-        from scipy.integrate import quad
-
-        k = self.k_scalar.to(1 / u.mm).value
+        k: float = self.k_scalar.to(1 / u.mm).value
 
         # Define the integrand
         def integrand(r: float) -> float:
@@ -500,7 +506,7 @@ class SphericalBeam(Beam):
     def integrated_E_field(
         self,
         z: Quantity = 0 * u.mm,
-        radius: Quantity = 10 * u.mm,
+        radius: Quantity | float = 10 * u.mm,
     ) -> Quantity:
         """Use the analytic expression for a slice through the beam at a distance z"""
 
@@ -508,20 +514,20 @@ class SphericalBeam(Beam):
             return [self.integrated_E_field(z=zi, radius=radius) for zi in z]
 
         if isinstance(z, Quantity):
-            z = z.to(u.mm).value
+            z: float | np.ndarray = z.to(u.mm).value
 
         if isinstance(radius, Quantity):
-            radius = radius.to(u.mm).value
+            radius: float = radius.to(u.mm).value
 
-        beam_edge = z / self.f_number
+        beam_edge: float | np.ndarray = z / self.f_number
 
-        R = np.minimum(radius, beam_edge)
+        R: float | np.ndarray = np.minimum(radius, beam_edge)
 
-        k = self.k_scalar.to(1 / u.mm).value
+        k: float = self.k_scalar.to(1 / u.mm).value
 
-        constant = (2 * np.pi * self.E_0) / (1j * k)
-        exponent_1 = 1j * (k * np.sqrt(R**2 + z**2))
-        exponent_2 = 1j * (k * z)
+        constant: Quantity = (2 * np.pi * self.E_0) / (1j * k)
+        exponent_1: float = 1j * (k * np.sqrt(R**2 + z**2))
+        exponent_2: float = 1j * (k * z)
 
         return constant * (np.exp(exponent_1) * np.exp(-exponent_2))
 
