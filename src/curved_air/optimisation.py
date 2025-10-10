@@ -253,7 +253,7 @@ def constant_dispersion(
                 def residuals(
                     kmbi: tuple | list | ArrayLike = (1.0, target_dispersion, 0.0, 0.0),
                 ) -> float:
-                    k, m, b, i = kmbi
+                    k, m, b, _i = kmbi
                     return np.sum(
                         np.power((n1 - k * n2) - (m * wavelength_range + b), 2)  # noqa: B023
                     )
