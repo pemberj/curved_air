@@ -332,6 +332,12 @@ class Prism(CrossDisperser):
             else:
                 self.incidence_angle = self.minimum_deviation_incidence_angle()
 
+        if self.min_wl is None:
+            self.min_wl = self.glass.wlmin
+
+        if self.max_wl is None:
+            self.max_wl = self.glass.wlmax
+
     @property
     def refractive_index(self) -> Callable:
         return self.glass.refractive_index
