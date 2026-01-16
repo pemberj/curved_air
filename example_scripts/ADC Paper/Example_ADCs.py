@@ -19,14 +19,14 @@ import matplotlib.pyplot as plt
 from astropy import units as u
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics import ADC, PrismStack
+from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
 
 
-def main() -> None:
-    script_path = Path(__file__).parent
+def main(save_plots: bool = False) -> None:
+    script_path: Path = Path(__file__).parent
     agf_dir: Path = script_path / ".." / ".." / "data" / "AGFs"
 
     agf_files: list[Path] = sorted(
@@ -38,7 +38,7 @@ def main() -> None:
     if not agf_files:
         raise FileNotFoundError("No AGF files found in the data directory.")
 
-    catalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
     MARVEL_ADC = ADC(
         prism_stack=PrismStack([catalogue["K10"], catalogue["S-FPL51"]]),
@@ -76,23 +76,27 @@ def main() -> None:
 
     example_ADC_2.optimise()
 
-    # Save plots
-    for ext in ["png", "svg"]:
-        MARVEL_ADC.plot(
-            save_filename=f"{script_path}/ADC_K10_FPL51.{ext}",
-            layout=False,
-            show=False,
-        )
-        example_ADC_1.plot(
-            save_filename=f"{script_path}/ADC_KZFS4HT_SK4.{ext}",
-            layout=False,
-            show=False,
-        )
-        example_ADC_2.plot(
-            save_filename=f"{script_path}/ADC_LASF41_BAF10.{ext}",
-            layout=False,
-            show=False,
-        )
+    MARVEL_ADC.plot(show=True)
+    example_ADC_1.plot(show=True)
+    example_ADC_2.plot(show=True)
+
+    if save_plots:
+        for ext in ["png", "svg"]:
+            MARVEL_ADC.plot(
+                save_filename=f"{script_path}/ADC_K10_FPL51.{ext}",
+                layout=False,
+                show=False,
+            )
+            example_ADC_1.plot(
+                save_filename=f"{script_path}/ADC_KZFS4HT_SK4.{ext}",
+                layout=False,
+                show=False,
+            )
+            example_ADC_2.plot(
+                save_filename=f"{script_path}/ADC_LASF41_BAF10.{ext}",
+                layout=False,
+                show=False,
+            )
 
 
 if __name__ == "__main__":
