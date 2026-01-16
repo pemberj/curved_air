@@ -80,6 +80,8 @@ class PrismStack:
         previous_material: Model = self.entrance_medium
         previous_angle: ScalarQuantity = 0 * u.degree
 
+        assert isinstance(rays, Quantity)
+
         for _n, prism in enumerate(self.prism_list):
             rays: Quantity = _refract(
                 n_1=previous_material.refractive_index(wls),
@@ -102,7 +104,7 @@ class PrismStack:
         rays: Quantity = _refract(
             n_1=previous_material.refractive_index(wls),
             n_2=self.exit_medium.refractive_index(wls),
-            theta_in=rays - (1 * prism.apex_angle),
+            theta_in=(rays - prism.apex_angle).to(u.deg),
             wavelength=wls,
         )
 

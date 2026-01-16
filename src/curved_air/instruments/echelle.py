@@ -316,7 +316,7 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
         _grating: EchelleGrating = EchelleGrating(
             groove_frequency=self.grating.groove_frequency,
             blaze_angle=self.grating.blaze_angle,
-            gamma_angle=self.grating.gamma_angle + prism_first_pass_angle,
+            gamma_angle=(self.grating.gamma_angle + prism_first_pass_angle).to(u.deg),
             min_wl=self.grating.min_wl,
             max_wl=self.grating.max_wl,
         )

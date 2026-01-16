@@ -695,9 +695,9 @@ class Prism(CrossDisperser):
                 incidence_angle=self.incidence_angle,
             )
 
-            return _self.deviation_angle(wl=wl) + -1 * zero_angle
+            return (_self.deviation_angle(wl=wl) - zero_angle).to(u.deg)
 
-        return self.deviation_angle(wl=wl) + -1 * zero_angle
+        return (self.deviation_angle(wl=wl) - zero_angle).to(u.deg)
 
     def angular_spread(
         self,
@@ -713,8 +713,8 @@ class Prism(CrossDisperser):
             assert isinstance(self.max_wl, ScalarQuantity)
             max_wl: ScalarQuantity = self.max_wl
 
-        min_angle: ScalarQuantity = -1 * self.deviation_angle(wl=min_wl)
-        max_angle: ScalarQuantity = -1 * self.deviation_angle(wl=max_wl)
+        min_angle: ScalarQuantity = (-self.deviation_angle(wl=min_wl)).to(u.deg)
+        max_angle: ScalarQuantity = (-self.deviation_angle(wl=max_wl)).to(u.deg)
         return max_angle - min_angle
 
     def local_angular_dispersion(self, wl: Quantity) -> Quantity:
@@ -768,7 +768,7 @@ class Prism(CrossDisperser):
         rays: Quantity = _refract(
             n_1=self.refractive_index(wls),
             n_2=Air().refractive_index(wls),
-            theta_in=rays + (-1 * self.apex_angle),
+            theta_in=(rays - self.apex_angle).to(u.deg),
             wavelength=wls,
         )
 
