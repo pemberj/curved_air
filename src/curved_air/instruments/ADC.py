@@ -72,7 +72,7 @@ class PrismStack:
         if wls is None:
             wls: ArrayQuantity = [0.4861, 0.5893, 0.6563] * u.um
 
-        if wls.isscalar():
+        if wls.isscalar:
             rays: ScalarQuantity = incidence_angle
         else:
             rays: ArrayQuantity = incidence_angle * np.ones(len(wls))

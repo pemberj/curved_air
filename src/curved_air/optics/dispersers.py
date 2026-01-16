@@ -151,7 +151,7 @@ class EchelleGrating(Disperser):
     ) -> int | list[int] | float | list[float]:
         """ """
         if isinstance(wl, tuple | list) or (
-            isinstance(wl, Quantity) and not wl.isscalar()
+            isinstance(wl, Quantity) and not wl.isscalar
         ):
             return [self.order_number(iwl) for iwl in wl]
 
@@ -508,7 +508,7 @@ class Prism(CrossDisperser):
         assert isinstance(field_angle, Quantity)
 
         # Check if both wl and field_angle are lists or arrays
-        if not wl.isscalar() and not field_angle.isscalar():
+        if not wl.isscalar and not field_angle.isscalar:
             return [
                 self.dispersion_angle(wl=w, field_angle=f).value
                 for w, f in zip(wl, field_angle, strict=False)
@@ -675,7 +675,7 @@ class Prism(CrossDisperser):
         """
 
         if isinstance(wl, list | tuple) or (
-            isinstance(wl, Quantity) and not wl.isscalar()
+            isinstance(wl, Quantity) and not wl.isscalar
         ):
             return [
                 self.dispersion_angle(wl=w, field_angle=f).value

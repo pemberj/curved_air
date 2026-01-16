@@ -66,7 +66,7 @@ class Etalon:
         Calculate the free spectral range of the etalon, defaults to wavelength = 780nm
         """
 
-        if isinstance(wavelength, list) or not wavelength.isscalar():
+        if isinstance(wavelength, list) or not wavelength.isscalar:
             assert all(isinstance(wl, ScalarQuantity) for wl in wavelength)
             return [self.delta_lambda(wl).to(u.pm).value for wl in wavelength] * u.pm
 
