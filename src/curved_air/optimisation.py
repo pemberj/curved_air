@@ -8,6 +8,7 @@ achromatic lenses, etc.
 """
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import astropy.units as u
 import numpy as np
@@ -17,12 +18,15 @@ from numpy.typing import ArrayLike
 from scipy.optimize import curve_fit
 
 from curved_air.glass import Glass, GlassCatalogue
-from curved_air.optics.dispersers import Prism
 from curved_air.instruments.ADC import PrismStack
+from curved_air.optics.dispersers import Prism
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
 def find_overlapping_refrective_index(
-    glass_catalogue: GlassCatalogue = None,
+    glass_catalogue: GlassCatalogue,
     target_wavelength: Quantity = 0.55 * u.um,
     minwl: Quantity = 0.39 * u.um,
     maxwl: Quantity = 0.95 * u.um,
@@ -33,7 +37,7 @@ def find_overlapping_refrective_index(
     the same refractive index at a particular wavelength)
     """
 
-    results = {"g1": [], "g2": [], "wls": [], "delta_wl": []}
+    results: dict[str, list[Any]] = {"g1": [], "g2": [], "wls": [], "delta_wl": []}
 
     for _, glass1 in glass_catalogue.items():
         for _, glass2 in glass_catalogue.items():
@@ -82,7 +86,7 @@ def find_overlapping_refrective_index(
 
 
 def anomalous_dispersion(
-    glass_catalogue: GlassCatalogue = None,
+    glass_catalogue: GlassCatalogue,
     wavelength_range: ArrayLike = None,
     num_glasses: int = 2,
     max_apex_ratio: float = 1.05,
@@ -92,7 +96,7 @@ def anomalous_dispersion(
     if wavelength_range is None:
         wavelength_range = np.linspace(0.39, 0.95, 20)  # default value
 
-    results = {
+    results: dict = {
         "g1": [],
         "g2": [],
         "apex_ratio": [],
@@ -114,11 +118,10 @@ def anomalous_dispersion(
                 continue
 
             try:
-                n1 = glass1.n(wavelength_range)
-                n2 = glass2.n(wavelength_range)
+                n1: float = glass1.n(wavelength_range)
+                n2: float = glass2.n(wavelength_range)
             except Exception as e:
-                print(e)
-                return None
+                raise e
 
             if num_glasses == 2:  # noqa: PLR2004
 
@@ -187,13 +190,13 @@ def anomalous_dispersion(
 
 
 def constant_dispersion(
-    glass_catalogue: GlassCatalogue = None,
-    wavelength_range: ArrayLike = None,
+    glass_catalogue: GlassCatalogue,
+    wavelength_range: np.ndarray | None = None,
     num_glasses: int = 2,
     max_apex_ratio: float = 2.0,
     target_dispersion: float = 0.0,
     dispersion_range: float = 0.1,
-) -> dict[str, list]:
+) -> dict[str, list] | None:
     """
     NOTE: target_dispersion (slope of the linear effective refractive index curve)
     is in units of *radians per wavelength step*
@@ -242,11 +245,10 @@ def constant_dispersion(
                 continue
 
             try:
-                n1 = glass1.n(wavelength_range)
-                n2 = glass2.n(wavelength_range)
+                n1: np.ndarray = glass1.n(wavelength_range)
+                n2: np.ndarray = glass2.n(wavelength_range)
             except Exception as e:
-                print(e)
-                return None
+                raise e
 
             if num_glasses == 2:  # noqa: PLR2004
 

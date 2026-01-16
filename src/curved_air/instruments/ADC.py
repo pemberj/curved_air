@@ -1,24 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, overload
 
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
-from scipy.optimize import minimize
 from matplotlib import pyplot as plt
-
-from typing import TYPE_CHECKING
+from scipy.optimize import minimize
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
-    from numpy.typing import ArrayLike
+    from collections.abc import Callable
 
     from curved_air.glass import Glass
     from curved_air.optics.dispersers import Prism
 
-from curved_air.other import Air, Model
 from curved_air.optics.dispersers import _refract
+from curved_air.other import Air, Model
+
+ScalarQuantity: TypeAlias = Quantity
+ArrayQuantity: TypeAlias = Quantity
 
 
 @dataclass
@@ -43,30 +44,44 @@ class PrismStack:
     def add_prism(self, prism: Prism) -> None:
         self.prism_list.append(prism)
 
+    @overload
     def trace(
         self,
-        wls: ArrayLike = None,
-        incidence_angle: Quantity = 0 * u.deg,
+        wls: ScalarQuantity,
+        incidence_angle: ScalarQuantity,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def trace(
+        self,
+        wls: ArrayQuantity | None,
+        incidence_angle: ScalarQuantity,
+    ) -> ArrayQuantity: ...
+
+    def trace(
+        self,
+        wls: ScalarQuantity | ArrayQuantity | None = None,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
         debug_level: float = 0,
-    ) -> ArrayLike:
+    ) -> ScalarQuantity | ArrayQuantity:
         """
         Trace a set of rays through the PrismStack, solving Snell's Law at each
         interface
         """
 
         if wls is None:
-            wls = [0.4861, 0.5893, 0.6563] * u.um
+            wls: ArrayQuantity = [0.4861, 0.5893, 0.6563] * u.um
 
-        try:
-            rays = incidence_angle * np.ones(len(wls))
-        except TypeError:  # wls is a single value
-            rays = incidence_angle
+        if wls.isscalar():
+            rays: ScalarQuantity = incidence_angle
+        else:
+            rays: ArrayQuantity = incidence_angle * np.ones(len(wls))
 
-        previous_material = self.entrance_medium
-        previous_angle = 0 * u.degree
+        previous_material: Model = self.entrance_medium
+        previous_angle: ScalarQuantity = 0 * u.degree
 
         for _n, prism in enumerate(self.prism_list):
-            rays = _refract(
+            rays: Quantity = _refract(
                 n_1=previous_material.refractive_index(wls),
                 n_2=prism.refractive_index,
                 theta_in=rays - previous_angle,
@@ -76,16 +91,18 @@ class PrismStack:
             if debug_level > 0:
                 print(f"Refracting through a {prism.glass} prism of {prism.apex_angle}")
 
-            previous_material = prism.glass
-            previous_angle = prism.apex_angle
+            previous_material: Glass = prism.glass
+            previous_angle: Quantity = [
+                r.to(u.deg).value + prism.apex_angle.to(u.deg).value for r in rays
+            ] * u.deg
 
             # print(rays.to("degree"))
 
         # Refract through the last surface into the exit medium
-        rays = _refract(
+        rays: Quantity = _refract(
             n_1=previous_material.refractive_index(wls),
             n_2=self.exit_medium.refractive_index(wls),
-            theta_in=rays - prism.apex_angle,
+            theta_in=rays - (1 * prism.apex_angle),
             wavelength=wls,
         )
 
@@ -93,11 +110,11 @@ class PrismStack:
 
     def zero_deviation_wavelengths(
         self,
-        min_wl: Quantity = 0.39 * u.um,
-        max_wl: Quantity = 1.50 * u.um,
+        min_wl: ScalarQuantity = 0.39 * u.um,
+        max_wl: ScalarQuantity = 1.50 * u.um,
         num_wls: int = 100,
-        incidence_angle: Quantity = 0 * u.deg,
-    ) -> ArrayLike:
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+    ) -> Quantity:
         """
         This method traces the dispersion of light through a compound prism and
         returns the wavelengths at which the prism does not deviate the light.
@@ -130,36 +147,37 @@ class PrismStack:
             return zwls
         if len(zwls) == 1:
             return zwls[0]
-        return None
+
+        raise ValueError("No zero-deviation wavelengths found in the given range.")
 
 
 @dataclass
 class ADC:
     prism_stack: PrismStack
     air_model: Model = field(default_factory=Air)
-    min_wl: Quantity = 390 * u.nm
-    max_wl: Quantity = 950 * u.nm
-    D_telescope: Quantity = 0.8 * u.m
-    D_ADC: Quantity = 15 * u.mm
-    z_max: Quantity = 65 * u.degree
+    min_wl: ScalarQuantity = 390 * u.nm
+    max_wl: ScalarQuantity = 950 * u.nm
+    D_telescope: ScalarQuantity = 0.8 * u.m
+    D_ADC: ScalarQuantity = 15 * u.mm
+    z_max: ScalarQuantity = 65 * u.degree
     criterion: str = "PTV"  # "RMS", "RSS", "PTV", "max_abs"
 
-    alpha: Quantity | None = None
-    beta: Quantity | None = None
-    wl_0: Quantity | None = None
+    alpha: ScalarQuantity | None = None
+    beta: ScalarQuantity | None = None
+    wl_0: ScalarQuantity | None = None
 
     residuals_function: Callable | None = None
 
     @property
-    def g1(self) -> Glass:
+    def g1(self) -> Prism | Glass:
         return self.prism_stack.prism_list[0]
 
     @property
-    def g2(self) -> Glass:
+    def g2(self) -> Prism | Glass:
         return self.prism_stack.prism_list[1]
 
     @property
-    def epsilon(self) -> Quantity | None:
+    def epsilon(self) -> float | None:
         if self.wl_0 is None:
             return None
         return (self.g1.refractive_index(self.wl_0) - 1) / (
@@ -168,17 +186,20 @@ class ADC:
 
     @property
     def alpha2(self) -> Quantity:
-        return self.alpha + self.beta
+        assert isinstance(self.alpha, Quantity)
+        assert isinstance(self.beta, Quantity)
+
+        return (self.alpha + self.beta).to(u.deg)
 
     @property
-    def beam_comp(self) -> Quantity:
-        return self.D_telescope / self.D_ADC
+    def beam_comp(self) -> float:
+        return (self.D_telescope / self.D_ADC).si
 
     @property
-    def magnification_at_ADC(self) -> Quantity:
+    def magnification_at_ADC(self) -> float:
         return self.beam_comp
 
-    def wls(self, n: int = 100) -> Iterable:
+    def wls(self, n: int = 100) -> ArrayQuantity:
         return (
             np.linspace(self.min_wl.to(u.um).value, self.max_wl.to(u.um).value, n)
             * u.um
@@ -186,19 +207,22 @@ class ADC:
 
     @property
     def residuals_RMS(self) -> Quantity:
-        RMS = np.sqrt(np.mean(self.residuals_function(wls=self.wls(100)) ** 2))
+        assert self.residuals_function is not None
+        RMS: float = np.sqrt(np.mean(self.residuals_function(wls=self.wls(100)) ** 2))
 
         return RMS.to(u.mas)
 
     @property
     def residuals_RSS(self) -> Quantity:
-        RSS = np.sqrt(np.sum(self.residuals_function(wls=self.wls(100)) ** 2))
+        assert self.residuals_function is not None
+        RSS: float = np.sqrt(np.sum(self.residuals_function(wls=self.wls(100)) ** 2))
 
         return RSS.to(u.mas)
 
     @property
     def residuals_PTV(self) -> Quantity:
-        PTV = abs(
+        assert self.residuals_function is not None
+        PTV: float = abs(
             max(self.residuals_function(wls=self.wls(100)))
             - min(self.residuals_function(wls=self.wls(100)))
         )
@@ -228,24 +252,24 @@ class ADC:
                 + "two-component compound prisms."
             )
 
-        g1 = self.prism_stack.prism_list[0]
-        g2 = self.prism_stack.prism_list[1]
+        g1: Prism = self.prism_stack.prism_list[0]
+        g2: Prism = self.prism_stack.prism_list[1]
 
-        wls = self.wls(n=num_samples)
+        wls: ArrayQuantity = self.wls(n=num_samples)
 
         # Find a linear combination of refractive index curves that best match
         # the refractive index of air, in which the apex angles of the two prism
         def residuals(
-            x: tuple[float, float] = (1, 0.6328),  # alpha, wl_0 - no units
-            wls: ArrayLike = wls,
+            x: tuple[float, float] = (1, 0.6328),  # alpha, wl_0 - no units!
+            wls: ArrayQuantity = wls,
             return_residuals: bool = False,
             verbose: bool = False,
         ) -> Quantity | float:
             # Fully parameterised by alpha and wl_0
             alpha, wl_0 = x
 
-            alpha = alpha * u.degree
-            wl_0 = wl_0 * u.um
+            alpha: ScalarQuantity = alpha * u.degree
+            wl_0: ScalarQuantity = wl_0 * u.um
 
             if verbose:
                 print(f"Trying: {alpha = }, {wl_0 = }")
@@ -306,27 +330,29 @@ class ADC:
         # residuals_PTV = residuals(x = result.x)
         # residuals_curve = residuals(x = result.x, return_residuals=True)
 
-        def residuals_function(wls: ArrayLike = wls) -> Quantity | float:
+        def residuals_function(wls: ArrayQuantity = wls) -> Quantity | float:
+            assert isinstance(self.alpha, Quantity)
+            assert isinstance(self.wl_0, Quantity)
             return residuals(
                 x=(self.alpha.to(u.degree).value, self.wl_0.to(u.um).value),
                 wls=wls,
                 return_residuals=True,
             )
 
-        self.residuals_function = residuals_function
+        self.residuals_function: Callable = residuals_function
 
         # Solve for individual prism apex angle from fitted constant
-        self.first_apex_angle = alpha_fit * u.degree / 2
-        epsilon_fit = (g1.refractive_index(wl_0_fit) - 1) / (
+        self.first_apex_angle: ScalarQuantity = alpha_fit * u.degree / 2
+        epsilon_fit: float = (g1.refractive_index(wl_0_fit) - 1) / (
             g2.refractive_index(wl_0_fit) - 1
         )
-        self.second_apex_angle = epsilon_fit * self.first_apex_angle
+        self.second_apex_angle: ScalarQuantity = epsilon_fit * self.first_apex_angle
 
-        self.alpha = alpha_fit * u.degree
-        self.beta = self.second_apex_angle - self.first_apex_angle
-        self.wl_0 = wl_0_fit * u.um
+        self.alpha: ScalarQuantity = alpha_fit * u.degree
+        self.beta: ScalarQuantity = self.second_apex_angle - self.first_apex_angle
+        self.wl_0: ScalarQuantity = wl_0_fit * u.um
 
-        results = {
+        results: dict[str, Any] = {
             "g1": g1,
             "g2": g2,
             "D_telescope": self.D_telescope,
@@ -357,16 +383,20 @@ class ADC:
         layout: bool = True,
         show: bool = True,
     ) -> None:
-        wls = self.wls(n=num_samples)
+        assert isinstance(self.alpha, Quantity)
+        assert isinstance(self.epsilon, float)
+        assert isinstance(self.wl_0, Quantity)
+
+        wls: ArrayQuantity = self.wls(n=num_samples)
 
         plt.rcParams["axes.labelsize"] = 14
         plt.rcParams["legend.fontsize"] = 12
 
-        min_thickness = 10 * u.mm
-        gap = 6 * u.mm
-        D_ADC = 25.4 * u.mm
+        min_thickness: ArrayQuantity = 10 * u.mm
+        gap: ArrayQuantity = 6 * u.mm
+        D_ADC: ArrayQuantity = 25.4 * u.mm
 
-        num_subplots = 4 if layout else 3
+        num_subplots: Literal[4, 3] = 4 if layout else 3
 
         _fig, axs = plt.subplots(
             num_subplots,
@@ -378,7 +408,7 @@ class ADC:
         # fig.suptitle(f"Optimised ADC using {self.g1.name} and {self.g2.name}", size=18)
 
         # Plot refractive indices of the two glasses
-        ax = axs[0]
+        ax: plt.Axes = axs[0]
 
         ax.plot(wls, self.g1.n(wls), label=f"{self.g1.name}")
         ax.plot(wls, self.g2.n(wls), label=f"{self.g2.name}")
@@ -389,13 +419,13 @@ class ADC:
         ax.legend(frameon=True)
 
         # Plot scaled difference against the normalised refractivity of air
-        ax = axs[1]
+        ax: plt.Axes = axs[1]
 
-        ADC_index = self.alpha * (
+        ADC_index: ScalarQuantity = self.alpha * (
             self.g1.n(wls) - self.epsilon * self.g2.n(wls) + self.epsilon - 1
         )
 
-        ADC_index = ADC_index.to(u.degree)
+        ADC_index: ScalarQuantity = ADC_index.to(u.degree)
 
         ax.plot(
             wls,
@@ -406,7 +436,7 @@ class ADC:
             + f"{self.alpha / 2:.3g}",
         )
 
-        d_air = (
+        d_air: ScalarQuantity = (
             self.beam_comp
             * self.z_max
             * (
@@ -415,7 +445,7 @@ class ADC:
             )
         )
 
-        d_air = d_air.to(u.degree)
+        d_air: ScalarQuantity = d_air.to(u.degree)
 
         ax.plot(
             wls,
@@ -433,39 +463,40 @@ class ADC:
         ax.set_ylabel("Refractivity $\\approx n-1$")
         ax.legend(frameon=True)
 
-        # residuals_curve = (ADC_index - d_air).to(u.mas)
-        residuals_curve = self.residuals_function(wls=wls)
+        if callable(self.residuals_function):
+            # residuals_curve = (ADC_index - d_air).to(u.mas)
+            residuals_curve = self.residuals_function(wls=wls)
 
-        # Plot angular residuals at maximum zenith angle
-        ax = axs[2]
-        ax.plot(
-            wls,
-            residuals_curve,
-            label="Residuals"
-            + "\nRMS: "
-            + f"{self.residuals_RMS:.2f}"
-            + "\nPTV: "
-            + f"{self.residuals_PTV:.2f}",
-        )
+            # Plot angular residuals at maximum zenith angle
+            ax = axs[2]
+            ax.plot(
+                wls,
+                residuals_curve,
+                label="Residuals"
+                + "\nRMS: "
+                + f"{self.residuals_RMS:.2f}"
+                + "\nPTV: "
+                + f"{self.residuals_PTV:.2f}",
+            )
 
-        ax.axhline(y=0, color="k", ls="--", lw=1)
-        ax.axvline(x=self.wl_0.to(u.um).value, color="k", ls="--", lw=1)
-        ax.set_xlabel("Wavelength (microns)")
-        ax.set_ylabel("Angular dispersion\n" + "residuals at $z_{max}$ (mas)")
-        ax.legend(frameon=True)
+            ax.axhline(y=0, color="k", ls="--", lw=1)
+            ax.axvline(x=self.wl_0.to(u.um).value, color="k", ls="--", lw=1)
+            ax.set_xlabel("Wavelength (microns)")
+            ax.set_ylabel("Angular dispersion\n" + "residuals at $z_{max}$ (mas)")
+            ax.legend(frameon=True)
 
         if layout:
             # Plot cross-sectional layout of physical compound prisms
-            ax = axs[3]
+            ax: plt.Axes = axs[3]
 
             ax.axhline(y=0, c="k", ls="--", lw=1)
 
-            sign = self.first_apex_angle / abs(self.first_apex_angle)
-            R_ADC = D_ADC / 2
+            sign: Literal[1, -1] = self.first_apex_angle / abs(self.first_apex_angle)
+            R_ADC: ScalarQuantity = D_ADC / 2
 
-            x1 = D_ADC * np.sin(np.radians(self.first_apex_angle))
-            x2 = D_ADC * np.sin(np.radians(self.second_apex_angle))
-            d = (min_thickness.value - x1.value) / 2 if x1 < min_thickness else 0
+            x1: ScalarQuantity = D_ADC * np.sin(np.radians(self.first_apex_angle))
+            x2: ScalarQuantity = D_ADC * np.sin(np.radians(self.second_apex_angle))
+            d: float = (min_thickness.value - x1.value) / 2 if x1 < min_thickness else 0
 
             # Plot first Amici prism
             ax.plot([0, 0], [-R_ADC.value, R_ADC.value], color="k", lw=1.3)
@@ -547,7 +578,7 @@ class ADC:
             )
 
             # Plot annotations of distances
-            xtotal = xoffset + (max(x1, x2) + 2 * d * u.mm).value
+            xtotal: float = xoffset + (max(x1, x2) + 2 * d * u.mm).value
             ax.annotate(
                 text=f"{xtotal:.3g}",
                 xy=(0, -R_ADC.value / 2),

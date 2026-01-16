@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,11 +34,11 @@ from astropy import units as u
 from astropy.units import Quantity, UnitConversionError
 from tqdm import tqdm
 
-from curved_air.other import _fraunhofer_lines
+from curved_air.other import Air, Model, _fraunhofer_lines
 from curved_air.plotting import plot_style
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator, Callable
+    from collections.abc import Callable, Generator, Iterator
     from typing import Any  # noqa: F401
 
     from matplotlib.backend_bases import MouseEvent
@@ -46,6 +46,9 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
+
+ScalarQuantity: TypeAlias = Quantity
+ArrayQuantity: TypeAlias = Quantity
 
 status_dictionary: dict[int, str] = {
     1: "Standard",
@@ -147,11 +150,11 @@ class Glass:
             list: a list containing the alternative names of the glass (strings)
         """
 
-        prefixes = ["N-", "S-", "LITHOTEC-"]
-        characters = [" ", "*", "ultra"]
-        brackets = "[{([])}]"
+        prefixes: list[str] = ["N-", "S-", "LITHOTEC-"]
+        characters: list[str] = [" ", "*", "ultra"]
+        brackets: str = "[{()}]"
 
-        alt_names = [self.name]
+        alt_names: list[str] = [self.name]
 
         for p in prefixes:
             if p in self.name:
@@ -161,7 +164,7 @@ class Glass:
                 alt_names.append("".join(self.name.split(c)))
         alt_names.append(re.sub(brackets, "", self.name))
 
-        so_far = alt_names[:]
+        so_far: list[str] = alt_names[:]
         # Do it again to catch names with more than one unwanted character/substring
         for alt in so_far:
             for c in characters:
@@ -195,35 +198,56 @@ class Glass:
 
         return self
 
-    def transmission(self, wl: ArrayLike = None) -> tuple[ArrayLike] | None:
-        if isinstance(wl, Quantity):
-            wl = wl.to(u.um).value
-        elif isinstance(wl, list) and isinstance(wl[0], Quantity):
-            wl = [_iwl.to(u.um).value for _iwl in wl]
+    @overload
+    def transmission(self, wl: ScalarQuantity) -> tuple[float]: ...
 
-        WL = [w for w in self.wl if w > 0]
-        IT = self.IT
+    @overload
+    def transmission(self, wl: ArrayQuantity) -> tuple[np.ndarray]: ...
+
+    def transmission(
+        self,
+        wl: Quantity,
+    ) -> tuple[float] | tuple[np.ndarray] | None:
+        """
+        The internal transmission of the glass at the specified wavelength(s)
+        """
+        if wl.isscalar:
+            wl: float = wl.to(u.um).value
+        elif isinstance(wl, Quantity) or (
+            isinstance(wl, list) and isinstance(wl[0], Quantity)
+        ):
+            wl: list[float] = [_iwl.to(u.um).value for _iwl in wl]
+
+        WL: list[float] = [w for w in self.wl if w > 0]
+        IT: list[float] = self.IT
         if wl is None:
-            wl = WL
+            wl: list[float] = WL
 
         try:
-            return np.interp(wl, xp=WL, fp=IT, left=0.0, right=0.0)
+            return np.interp(wl, xp=WL, fp=IT, left=0.0, right=0.0)  # type: ignore
         except:
             print(f"Could not compute transmission for {self.name}")
             print(f"{self.wl = }")
             print(f"{self.IT = }")
             return None
 
+    @overload
     def refractive_index(
-        self,
-        wls: ArrayLike | float | Quantity | str = None,
-    ) -> ArrayLike:
+        self, wls: ScalarQuantity | float | str | list[str]
+    ) -> float: ...
+
+    @overload
+    def refractive_index(self, wls: ArrayQuantity) -> np.ndarray: ...
+
+    def refractive_index(
+        self, wls: Quantity | float | str | list[str] | ArrayLike = "d"
+    ) -> float | np.ndarray:
         if wls is None:
             return self.nd
 
         if isinstance(wls, str):
             try:
-                wls = _fraunhofer_lines[wls]
+                wls: Quantity = _fraunhofer_lines[wls]
             except KeyError:
                 print(
                     f"Unknown wavelength string {wls}. Valid options are"
@@ -232,66 +256,85 @@ class Glass:
                 print("Using default wavelength of 588 nm")
                 return self.n_d
 
+        if isinstance(wls, list) and all(isinstance(wl, str) for wl in wls):
+            return np.ndarray([self.refractive_index(wl) for wl in wls])  # type: ignore
+
         return _refractive_index(
             wavelengths=wls,
             coefficients=self.rii_dispersion_coefficients,
             formula_number=self.formula,
         )
 
-    def n(self, wls: ArrayLike | float | Quantity | str = None) -> ArrayLike:
+    @overload
+    def n(self, wls: ScalarQuantity | float | str | list[str]) -> float: ...
+
+    @overload
+    def n(self, wls: ArrayQuantity) -> np.ndarray: ...
+
+    def n(self, wls: Quantity | float | str | list[str] = "d") -> float | ArrayLike:
         return self.refractive_index(wls)
 
-    def dn(self, wls: ArrayLike) -> ArrayLike:
+    @overload
+    def dn(self, wls: ScalarQuantity | float) -> float: ...
+
+    @overload
+    def dn(self, wls: ArrayQuantity | float) -> np.ndarray: ...
+
+    def dn(self, wls: float | Quantity) -> float | np.ndarray:
         """
         Differential refractive index, a similar metric to Abbe number/dispersion
 
-        Parameters
-        ----------
-        wl : ArrayLike
-            Wavelengths in microns
-
-        Returns
-        -------
-        ArrayLike
-
         https://www.primeoptics.com.au/Reference/dRPD_description.pdf
         """
 
+        if isinstance(wls, Quantity):
+            try:
+                wls: np.ndarray = wls.to(u.um).value
+            except UnitConversionError as e:
+                raise e
+
         if isinstance(wls, list | np.ndarray) and len(wls) == 1:
-            wls = wls[0]
+            # If only one element, convert to a float
+            wls: float = wls[0]
 
         elif isinstance(wls, int | float):
-            wls = np.array([wls - 1e-10, wls, wls + 1e-10])
+            wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
             return (np.gradient(self.refractive_index(wls)) / np.gradient(wls))[1]
 
+        assert isinstance(wls, np.ndarray) | isinstance(wls, list)
+        # Otherwise, return the gradient over the array
         return np.gradient(self.refractive_index(wls)) / np.gradient(wls)
 
-    def dV(self, wls: ArrayLike) -> ArrayLike:
-        """Differential Abbe number
+    @overload
+    def dV(self, wls: ScalarQuantity | float) -> float: ...
 
-        Parameters
-        ----------
-        wls : ArrayLike
-            Wavelengths in microns
+    @overload
+    def dV(self, wls: ArrayQuantity | float) -> np.ndarray: ...
 
-        Returns
-        -------
-        ArrayLike
+    def dV(self, wls: Quantity) -> float | np.ndarray:
+        """
+        Differential Abbe number
 
         https://www.primeoptics.com.au/Reference/dRPD_description.pdf
         """
 
         if isinstance(wls, list | np.ndarray) and len(wls) == 1:
-            wls = wls[0]
+            wls: float = wls[0]
 
         elif isinstance(wls, int | float):
-            wls = np.array([wls - 1e-10, wls, wls + 1e-10])
+            wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
 
-            return np.mean((self.refractive_index(wls[1]) - 1) / (-self.dn(wls)))
+            return float(np.mean((self.refractive_index(wls[1]) - 1) / (-self.dn(wls))))
 
         return (self.refractive_index(wls) - 1) / (-self.dn(wls))
 
-    def dRPD(self, wls: ArrayLike = None) -> ArrayLike:
+    @overload
+    def dRPD(self, wls: ScalarQuantity | float) -> float: ...
+
+    @overload
+    def dRPD(self, wls: ArrayQuantity) -> np.ndarray: ...
+
+    def dRPD(self, wls: float | Quantity | None = None) -> float | np.ndarray:
         """[summary]
 
         Parameters
@@ -307,20 +350,19 @@ class Glass:
         """
 
         if wls is None:
-            wls = self.wl
-
-        if isinstance(wls, list | np.ndarray) and len(wls) == 1:
-            wls = wls[0]
+            wls: float = self.wl[0]
+        elif isinstance(wls, list | np.ndarray) and len(wls) == 1:
+            wls: float = wls[0]
 
         if isinstance(wls, int | float):
-            wls = np.array([wls - 1e-10, wls, wls + 1e-10])
+            wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
 
         return self.dV(wls - np.gradient(wls)) / self.dV(wls)
 
     def plot(
         self,
         metric: str = "n",
-        wls: ArrayLike = None,
+        wls: Quantity | None = None,
         axis: plt.Axes | None = None,
         show: bool = True,
         debug_level: float = 0,
@@ -389,13 +431,6 @@ class Glass:
 
         TODO: Maybe need a function that determines if two glasses are
         negligably close but not identical.
-
-        Parameters
-        ----------
-        self : Glass
-            the glass used to call the method
-        other : Glass
-            the glass being compared against the current one
         """
 
         return (
@@ -1110,8 +1145,8 @@ class GlassCatalogue(dict):
             annot.set_visible(False)
 
             def update_annot(ind: dict) -> None:
-                pos = points.get_offsets()[ind["ind"][0]]
-                annot.xy = pos
+                pos = points.get_offsets()[ind["ind"][0]]  # type: ignore
+                annot.xy = pos  # type: ignore
                 text = f"{names[ind['ind'][0]]}"
                 # text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))),
                 #                     " ".join([names[n] for n in ind["ind"]]))
@@ -1165,6 +1200,7 @@ class GlassCatalogue(dict):
         D_telescope: Quantity = 0.8 * u.m,
         D_ADC: Quantity = 15 * u.mm,
         z_max: Quantity = 65 * u.degree,
+        air_model: Model | None = None,
         num_samples: int = 20,
         max_residuals: Quantity = 100 * u.mas,
     ) -> tuple[list, list]:
@@ -1173,6 +1209,9 @@ class GlassCatalogue(dict):
         """
 
         from curved_air.instruments.ADC import ADC, PrismStack  # noqa: PLC0415
+
+        if air_model is None:
+            air_model = Air()
 
         ADCs: list[ADC] = []
         results: list[dict] = []
@@ -1214,6 +1253,7 @@ class GlassCatalogue(dict):
                 D_telescope=D_telescope,
                 D_ADC=D_ADC,
                 z_max=z_max,
+                air_model=air_model,
                 criterion="PTV",
             )
 
@@ -1344,7 +1384,7 @@ def _refractive_index(
     wavelengths: Quantity | float | list[float] | ArrayLike,
     coefficients: list[float],
     formula_number: int,
-) -> ArrayLike:
+) -> float | np.ndarray:
     """A function to compute the wavelength-dependent refractive index of a material
     based on coefficients
 
@@ -1352,24 +1392,16 @@ def _refractive_index(
     1 is the Sellmeier formula with squared coefficients in the denominators,
     2 is the Sellmeier formula without squares in the denominators, and
     3 is a polynomial formula used by some glass manufacturers.
-
-    Args:
-        wavelengths   (list): [description]
-        coefficients  (list): [description]
-        formula_number (int): [description]
-
-    Returns:
-        list: [description]
     """
 
-    try:
-        wavelengths: float | list[float] = wavelengths.to("um").value  # ty: ignore
-    except UnitConversionError:
-        # Wrong units
-        ...
-    except AttributeError:
-        # Not an astropy.units.Quantity
-        ...
+    if isinstance(wavelengths, Quantity):
+        try:
+            wavelengths: float | list[float] = wavelengths.to("um").value
+        except UnitConversionError as e:
+            raise e  # Wrong units, not compatible with units of wavelength
+        except AttributeError as e:
+            # Not an astropy.units.Quantity after all
+            raise AttributeError("") from e
 
     wavelengths: np.ndarray = np.array(wavelengths)
 
@@ -1420,7 +1452,7 @@ def _refractive_index(
             + C[16] * wavelengths ** C[17]
         )
 
-    return None
+    raise ValueError(f"Invalid formula_number: {formula_number}")
 
 
 def main() -> None: ...

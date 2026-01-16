@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING
+from numbers import Real
+from typing import TYPE_CHECKING, TypeAlias, overload
 
 import numpy as np
 from astropy import units as u
@@ -11,8 +12,11 @@ from astropy.units import Quantity
 if TYPE_CHECKING:
     from matplotlib import pyplot as plt
 
-from curved_air.optics.dispersers import EchelleGrating, Prism, Grism
 from curved_air.detectors import Detector
+from curved_air.optics.dispersers import EchelleGrating, Grism, Prism
+
+ScalarQuantity: TypeAlias = Quantity[Real]
+ArrayQuantity: TypeAlias = Quantity[np.ndarray] | Quantity[list[Real]]
 
 
 @dataclass
@@ -22,14 +26,14 @@ class EchelleSpectrograph:
     cross_disperser: Prism | Grism = field(default_factory=Prism)
     detector: Detector = field(default_factory=Detector)
 
-    beam_diameter: Quantity | None = None
-    min_wl: Quantity = 390 * u.nm
-    max_wl: Quantity = 950 * u.nm
-    collimator_focal_length: Quantity = 1125 * u.mm
-    slit_width: Quantity = 40 * u.um
-    slit_length: Quantity = 0.5 * u.mm
+    beam_diameter: ScalarQuantity | None = None
+    min_wl: ScalarQuantity = 390 * u.nm
+    max_wl: ScalarQuantity = 950 * u.nm
+    collimator_focal_length: ScalarQuantity = 1125 * u.mm
+    slit_width: ScalarQuantity = 40 * u.um
+    slit_length: ScalarQuantity = 0.5 * u.mm
     slit_native_focal_ratio: float = 3.85
-    camera_focal_length: Quantity = 730 * u.mm
+    camera_focal_length: ScalarQuantity = 730 * u.mm
 
     def __post_init__(self) -> None:
         if self.beam_diameter is None:
@@ -61,7 +65,7 @@ class EchelleSpectrograph:
         return float((self.camera_focal_ratio / self.slit_native_focal_ratio).si.value)
 
     @property
-    def slit_sampling(self, slit_width: Quantity | None = None) -> float:
+    def slit_sampling(self, slit_width: ScalarQuantity | None = None) -> float:
         if slit_width is None:
             slit_width = self.slit_width
 
@@ -79,7 +83,7 @@ class EchelleSpectrograph:
         m: int,
         num: int = 100,
         FSR_fraction: float = 1,
-    ) -> Quantity:
+    ) -> ArrayQuantity:
         """ """
 
         min_m_wl, max_m_wl = self.grating.order_FSR_bounds(
@@ -89,78 +93,111 @@ class EchelleSpectrograph:
 
         return np.linspace(min_m_wl.to(u.um).value, max_m_wl.to(u.um).value, num) * u.um
 
-    def full_wavelengths(self) -> dict[int, list[Quantity]]:
+    def full_wavelengths(self) -> dict[int, list[ArrayQuantity]]:
         """ """
 
         return {m: self.order_wavelengths(m) for m in self.spectral_orders}
 
     @property
-    def collimator_plate_scale(self) -> Quantity:
+    def collimator_plate_scale(self) -> ScalarQuantity:
         return (1 * u.radian / self.collimator_focal_length).to(u.deg / u.mm)
 
     @property
-    def camera_plate_scale(self) -> Quantity:
+    def camera_plate_scale(self) -> ScalarQuantity:
         return (1 * u.radian / self.camera_focal_length).to(u.deg / u.mm)
+
+    @overload
+    def image_plane_position(
+        self,
+        m: int,
+        wavelength: ScalarQuantity,
+    ) -> tuple[ScalarQuantity, ScalarQuantity]: ...
+
+    @overload
+    def image_plane_position(
+        self,
+        m: int,
+        wavelength: list[ScalarQuantity] | tuple[ScalarQuantity],
+    ) -> list[tuple[ScalarQuantity, ScalarQuantity]]: ...
 
     def image_plane_position(
         self,
         m: int,
-        wavelength: Quantity | list[Quantity],
-    ) -> tuple[Quantity, Quantity]:
+        wavelength: ScalarQuantity | list[ScalarQuantity] | tuple[ScalarQuantity],
+    ) -> (
+        tuple[ScalarQuantity, ScalarQuantity]
+        | list[tuple[ScalarQuantity, ScalarQuantity]]
+    ):
         """ """
 
         if isinstance(wavelength, list | tuple):
-            return [self.image_plane_position(m, wl) for wl in wavelength]
+            return [
+                self.image_plane_position(m, wl).to(u.mm).value for wl in wavelength
+            ] * u.mm
 
-        grating_angle: Quantity = self.grating.diffraction_angle(m=m, wl=wavelength)
+        grating_angle: ScalarQuantity = self.grating.diffraction_angle(
+            m=m, wl=wavelength
+        )
 
-        cross_disperser_angle: Quantity = self.cross_disperser.dispersion_angle(
+        cross_disperser_angle: ScalarQuantity = self.cross_disperser.dispersion_angle(
             wl=wavelength,
             field_angle=grating_angle,
         )
 
-        return (
-            cross_disperser_angle / self.camera_plate_scale,
-            grating_angle / self.camera_plate_scale,
+        dispersion_direction_position: ScalarQuantity = (
+            grating_angle / self.camera_plate_scale
+        )
+        cross_dispersion_direction_position: ScalarQuantity = (
+            cross_disperser_angle / self.camera_plate_scale
         )
 
+        return (cross_dispersion_direction_position, dispersion_direction_position)
+
     @cached_property
-    def reddest_order_image_plane_separation(self) -> Quantity:
+    def reddest_order_image_plane_separation(self) -> ScalarQuantity:
         """ """
 
         o1, o2, *_ = sorted(self.spectral_orders)
 
-        wl1: Quantity = self.grating.blaze_wavelength(m=o1)
-        wl2: Quantity = self.grating.blaze_wavelength(m=o2)
+        wl1: ScalarQuantity = self.grating.blaze_wavelength(m=o1)
+        wl2: ScalarQuantity = self.grating.blaze_wavelength(m=o2)
 
-        x1: Quantity = self.image_plane_position(m=o1, wavelength=wl1)
-        x2: Quantity = self.image_plane_position(m=o2, wavelength=wl2)
+        x1: ScalarQuantity = self.image_plane_position(m=o1, wavelength=wl1)
+        x2: ScalarQuantity = self.image_plane_position(m=o2, wavelength=wl2)
 
         return abs(x1[0] - x2[0])
 
     @cached_property
-    def bluest_order_image_plane_separation(self) -> Quantity:
+    def bluest_order_image_plane_separation(self) -> ScalarQuantity:
         """ """
 
         *_, o1, o2 = sorted(self.spectral_orders)
 
-        wl1: Quantity = self.grating.blaze_wavelength(m=o1)
-        wl2: Quantity = self.grating.blaze_wavelength(m=o2)
+        wl1: ScalarQuantity = self.grating.blaze_wavelength(m=o1)
+        wl2: ScalarQuantity = self.grating.blaze_wavelength(m=o2)
 
-        x1: Quantity = self.image_plane_position(m=o1, wavelength=wl1)
-        x2: Quantity = self.image_plane_position(m=o2, wavelength=wl2)
+        x1: ScalarQuantity = self.image_plane_position(m=o1, wavelength=wl1)
+        x2: ScalarQuantity = self.image_plane_position(m=o2, wavelength=wl2)
 
         return abs(x1[0] - x2[0])
 
     @property
-    def slit_image_width(self) -> Quantity:
+    def slit_image_width(self) -> ScalarQuantity:
         """Width of the slit image in the image plane"""
         return self.slit_width * self.slit_magnification
 
     @property
-    def slit_image_length(self) -> Quantity:
+    def slit_image_length(self) -> ScalarQuantity:
         """Width of the slit image in the image plane"""
         return self.slit_length * self.slit_magnification
+
+    @overload
+    def resolution_element(
+        self, wl: ScalarQuantity, m: int | None
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def resolution_element(self, wl: ArrayQuantity, m: int | None) -> ArrayQuantity: ...
 
     def resolution_element(self, wl: Quantity, m: int | None = None) -> Quantity:
         if m is None:
@@ -172,8 +209,21 @@ class EchelleSpectrograph:
 
         return (1 / (spatial_dispersion / self.slit_image_width)).to(wl.unit)
 
-    def spectral_resolution(self, wl: Quantity, m: int | None = None) -> float:
-        return int(wl / self.resolution_element(wl=wl, m=m))
+    @overload
+    def spectral_resolution(self, wl: ScalarQuantity) -> float: ...
+
+    @overload
+    def spectral_resolution(self, wl: ArrayQuantity) -> list[float]: ...
+
+    def spectral_resolution(
+        self,
+        wl: Quantity,
+        m: int | None = None,
+    ) -> float | list[float]:
+        if isinstance(wl, ScalarQuantity):
+            return int(wl / self.resolution_element(wl=wl, m=m))
+
+        return wl / self.resolution_element(wl=wl, m=m)
 
     def print_parameters(self) -> EchelleSpectrograph:
         print(f"{'Collimated beam diameter:':<30}", end="")
@@ -227,22 +277,38 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
     WIP
     """
 
+    @overload
     def image_plane_position(
         self,
         m: int,
-        wavelength: Quantity,
-    ) -> tuple[Quantity, Quantity]:
+        wavelength: ScalarQuantity,
+    ) -> tuple[ScalarQuantity, ScalarQuantity]: ...
+
+    @overload
+    def image_plane_position(
+        self,
+        m: int,
+        wavelength: list[ScalarQuantity] | tuple[ScalarQuantity],
+    ) -> list[tuple[ScalarQuantity, ScalarQuantity]]: ...
+
+    def image_plane_position(
+        self,
+        m: int,
+        wavelength: ScalarQuantity | list[ScalarQuantity] | tuple[ScalarQuantity],
+    ) -> (
+        tuple[ScalarQuantity, ScalarQuantity]
+        | list[tuple[ScalarQuantity, ScalarQuantity]]
+    ):
         """ """
 
         # TODO: how to check if a Quantity is actually a list or array underneath?
-        if (isinstance(wavelength, Quantity) and wavelength.size > 1) or isinstance(
-            wavelength.value, list | tuple
-        ):
+        if isinstance(wavelength, list | tuple):
+            assert all(isinstance(iwl, ScalarQuantity) for iwl in wavelength)
             return [
                 self.image_plane_position(m, wl).to(u.mm).value for wl in wavelength
             ] * u.mm
 
-        prism_first_pass_angle = self.cross_disperser.dispersion_angle(
+        prism_first_pass_angle: Quantity = self.cross_disperser.dispersion_angle(
             wl=wavelength,
             field_angle=0 * u.deg,
         )

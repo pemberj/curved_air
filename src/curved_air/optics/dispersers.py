@@ -12,35 +12,40 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
+from typing import TYPE_CHECKING, Any, TypeAlias, overload
 
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
     from numpy.typing import ArrayLike
 
-from curved_air.other import Air
 from curved_air.glass import Glass
+from curved_air.other import Air
+
+ScalarQuantity: TypeAlias = Quantity
+ArrayQuantity: TypeAlias = Quantity
 
 
 @dataclass
 class Disperser:
     name: str = ""
-    min_wl: Quantity | None = None
-    max_wl: Quantity | None = None
 
 
 @dataclass
 class EchelleGrating(Disperser):
+    min_wl: ScalarQuantity = 0.38 * u.um
+    max_wl: ScalarQuantity = 0.95 * u.um
+
     catalogue_number: str = ""
-    groove_frequency: Quantity = 31.6 / u.mm
-    blaze_angle: Quantity = 76 * u.deg
-    gamma_angle: Quantity = 0 * u.deg
-    ruled_width: Quantity = 400 * u.mm
-    groove_length: Quantity | None = None
+    groove_frequency: ScalarQuantity = 31.6 / u.mm
+    blaze_angle: ScalarQuantity = 76 * u.deg
+    gamma_angle: ScalarQuantity = 0 * u.deg
+    ruled_width: ScalarQuantity = 400 * u.mm
+    groove_length: ScalarQuantity | None = None
 
     @cached_property
     def R(self) -> float:
@@ -51,23 +56,23 @@ class EchelleGrating(Disperser):
         return (2 * np.cos(self.gamma) * self.sigma * np.sin(self.blaze_angle)).to(u.um)
 
     @property
-    def gamma(self) -> Quantity:
+    def gamma(self) -> ScalarQuantity:
         return self.gamma_angle
 
     @property
-    def theta_B(self) -> Quantity:
+    def theta_B(self) -> ScalarQuantity:
         return self.blaze_angle
 
     @property
-    def groove_period(self) -> Quantity:
+    def groove_period(self) -> ScalarQuantity:
         return 1 / self.groove_frequency
 
     @cached_property
-    def sigma(self) -> Quantity:
+    def sigma(self) -> ScalarQuantity:
         return self.groove_period.to(u.um)
 
     @cached_property
-    def gpmm(self) -> Quantity:
+    def gpmm(self) -> ScalarQuantity:
         return self.groove_frequency.to(1 / u.mm)
 
     @cached_property
@@ -80,30 +85,74 @@ class EchelleGrating(Disperser):
 
     @cached_property
     def diffraction_orders(self) -> list[int]:
-        min_m = self.order_number(self.max_wl, quantised=True)
-        max_m = self.order_number(self.min_wl, quantised=True)
+        assert isinstance(self.min_wl, ScalarQuantity) and isinstance(
+            self.max_wl, ScalarQuantity
+        )
+        min_m: int = self.order_number(self.max_wl, quantised=True)
+        max_m: int = self.order_number(self.min_wl, quantised=True)
 
         return list(range(min_m, max_m + 1))
 
     @cached_property
-    def beam_diameter(self) -> Quantity:
+    def beam_diameter(self) -> ScalarQuantity:
         return self.ruled_width / self.R
 
-    def order_containing_500nm(self, quantised: bool = True) -> int:
+    def order_containing_500nm(self, quantised: bool = True) -> int | float:
         return self.order_number(wl=500 * u.nm, quantised=quantised)
 
-    def blaze_wavelength(self, m: int | list[int] | ArrayLike) -> Quantity:
-        if isinstance(m, list | tuple):
-            return [self.blaze_wavelength(im) for im in m]  # ty: ignore
+    @overload
+    def blaze_wavelength(self, m: int) -> ScalarQuantity: ...
+
+    @overload
+    def blaze_wavelength(
+        self, m: list[int] | tuple[int] | np.ndarray
+    ) -> ArrayQuantity: ...
+
+    def blaze_wavelength(
+        self, m: int | list[int] | tuple[int] | np.ndarray
+    ) -> Quantity:
+        if isinstance(m, list | tuple | np.ndarray):
+            return [self.blaze_wavelength(im).to(u.um).value for im in m] * u.um
 
         return (self.m_times_lambda / m).to(u.um)
 
+    @overload
     def order_number(
         self,
-        wl: float | Quantity = 500 * u.nm,
+        wl: float | ScalarQuantity,
+        quantised: bool = True,
+    ) -> int: ...
+
+    @overload
+    def order_number(
+        self,
+        wl: float | ScalarQuantity,
+        quantised: bool = False,
+    ) -> float: ...
+
+    @overload
+    def order_number(
+        self,
+        wl: tuple[float] | list[float] | ArrayQuantity,
+        quantised: bool = True,
+    ) -> list[int]: ...
+
+    @overload
+    def order_number(
+        self,
+        wl: tuple[float] | list[float] | ArrayQuantity,
+        quantised: bool = False,
+    ) -> list[float]: ...
+
+    def order_number(
+        self,
+        wl: float | tuple[float] | list[float] | Quantity = 500 * u.nm,
         quantised: bool = False,
     ) -> int | list[int] | float | list[float]:
-        if isinstance(wl, tuple) or (isinstance(wl, Quantity) and wl.size > 1):
+        """ """
+        if isinstance(wl, tuple | list) or (
+            isinstance(wl, Quantity) and not wl.isscalar()
+        ):
             return [self.order_number(iwl) for iwl in wl]
 
         if isinstance(wl, int | float):
@@ -115,43 +164,70 @@ class EchelleGrating(Disperser):
 
         return float((self.m_times_lambda / wl).si)
 
-    def order_FSR(self, m: int | list[int], FSR_fraction: float = 1.0) -> Quantity:
-        if isinstance(m, list | tuple):
-            return [self.order_FSR(im) for im in m]  # ty: ignore
+    @overload
+    def order_FSR(self, m: int, FSR_fraction: float = 1.0) -> ScalarQuantity: ...
+
+    @overload
+    def order_FSR(
+        self, m: list[int] | tuple[int] | np.ndarray, FSR_fraction: float = 1.0
+    ) -> ArrayQuantity: ...
+
+    def order_FSR(
+        self,
+        m: int | list[int] | tuple[int] | np.ndarray,
+        FSR_fraction: float = 1.0,
+    ) -> ScalarQuantity | ArrayQuantity:
+        if isinstance(m, list | tuple | np.ndarray):
+            ms: list[int] = [int(im) for im in m]
+            return [self.order_FSR(m).to(u.nm).value for m in ms] * u.nm
 
         assert isinstance(m, int)
 
-        m_wavelength = self.blaze_wavelength(m=m)
-        m_plus_one_wavelength = self.blaze_wavelength(m=m + 1)
+        m_wavelength: ScalarQuantity = self.blaze_wavelength(m=m)
+        m_plus_one_wavelength: ScalarQuantity = self.blaze_wavelength(m=m + 1)
 
         return FSR_fraction * (m_wavelength - m_plus_one_wavelength).to(u.nm)
 
-    def order_FSR_bounds(self, m: int, FSR_fraction: float = 1.0) -> Quantity:
-        FSR = self.order_FSR(m=m, FSR_fraction=FSR_fraction).to(u.nm).value
-        blaze_wavelength = self.blaze_wavelength(m=m).to(u.nm).value
+    def order_FSR_bounds(self, m: int, FSR_fraction: float = 1.0) -> ArrayQuantity:
+        FSR: ScalarQuantity = (
+            self.order_FSR(m=m, FSR_fraction=FSR_fraction).to(u.nm).value
+        )
+        blaze_wavelength: ScalarQuantity = self.blaze_wavelength(m=m).to(u.nm).value
 
         return (blaze_wavelength - FSR / 2, blaze_wavelength + FSR / 2) * u.nm
+
+    @overload
+    def order_opening_angle(self, m: int) -> Quantity: ...
+
+    @overload
+    def order_opening_angle(self, m: list[int]) -> list[Quantity]: ...
 
     def order_opening_angle(
         self,
         m: int | list[int],
         FSR_fraction: float = 1.0,
         return_bounds: bool = False,
-    ) -> Quantity:
+    ) -> Quantity | list[Quantity]:
         if isinstance(m, list | tuple):
-            return [self.order_opening_angle(im) for im in m]  # ty: ignore
+            return [self.order_opening_angle(im) for im in m]
 
         FSR_bounds = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
 
         # angles = (self.diffraction_angle(m, wl = FSR_bounds[0]),
         #           self.diffraction_angle(m, wl = FSR_bounds[1]))
 
-        angles = self.diffraction_angle(m=m, wl=FSR_bounds)
+        angles: Quantity = self.diffraction_angle(m=m, wl=FSR_bounds)
 
         if return_bounds:
             return angles
 
         return max(angles) - min(angles)
+
+    @overload
+    def diffraction_angle(self, m: int, wl: ScalarQuantity) -> ScalarQuantity: ...
+
+    @overload
+    def diffraction_angle(self, m: int, wl: list | ArrayQuantity) -> ArrayQuantity: ...
 
     def diffraction_angle(
         self,
@@ -164,29 +240,32 @@ class EchelleGrating(Disperser):
             ] * u.degree
 
         if isinstance(wl, list | tuple):
+            assert all(isinstance(iwl, Quantity) for iwl in wl)
             return [
-                self.diffraction_angle(iwl).to(u.degree).value for iwl in wl
+                self.diffraction_angle(m=m, wl=iwl).to(u.degree).value for iwl in wl
             ] * u.degree
 
         if isinstance(wl, float):
             print(f"No wavelength units passed ({wl}). Assuming nanometers")
             wl *= u.nm
 
-        arcsin_argument = (
-            (m * wl).to(u.um).value
-            / (np.cos(self.gamma) * self.sigma.to(u.um).value)  # ty:ignore
+        arcsin_argument: float = (
+            (m * wl).to(u.um).value / (np.cos(self.gamma) * self.sigma.to(u.um).value)
         ) - np.sin(self.blaze_angle)
         return (np.arcsin(arcsin_argument) - self.blaze_angle).to(u.deg)
 
-    def wavelength_at_angle(self, m: int, angle: Quantity) -> Quantity:
+    def wavelength_at_angle(self, m: int, angle: ScalarQuantity) -> ScalarQuantity:
         # angle += self.blaze_angle
 
         return (
             np.cos(self.gamma) * self.sigma * (np.sin(self.blaze_angle) + np.sin(angle))
         ) / m
 
-    def order_FSR_bounds_from_angle(self, m: int) -> tuple[Quantity, Quantity]:
-        angle: Quantity = self.order_opening_angle(m=m) / 2
+    def order_FSR_bounds_from_angle(
+        self,
+        m: int,
+    ) -> tuple[ScalarQuantity, ScalarQuantity]:
+        angle: ScalarQuantity = self.order_opening_angle(m=m) / 2
 
         return (
             self.wavelength_at_angle(m=m, angle=self.blaze_angle - angle),
@@ -195,16 +274,20 @@ class EchelleGrating(Disperser):
 
     def aspect_ratio(
         self,
-        min_wl: Quantity | None = None,
-        max_wl: Quantity | None = None,
+        min_wl: ScalarQuantity | None = None,
+        max_wl: ScalarQuantity | None = None,
     ) -> float:
         if not min_wl:
-            min_wl = self.min_wl
+            min_wl: ScalarQuantity = self.min_wl
         if not max_wl:
-            max_wl = self.max_wl
+            max_wl: ScalarQuantity = self.max_wl
 
-        blue_angle = self.order_opening_angle(m=self.order_number(min_wl)).to(u.deg)
-        red_angle = self.order_opening_angle(m=self.order_number(max_wl)).to(u.deg)
+        blue_angle: ScalarQuantity = self.order_opening_angle(
+            m=self.order_number(min_wl)
+        ).to(u.deg)
+        red_angle: ScalarQuantity = self.order_opening_angle(
+            m=self.order_number(max_wl)
+        ).to(u.deg)
 
         # print(f"{blue_angle=}")
         # print(f"{red_angle=}")
@@ -226,12 +309,13 @@ class EchelleGrating(Disperser):
         """
 
         if wl is None:
-            wl = self.blaze_wavelength(m=m)
+            wl: ScalarQuantity = self.blaze_wavelength(m=m)
 
-        delta_wl = self.order_FSR(m=m) / 100
-        delta_theta = self.diffraction_angle(
+        delta_wl: ScalarQuantity = self.order_FSR(m=m) / 100
+
+        delta_theta: ScalarQuantity = self.diffraction_angle(
             m=m, wl=wl + delta_wl
-        ) - self.diffraction_angle(m=m, wl=wl)
+        ) - self.diffraction_angle(m=m, wl=wl)  # type: ignore
 
         return delta_theta / delta_wl
 
@@ -251,9 +335,9 @@ class EchelleGrating(Disperser):
         """
 
         if m is None:
-            m = self.order_number(self.max_wl, quantised=True)
+            m: int = self.order_number(self.max_wl, quantised=True)
 
-        wls = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
+        wls: ArrayQuantity = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
 
         return self.anamorphic_magnification(
             m=m, wl=wls[0]
@@ -262,7 +346,7 @@ class EchelleGrating(Disperser):
     def relative_intensity(
         self,
         # m: int,
-        wl: Quantity | ArrayLike,
+        wl: Quantity,
     ) -> float | ArrayLike:
         """
         Calculate the relative intensity of a particular wavelength or wavelengths in a
@@ -291,8 +375,8 @@ class EchelleGrating(Disperser):
         return 1 - np.sinc(frac_m * u.radian) ** 2
 
     @property
-    def reddest_order_separation(self) -> Quantity:
-        return self.order_FSR(m=self.order_number(self.max_wl), FSR_fraction=1.0)
+    def reddest_order_separation(self) -> ScalarQuantity:
+        return self.order_FSR(m=self.order_number(wl=self.max_wl), FSR_fraction=1.0)
 
     def __str__(self) -> str:
         return (
@@ -315,13 +399,15 @@ class EchelleGrating(Disperser):
 
 @dataclass
 class CrossDisperser(Disperser):
-    incidence_angle: Quantity | None = None
+    incidence_angle: ScalarQuantity | None = None
+    min_wl: ScalarQuantity | None = None
+    max_wl: ScalarQuantity | None = None
 
 
 @dataclass
 class Prism(CrossDisperser):
     glass: Glass = field(default_factory=Glass)
-    apex_angle: Quantity = 60 * u.deg
+    apex_angle: ScalarQuantity = 60 * u.deg
 
     def __post_init__(self) -> None:
         assert self.glass.name != "_default_"
@@ -333,13 +419,28 @@ class Prism(CrossDisperser):
                 self.incidence_angle = self.minimum_deviation_incidence_angle()
 
         if self.min_wl is None:
-            self.min_wl = self.glass.wlmin
+            self.min_wl: ScalarQuantity = self.glass.wlmin
 
         if self.max_wl is None:
-            self.max_wl = self.glass.wlmax
+            self.max_wl: ScalarQuantity = self.glass.wlmax
 
-    @property
-    def refractive_index(self) -> Callable:
+    @overload
+    def refractive_index(self, wavelength: None) -> Callable: ...
+
+    @overload
+    def refractive_index(self) -> Callable: ...
+
+    @overload
+    def refractive_index(self, wavelength: ScalarQuantity) -> float: ...
+
+    @overload
+    def refractive_index(self, wavelength: ArrayQuantity) -> np.ndarray: ...
+
+    def refractive_index(
+        self, wavelength: Quantity | None = None
+    ) -> Callable | float | np.ndarray:
+        if wavelength:
+            return self.glass.refractive_index(wavelength)
         return self.glass.refractive_index
 
     @property
@@ -349,43 +450,79 @@ class Prism(CrossDisperser):
         return self.refractive_index
 
     @cached_property
-    def mid_wavelength(self) -> Quantity:
+    def mid_wavelength(self) -> ScalarQuantity:
         """
         Calculate the mid-wavelength of the prism.
         """
 
-        mid_refractive_index = (
+        mid_refractive_index: float = (
             self.glass.refractive_index(self.min_wl)
             + self.glass.refractive_index(self.max_wl)
         ) / 2
 
-        wls = np.linspace(
-            self.min_wl.to(u.um).value,
-            self.max_wl.to(u.um).value,
-            500,
+        assert isinstance(self.min_wl, ScalarQuantity)
+        assert isinstance(self.max_wl, ScalarQuantity)
+
+        wls: ArrayQuantity = (
+            np.linspace(
+                self.min_wl.to(u.um).value,
+                self.max_wl.to(u.um).value,
+                500,
+            )
+            * u.um
         )
 
         return wls[np.argmin(abs(self.glass.n(wls) - mid_refractive_index))] * u.um
 
+    @overload
     def deviation_angle(
         self,
-        wl: ArrayLike = 0.6328 * u.um,
-        incidence_angle: Quantity | None = None,
-        field_angle: Quantity = 0 * u.deg,
+        wl: ScalarQuantity,
+        incidence_angle: ScalarQuantity | None = None,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def deviation_angle(
+        self,
+        wl: ArrayQuantity,
+        incidence_angle: ScalarQuantity | None = None,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> ArrayQuantity: ...
+
+    def deviation_angle(
+        self,
+        wl: ScalarQuantity = 0.6328 * u.um,
+        incidence_angle: ScalarQuantity | None = None,
+        field_angle: ScalarQuantity = 0 * u.deg,
     ) -> Quantity:
+        """
+        TODO: Allow for array inputs?
+        """
+
         if incidence_angle is None:
-            incidence_angle = self.incidence_angle
+            assert isinstance(self.incidence_angle, ScalarQuantity)
+            incidence_angle: ScalarQuantity = self.incidence_angle
 
-        i = incidence_angle
+        assert isinstance(wl, Quantity)
+        assert isinstance(field_angle, Quantity)
 
-        if hasattr(wl.value, "__len__") and hasattr(field_angle.value, "__len__"):
+        # Check if both wl and field_angle are lists or arrays
+        if not wl.isscalar() and not field_angle.isscalar():
             return [
                 self.dispersion_angle(wl=w, field_angle=f).value
                 for w, f in zip(wl, field_angle, strict=False)
             ] * u.deg
 
+        assert isinstance(wl, ScalarQuantity)
+        assert isinstance(field_angle, ScalarQuantity)
+
+        i: ScalarQuantity = incidence_angle  # shorthand
+
         if field_angle.value != 0:
-            effective_apex_angle = self.effective_apex_angle(field_angle=field_angle)
+            effective_apex_angle: ScalarQuantity = self.effective_apex_angle(
+                field_angle=field_angle
+            )
 
             _self = Prism(
                 glass=self.glass,
@@ -413,13 +550,29 @@ class Prism(CrossDisperser):
             )
         )
 
+    @overload
+    def exitance_angle(
+        self, wl: ScalarQuantity, incidence_angle: ScalarQuantity | None
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def exitance_angle(
+        self, wl: ArrayQuantity, incidence_angle: ScalarQuantity | None
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def exitance_angle(
+        self, wl: ScalarQuantity, incidence_angle: ArrayQuantity
+    ) -> ArrayQuantity: ...
+
     def exitance_angle(
         self,
-        wl: ArrayLike = 0.6328 * u.um,
+        wl: Quantity = 0.6328 * u.um,
         incidence_angle: Quantity | None = None,
     ) -> Quantity:
         if incidence_angle is None:
-            incidence_angle = self.incidence_angle
+            assert isinstance(self.incidence_angle, ScalarQuantity)
+            incidence_angle: ScalarQuantity = self.incidence_angle
 
         return (
             self.deviation_angle(wl=wl, incidence_angle=incidence_angle)
@@ -429,34 +582,56 @@ class Prism(CrossDisperser):
 
     def find_incidence_angle(
         self,
-        min_wl: Quantity | None = None,
-        max_wl: Quantity | None = None,
-    ) -> Quantity:
+        min_wl: ScalarQuantity | None = None,
+        max_wl: ScalarQuantity | None = None,
+    ) -> ScalarQuantity:
         """
         Find the incidence angle that provides a symmetric deviation for the extreme
         wavelengths that the prism is designed for.
         """
 
         if min_wl is None:
-            min_wl = self.min_wl
+            assert isinstance(self.min_wl, ScalarQuantity)
+            min_wl: ScalarQuantity = self.min_wl
         if max_wl is None:
-            max_wl = self.max_wl
+            assert isinstance(self.max_wl, ScalarQuantity)
+            max_wl: ScalarQuantity = self.max_wl
 
-        min_wl_incidence = self.minimum_deviation_incidence_angle(wl=min_wl)
-        max_wl_incidence = self.minimum_deviation_incidence_angle(wl=max_wl)
+        min_wl_incidence: ScalarQuantity = self.minimum_deviation_incidence_angle(
+            wl=min_wl
+        )
+        max_wl_incidence: ScalarQuantity = self.minimum_deviation_incidence_angle(
+            wl=max_wl
+        )
 
         return ((min_wl_incidence + max_wl_incidence) / 2).to(u.deg)
 
-    def minimum_deviation_angle(self, wl: ArrayLike = 0.6328 * u.um) -> Quantity:
-        minimum_deviation_angle = (
+    def minimum_deviation_angle(
+        self,
+        wl: ScalarQuantity = 0.6328 * u.um,
+    ) -> ScalarQuantity:
+        minimum_deviation_angle: Quantity = (
             2 * np.arcsin(self.glass.n(wl) * np.sin(self.apex_angle / 2))
             - self.apex_angle
         )
 
         return minimum_deviation_angle.to(u.deg)
 
+    @overload
     def minimum_deviation_incidence_angle(
-        self, wl: ArrayLike = 632.8 * u.nm
+        self,
+        wl: ScalarQuantity = 632.8 * u.nm,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def minimum_deviation_incidence_angle(
+        self,
+        wl: ArrayQuantity,
+    ) -> ArrayQuantity: ...
+
+    def minimum_deviation_incidence_angle(
+        self,
+        wl: Quantity = 632.8 * u.nm,
     ) -> Quantity:
         """
         Calculate the incidence angle that provides the minimum deviation condition for
@@ -465,32 +640,54 @@ class Prism(CrossDisperser):
 
         return (self.apex_angle + self.minimum_deviation_angle(wl)) / 2
 
-    def effective_apex_angle(self, field_angle: Quantity = 0 * u.deg) -> Quantity:
+    def effective_apex_angle(
+        self,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> ScalarQuantity:
         """
         I don't know why this works. The 74° is empirically determined, but matches very
         well up to a field angle of ~10°.
         """
         return self.apex_angle + 74 * u.deg * (1 - np.cos(field_angle))
 
+    @overload
+    def dispersion_angle(
+        self, wl: ScalarQuantity, field_angle: ScalarQuantity
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def dispersion_angle(
+        self, wl: ArrayQuantity, field_angle: ScalarQuantity
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def dispersion_angle(
+        self, wl: ScalarQuantity, field_angle: ArrayQuantity
+    ) -> ArrayQuantity: ...
+
     def dispersion_angle(
         self,
-        wl: Quantity | list[Quantity],
-        field_angle: Quantity = 0 * u.deg,
-    ) -> Quantity | list[Quantity]:
-        """ """
+        wl: Quantity,
+        field_angle: Quantity,
+    ) -> Quantity:
+        """
+        TODO: Allow for EITHER multiple wavelengths or multiple field angles as per overloads
+        """
 
-        if hasattr(wl.value, "__len__") and hasattr(
-            field_angle.value, "__len__"
-        ):  # ty: ignore
+        if isinstance(wl, list | tuple) or (
+            isinstance(wl, Quantity) and not wl.isscalar()
+        ):
             return [
                 self.dispersion_angle(wl=w, field_angle=f).value
                 for w, f in zip(wl, field_angle, strict=False)
             ] * u.deg
 
-        zero_angle = self.deviation_angle(wl=self.mid_wavelength)
+        zero_angle: ScalarQuantity = self.deviation_angle(wl=self.mid_wavelength)
 
         if field_angle.value != 0:
-            effective_apex_angle = self.effective_apex_angle(field_angle=field_angle)
+            effective_apex_angle: Quantity = self.effective_apex_angle(
+                field_angle=field_angle
+            )
 
             _self = Prism(
                 glass=self.glass,
@@ -498,37 +695,39 @@ class Prism(CrossDisperser):
                 incidence_angle=self.incidence_angle,
             )
 
-            return _self.deviation_angle(wl=wl) - zero_angle
+            return _self.deviation_angle(wl=wl) + -1 * zero_angle
 
-        return self.deviation_angle(wl=wl) - zero_angle
+        return self.deviation_angle(wl=wl) + -1 * zero_angle
 
     def angular_spread(
         self,
-        min_wl: Quantity | None = None,
-        max_wl: Quantity | None = None,
+        min_wl: ScalarQuantity | None = None,
+        max_wl: ScalarQuantity | None = None,
     ) -> Quantity:
         """ """
 
         if min_wl is None:
-            min_wl = self.min_wl
+            assert isinstance(self.min_wl, ScalarQuantity)
+            min_wl: ScalarQuantity = self.min_wl
         if max_wl is None:
-            max_wl = self.max_wl
+            assert isinstance(self.max_wl, ScalarQuantity)
+            max_wl: ScalarQuantity = self.max_wl
 
-        min_angle = -self.deviation_angle(wl=min_wl)
-        max_angle = -self.deviation_angle(wl=max_wl)
+        min_angle: ScalarQuantity = -1 * self.deviation_angle(wl=min_wl)
+        max_angle: ScalarQuantity = -1 * self.deviation_angle(wl=max_wl)
         return max_angle - min_angle
 
     def local_angular_dispersion(self, wl: Quantity) -> Quantity:
-        delta_wavelength = 1 * u.nm
+        delta_wavelength: ScalarQuantity = 1 * u.nm
 
-        wl1 = wl - delta_wavelength / 2
-        wl2 = wl + delta_wavelength / 2
+        wl1: ScalarQuantity = wl - delta_wavelength / 2
+        wl2: ScalarQuantity = wl + delta_wavelength / 2
 
         return self.angular_spread(min_wl=wl1, max_wl=wl2) / delta_wavelength
 
     def trace(
         self,
-        wls: ArrayLike = None,
+        wls: Quantity | None = None,
         incidence_angle: Quantity | None = None,
         debug_level: float = 0,
     ) -> ArrayLike:
@@ -538,19 +737,24 @@ class Prism(CrossDisperser):
         """
 
         if wls is None:
-            wls = [0.4861, 0.5893, 0.6563] * u.um
+            wls: ArrayQuantity = [0.4861, 0.5893, 0.6563] * u.um
+
+        assert isinstance(wls, Quantity)
 
         if incidence_angle is None:
-            incidence_angle = self.incidence_angle
+            assert isinstance(self.incidence_angle, ScalarQuantity)
+            incidence_angle: ScalarQuantity = self.incidence_angle
+
+        assert isinstance(incidence_angle, ScalarQuantity)
 
         try:
-            rays = incidence_angle * np.ones(len(wls))
+            rays: ArrayQuantity = incidence_angle * np.ones(len(wls))
         except TypeError:  # wls is a single value
-            rays = incidence_angle
+            rays: ScalarQuantity = incidence_angle
 
-        previous_angle = 0 * u.degree
+        previous_angle: ScalarQuantity = 0 * u.degree
 
-        rays = _refract(
+        rays: Quantity = _refract(
             n_1=Air().refractive_index(wls),
             n_2=self.refractive_index,
             theta_in=rays - previous_angle,
@@ -561,10 +765,10 @@ class Prism(CrossDisperser):
             print(f"Refracting through a {self.glass} prism of {self.apex_angle}")
 
         # Refract through the last surface into the exit medium
-        rays = _refract(
+        rays: Quantity = _refract(
             n_1=self.refractive_index(wls),
             n_2=Air().refractive_index(wls),
-            theta_in=rays - self.apex_angle,
+            theta_in=rays + (-1 * self.apex_angle),
             wavelength=wls,
         )
 
@@ -583,10 +787,10 @@ class Prism(CrossDisperser):
 
 @dataclass
 class Grism(CrossDisperser):
-    apex_angle: Quantity = 0 * u.deg
+    apex_angle: ScalarQuantity = 0 * u.deg
     glass: Glass = field(default_factory=Glass)
-    beam_diameter: Quantity = 200 * u.mm
-    line_spacing: Quantity = 110 / u.mm
+    beam_diameter: ScalarQuantity = 200 * u.mm
+    line_spacing: ScalarQuantity = 110 / u.mm
     diffraction_order: int = 1
 
     def __post_init__(self) -> None:
@@ -594,7 +798,7 @@ class Grism(CrossDisperser):
             self.incidence_angle = 0 * u.deg
 
     @property
-    def groove_period(self) -> Quantity:
+    def groove_period(self) -> ScalarQuantity:
         return 1 / self.line_spacing
 
     def refraction_angle(
@@ -603,9 +807,14 @@ class Grism(CrossDisperser):
         incidence_angle: Quantity | None = None,
         field_angle: Quantity = 0 * u.deg,
     ) -> Quantity:
-        """ """
+        """
+        TODO: Allow for array inputs?
+        """
         if incidence_angle is None:
-            incidence_angle: Quantity = self.incidence_angle
+            assert isinstance(self.incidence_angle, ScalarQuantity)
+            incidence_angle: ScalarQuantity = self.incidence_angle
+
+        assert isinstance(incidence_angle, Quantity)
 
         # Just shorthand
         i: Quantity = incidence_angle
@@ -645,9 +854,15 @@ class Grism(CrossDisperser):
             )
         )
 
+    @overload
+    def diffraction_angle(self, wl: ScalarQuantity | float) -> ScalarQuantity: ...
+
+    @overload
+    def diffraction_angle(self, wl: ArrayQuantity) -> ArrayQuantity: ...
+
     def diffraction_angle(
         self,
-        wl: Quantity = 550 * u.nm,
+        wl: Quantity | float = 550 * u.nm,
     ) -> Quantity:
         """
         Calculate the diffraction angle for a given order and wavelength.
@@ -655,6 +870,8 @@ class Grism(CrossDisperser):
         if isinstance(wl, float):
             print(f"No wavelength units passed ({wl}). Assuming nanometers")
             wl *= u.nm
+
+        assert isinstance(wl, Quantity)
 
         return (
             np.arcsin(
@@ -664,10 +881,20 @@ class Grism(CrossDisperser):
             - self.apex_angle
         ).to(u.deg)
 
+    @overload
+    def dispersion_angle(
+        self, wl: ScalarQuantity | float, field_angle: ScalarQuantity
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def dispersion_angle(
+        self, wl: ArrayQuantity, field_angle: ScalarQuantity
+    ) -> ArrayQuantity: ...
+
     def dispersion_angle(
         self,
         wl: Quantity = 550 * u.nm,
-        field_angle: Quantity = 0 * u.deg,
+        field_angle: ScalarQuantity = 0 * u.deg,
     ) -> Quantity:
         """
         Calculate the dispersion angle for a given wavelength and field angle.
@@ -685,18 +912,24 @@ class Grism(CrossDisperser):
 class SimpleGrating(CrossDisperser):
     """ """
 
-    groove_frequency: Quantity = 150 / u.mm
+    groove_frequency: ScalarQuantity = 150 / u.mm
     m: int = 1
-    incidence_angle: Quantity = 0 * u.deg
+    incidence_angle: ScalarQuantity = 0 * u.deg
 
     @property
-    def groove_period(self) -> Quantity:
+    def groove_period(self) -> ScalarQuantity:
         return 1 / self.groove_frequency
+
+    @overload
+    def diffraction_angle(self, wl: ScalarQuantity | float) -> ScalarQuantity: ...
+
+    @overload
+    def diffraction_angle(self, wl: ArrayQuantity) -> ArrayQuantity: ...
 
     def diffraction_angle(
         self,
-        wl: Quantity = 550 * u.nm,
-    ) -> Quantity:
+        wl: Quantity | float = 550 * u.nm,
+    ) -> ScalarQuantity | ArrayQuantity:
         if isinstance(wl, float):
             print(f"No wavelength units passed ({wl}). Assuming nanometers")
             wl *= u.nm
@@ -704,21 +937,29 @@ class SimpleGrating(CrossDisperser):
         return np.arcsin((self.m * wl / self.groove_period).si).to(u.deg)
 
     @property
-    def central_angle(self) -> Quantity:
-        beta_min_wl = self.diffraction_angle(wl=self.min_wl)
-        beta_max_wl = self.diffraction_angle(wl=self.max_wl)
+    def central_angle(self) -> ScalarQuantity:
+        assert isinstance(self.min_wl, ScalarQuantity)
+        assert isinstance(self.max_wl, ScalarQuantity)
+        beta_min_wl: ScalarQuantity = self.diffraction_angle(wl=self.min_wl)
+        beta_max_wl: ScalarQuantity = self.diffraction_angle(wl=self.max_wl)
 
         return (beta_min_wl + beta_max_wl) / 2
+
+    @overload
+    def dispersion_angle(self, wl: ScalarQuantity | float) -> ScalarQuantity: ...
+
+    @overload
+    def dispersion_angle(self, wl: ArrayQuantity) -> ArrayQuantity: ...
 
     def dispersion_angle(
         self,
         wl: Quantity,
-        field_angle: Quantity = 0 * u.deg,  # noqa: ARG002
-    ) -> Quantity | list[Quantity]:
+        _field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> Quantity:
         # No treatment of field angle here
 
         if isinstance(wl, list | tuple):
-            return [self.dispersion_angle(iwl) for iwl in wl]
+            return [self.dispersion_angle(iwl).to(u.deg).value for iwl in wl] * u.deg
 
         if isinstance(wl, float):
             print(f"No wavelength units passed ({wl}). Assuming nanometers")
@@ -727,40 +968,73 @@ class SimpleGrating(CrossDisperser):
         return (self.diffraction_angle(wl=wl) - self.central_angle).to(u.deg)
 
 
+@overload
 def _refract(
-    n_1: float | Callable,
-    n_2: float | Callable,
-    theta_in: Quantity = 0 * u.deg,
-    wavelength: Quantity | None = None,
-    debug_level: float = 0.0,  # TODO: use this!  # noqa: ARG001
-) -> Quantity:
+    n_1: float | np.ndarrary | Callable,
+    n_2: float | np.ndarrary | Callable,
+    theta_in: ScalarQuantity,
+    wavelength: ScalarQuantity,
+) -> ScalarQuantity: ...
+
+
+@overload
+def _refract(
+    n_1: float | np.ndarrary | Callable,
+    n_2: float | np.ndarrary | Callable,
+    theta_in: ScalarQuantity,
+    wavelength: ArrayQuantity,
+) -> ArrayQuantity: ...
+
+
+@overload
+def _refract(
+    n_1: float | np.ndarrary | Callable,
+    n_2: float | np.ndarrary | Callable,
+    theta_in: ArrayQuantity,
+    wavelength: ScalarQuantity,
+) -> ArrayQuantity: ...
+
+
+def _refract(
+    n_1: float | np.ndarrary | Callable,
+    n_2: float | np.ndarrary | Callable,
+    theta_in: ScalarQuantity | ArrayQuantity = 0 * u.deg,
+    wavelength: ScalarQuantity | ArrayQuantity | None = None,
+    # debug_level: float = 0.0,
+) -> ScalarQuantity | ArrayQuantity:
+    """
+    TODO: Handle array inputs for either theta_in or wavelength
+
+    TODO: implement debug levels and logging
+    """
+
     # Compute the refracted angle of a ray or rays at a single material
     # interface
     # This can handle EITHER an array of input angles at a single wavelength
     # OR a single input angle at a range of wavelengths
 
     if wavelength is None:
-        _n_1 = n_1
-        _n_2 = n_2
+        _n_1: Any = n_1
+        _n_2: Any = n_2
 
     else:
         if callable(n_1):
             try:
-                _n_1 = n_1(wavelength)
+                _n_1: float = n_1(wavelength)
             except TypeError:
-                _n_1 = n_1
+                _n_1: Any = n_1
         if callable(n_2):
             try:
-                _n_2 = n_2(wavelength)
+                _n_2: float = n_2(wavelength)
             except TypeError:
-                _n_2 = n_2
+                _n_2: Any = n_2
 
     # By this point, _n_1 and _n_2 should be either floats, ints, or
     # lists/arrays of such
     assert not callable(_n_1)
     assert not callable(_n_2)
 
-    theta_out = np.arcsin((_n_1 / _n_2) * np.sin(theta_in))
+    theta_out: Quantity = np.arcsin((_n_1 / _n_2) * np.sin(theta_in))
 
     return theta_out.to(u.degree)
 

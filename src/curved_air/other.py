@@ -11,6 +11,7 @@ Also contains wavelength definitions of Fraunhofer lines
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TypeAlias, overload
 
 import numpy as np
 import ref_index
@@ -18,7 +19,10 @@ from astropy import units as u
 from astropy.units import Quantity
 from numpy.typing import ArrayLike
 
-_balmer_lines: dict[str, Quantity] = {
+ScalarQuantity: TypeAlias = Quantity
+ArrayQuantity: TypeAlias = Quantity
+
+_balmer_lines: dict[str, ScalarQuantity] = {
     "H$\\alpha$": 656.279 * u.nm,
     "H$\\beta$": 486.135 * u.nm,
     "H$\\gamma$": 434.0472 * u.nm,
@@ -31,7 +35,7 @@ _balmer_lines: dict[str, Quantity] = {
 
 # TODO: How to handle these separate line lists? Lots of overlap
 
-_fraunhofer_lines: dict[str, Quantity] = {
+_fraunhofer_lines: dict[str, ScalarQuantity] = {
     "t": 1013.98 * u.nm,
     "s": 852.11 * u.nm,
     "y": 898.765 * u.nm,
@@ -69,7 +73,7 @@ _fraunhofer_lines: dict[str, Quantity] = {
     "T": 302.108 * u.nm,
 }
 
-_atomic_lines: dict[str, Quantity] = {
+_atomic_lines: dict[str, ScalarQuantity] = {
     # Balmer lines of Hydrogen
     "H$\\alpha$": 656.279 * u.nm,
     "H$\\beta$": 486.135 * u.nm,
@@ -116,7 +120,7 @@ _atomic_lines: dict[str, Quantity] = {
     "CaH3": 697.69239 * u.nm,
 }
 
-_IR_bands: dict[str, Quantity] = {
+_IR_bands: dict[str, tuple[ScalarQuantity, ScalarQuantity]] = {
     "I": (731 * u.nm, 880 * u.nm),
     "Y": (1 * u.um, 1.15 * u.um),
     "J": (1.2 * u.um, 1.4 * u.um),
@@ -230,7 +234,22 @@ class Model:
     tabulated: np.ndarray | None = None
     function: Callable | None = None
 
-    def refractive_index(self, wl: Quantity | None = None) -> Callable | float:
+    @overload
+    def refractive_index(self, wl: ScalarQuantity) -> float: ...
+
+    @overload
+    def refractive_index(self, wl: ArrayQuantity) -> np.ndarray: ...
+
+    @overload
+    def refractive_index(self, wl: None) -> Callable: ...
+
+    @overload
+    def refractive_index(self) -> Callable: ...
+
+    def refractive_index(
+        self,
+        wl: Quantity | None = None,
+    ) -> Callable | np.ndarray | float:
         if self.function:
             if wl is None:
                 return self.function
@@ -238,11 +257,21 @@ class Model:
 
         if self.tabulated:
             if wl is None:
-                return self.tabulated
+                return lambda x: np.interp(
+                    x,
+                    self.tabulated[:, 0],  # type: ignore[non-subscriptable]
+                    self.tabulated[:, 1],  # type: ignore[non-subscriptable]
+                )
             return np.interp(wl, self.tabulated[:, 0], self.tabulated[:, 1])
 
         print("No function or tabulated values found")
         raise NotImplementedError
+
+    @overload
+    def n(self, wl: Quantity) -> float: ...
+
+    @overload
+    def n(self, wl: None) -> Callable: ...
 
     def n(self, wl: Quantity | None = None) -> Callable | float:
         if wl:
@@ -288,11 +317,11 @@ class Linear(Model):
     A simple linear model - linear refractive index as a function of wavelength
     """
 
-    m: float | None = None
-    b: float | None = None
+    m: float = 0
+    b: float = 1
 
     def __post_init__(self) -> None:
-        def f(wls: ArrayLike) -> ArrayLike:
+        def f(wls: Quantity) -> float | np.ndarray:
             return self.m * wls + self.b
 
         super().__init__(function=f)
@@ -305,12 +334,12 @@ class Constant(Model):
     Constant refractive index, regardless of wavelength
     """
 
-    c: float | None = None
+    c: float = 1
 
     def __post_init__(self) -> None:
         if self.c:
 
-            def f(_wls: ArrayLike = None) -> float:
+            def f(_wls: Quantity | None = None) -> float:
                 return self.c
 
             super().__init__(function=f)
@@ -434,7 +463,13 @@ class Atmosphere:
         if self.atmosphere_model:
             self.refraction_function = atmosphere_model_functions[self.atmosphere_model]
 
-    def refractive_index(self, wls: ArrayLike) -> ArrayLike:
+    @overload
+    def refractive_index(self, wls: ScalarQuantity) -> float: ...
+
+    @overload
+    def refractive_index(self, wls: ArrayQuantity) -> np.ndarray: ...
+
+    def refractive_index(self, wls: Quantity) -> float | np.ndarray:
         """
         Access the underlying refractive index model
         """
@@ -442,7 +477,11 @@ class Atmosphere:
         return self.air_model.refractive_index(wls)
 
     @property
-    def refraction(self, wls: ArrayLike = None, zs: ArrayLike = None) -> ArrayLike:
+    def refraction(
+        self,
+        wls: Quantity | None = None,
+        zs: Quantity | None = None,
+    ) -> None:
         """
         Taking in an array of wavelengths and an array of zenith distances,
         return the angular refraction a ray of light passing through the
