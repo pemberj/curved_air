@@ -265,7 +265,7 @@ def edlen(
     T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
     p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
     h: float = 0.0,
-) -> float:
+) -> float | list[float]:
     """
     A wrapper for the `ref_index.edlen` function from the `ref_index` library.
     Takes input parameters with astropy.units units.
