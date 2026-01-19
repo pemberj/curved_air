@@ -7,49 +7,39 @@ This modules contains the main plotting stylesheet that is used by curved_air, a
 as a function to convert wavelengths to RGB values, also used in certain plots.
 """
 
-from typing import no_type_check
 import colorsys
-import multiprocessing  # noqa: F401
-import time  # noqa: F401
-from typing import overload
+from typing import Any, overload
 
 import matplotlib.font_manager as fm
 import matplotlib.patheffects as pe
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
+from numpy.typing import NDArray
 from pyfonts import load_font
 
-quicksand = None
+from curved_air.typing import ArrayQuantity, ScalarQuantity
 
 
 def load_custom_font() -> None:
     # load Quicksand font
-    url = (
+    url: str = (
         "https://github.com/andrew-paglinawan/QuicksandFamily/blob/master/"
         + "fonts/statics/Quicksand-Regular.ttf"
     )
 
     try:
-        quicksand = load_font(font_url=f"{url}?raw=true")
+        quicksand: fm.FontProperties = load_font(font_url=f"{url}?raw=true")
         fm.FontManager.addfont(fm.fontManager, path=quicksand._file)
     except Exception:
         ...
 
 
-p = multiprocessing.Process(target=load_custom_font)
-p.start()
-p.join(timeout=3)
+load_custom_font()
 
-if p.is_alive():
-    p.terminate()
-    p.join()
-    print("Failed to load custom font. Using default font instead.")
+lw: float = 1.3
 
-
-lw = 1.3
-
-plot_style = {
+plot_style: dict[str, Any] = {
     # Set font to the beautiful Quicksand:
     # https://github.com/andrew-paglinawan/QuicksandFamily
     "font.family": "Quicksand",
@@ -114,30 +104,35 @@ def stroke(thickness: float = 4) -> list:
     A cheap and cheerful wrapper around matplotlib.patheffects objects to provide a
     stroke effect around any line or text object
     """
+
     return [pe.Stroke(linewidth=thickness, foreground="k"), pe.Normal()]
 
 
 @overload
 def wavelength_to_rgb(
-    wavelength: Quantity, gamma: float, fade_factor: float
+    wavelength: float | ScalarQuantity, gamma: float, fade_factor: float
 ) -> tuple[float, float, float]: ...
 
 
 @overload
 def wavelength_to_rgb(
-    wavelength: float, gamma: float, fade_factor: float
-) -> tuple[float, float, float]: ...
-
-
-@overload
-def wavelength_to_rgb(
-    wavelength: list, gamma: float, fade_factor: float
+    wavelength: list[float]
+    | list[ScalarQuantity]
+    | ArrayQuantity
+    | NDArray[np.floating],
+    gamma: float,
+    fade_factor: float,
 ) -> list[tuple[float, float, float]]: ...
 
 
-@no_type_check
+# @no_type_check
 def wavelength_to_rgb(
-    wavelength: Quantity | float | list = 0.55 * u.um,
+    wavelength: ArrayQuantity
+    | ScalarQuantity
+    | list[ScalarQuantity]
+    | float
+    | list[float]
+    | NDArray[np.floating] = 0.55 * u.um,
     gamma: float = 0.8,
     fade_factor: float = 0.8,
 ) -> tuple[float, float, float] | list[tuple[float, float, float]]:
@@ -147,55 +142,53 @@ def wavelength_to_rgb(
 
     Based on code by Dan Bruton (http://www.physics.sfasu.edu/astro/color/spectra.html)
     """
-
-    try:
-        wavelength = wavelength.to("nm").value
-    except AttributeError:
-        pass
-
-    if isinstance(wavelength, list | np.ndarray):
-        return [
-            wavelength_to_rgb(wl, gamma=gamma, fade_factor=fade_factor)
-            for wl in wavelength
-        ]
-
-    try:
-        wavelength = wavelength.to("nm")
-    except AttributeError:
+    if isinstance(wavelength, float):
         # Make sure `wls` is given in nanometers if no units are passed
         assert 5 < wavelength < 5000  # noqa: PLR2004
+        wavelength: ScalarQuantity = wavelength * u.nm
+
+    elif isinstance(wavelength, list | np.ndarray):
+        assert all(isinstance(wl, float) for wl in wavelength)
+        wavelength: ArrayQuantity = wavelength * u.nm
+
+    assert isinstance(wavelength, Quantity)
+
+    try:
+        wavelength: ScalarQuantity | ArrayQuantity = wavelength.to("nm")
+    except AttributeError as e:
+        raise e
 
     if wavelength >= 380 and wavelength <= 440:  # noqa: PLR2004
-        attenuation = 0.3 + 0.7 * (wavelength - 380) / (440 - 380)
-        r = ((-(wavelength - 440) / (440 - 380)) * attenuation) ** gamma
-        g = 0.0
-        b = (1.0 * attenuation) ** gamma
+        attenuation: float = 0.3 + 0.7 * (wavelength - 380) / (440 - 380)
+        r: float = ((-(wavelength - 440) / (440 - 380)) * attenuation) ** gamma
+        g: float = 0.0
+        b: float = (1.0 * attenuation) ** gamma
     elif wavelength >= 440 and wavelength <= 490:  # noqa: PLR2004
-        r = 0.0
-        g = ((wavelength - 440) / (490 - 440)) ** gamma
-        b = 1.0
+        r: float = 0.0
+        g: float = ((wavelength - 440) / (490 - 440)) ** gamma
+        b: float = 1.0
     elif wavelength >= 490 and wavelength <= 510:  # noqa: PLR2004
-        r = 0.0
-        g = 1.0
-        b = (-(wavelength - 510) / (510 - 490)) ** gamma
+        r: float = 0.0
+        g: float = 1.0
+        b: float = (-(wavelength - 510) / (510 - 490)) ** gamma
     elif wavelength >= 510 and wavelength <= 580:  # noqa: PLR2004
-        r = ((wavelength - 510) / (580 - 510)) ** gamma
-        g = 1.0
-        b = 0.0
+        r: float = ((wavelength - 510) / (580 - 510)) ** gamma
+        g: float = 1.0
+        b: float = 0.0
     elif wavelength >= 580 and wavelength <= 645:  # noqa: PLR2004
-        r = 1.0
-        g = (-(wavelength - 645) / (645 - 580)) ** gamma
-        b = 0.0
+        r: float = 1.0
+        g: float = (-(wavelength - 645) / (645 - 580)) ** gamma
+        b: float = 0.0
     elif wavelength >= 645 and wavelength <= 750:  # noqa: PLR2004
-        attenuation = 0.3 + 0.7 * (750 - wavelength) / (750 - 645)
-        r = (1.0 * attenuation) ** gamma
-        g = 0.0
-        b = 0.0
+        attenuation: float = 0.3 + 0.7 * (750 - wavelength) / (750 - 645)
+        r: float = (1.0 * attenuation) ** gamma
+        g: float = 0.0
+        b: float = 0.0
     else:
-        attenuation = 0.3
-        r = 1.0 * attenuation
-        g = 1.0 * attenuation
-        b = 1.0 * attenuation
+        attenuation: float = 0.3
+        r: float = 1.0 * attenuation
+        g: float = 1.0 * attenuation
+        b: float = 1.0 * attenuation
 
     return fade((r, g, b), fade_factor=fade_factor)
 
