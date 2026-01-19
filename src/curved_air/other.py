@@ -11,7 +11,7 @@ Also contains wavelength definitions of Fraunhofer lines
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TypeAlias, overload
+from typing import overload
 
 import numpy as np
 import ref_index
@@ -19,8 +19,7 @@ from astropy import units as u
 from astropy.units import Quantity
 from numpy.typing import ArrayLike
 
-ScalarQuantity: TypeAlias = Quantity
-ArrayQuantity: TypeAlias = Quantity
+from curved_air.typing import ArrayQuantity, ScalarQuantity
 
 _balmer_lines: dict[str, ScalarQuantity] = {
     "H$\\alpha$": 656.279 * u.nm,
@@ -141,13 +140,53 @@ Original paper: Ciddor 1996, https://doi.org/10.1364/AO.35.001566
 """
 
 
+@overload
 def ciddor(
-    wavelength: Quantity = 0.6328 * u.um,
-    T: Quantity = 10 * u.deg_C,
-    p: Quantity = 101_325 * u.Pa,
+    wavelength: ScalarQuantity,
+    T: ScalarQuantity,
+    p: ScalarQuantity,
+    h: float = 0.0,
+    x_c: float = 450,
+) -> float: ...
+
+
+@overload
+def ciddor(
+    wavelength: ArrayQuantity,
+    T: ScalarQuantity,
+    p: ScalarQuantity,
+    h: float = 0.0,
+    x_c: float = 450,
+) -> list[float]: ...
+
+
+@overload
+def ciddor(
+    wavelength: ScalarQuantity,
+    T: ArrayQuantity,
+    p: ScalarQuantity,
+    h: float = 0.0,
+    x_c: float = 450,
+) -> list[float]: ...
+
+
+@overload
+def ciddor(
+    wavelength: ScalarQuantity,
+    T: ScalarQuantity,
+    p: ArrayQuantity,
+    h: float = 0.0,
+    x_c: float = 450,
+) -> list[float]: ...
+
+
+def ciddor(
+    wavelength: ScalarQuantity | ArrayQuantity = 0.6328 * u.um,
+    T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
+    p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
     h: float = 0.0,
     x_c: float = 450.0,
-) -> float:
+) -> float | list[float]:
     """
     A wrapper for the `ref_index.ciddor` function from the `ref_index` library.
     Takes input parameters with astropy.units units.
@@ -156,16 +195,31 @@ def ciddor(
     `ref_index.ciddor` function.
     """
 
-    if isinstance(wavelength, float | int):
+    if isinstance(wavelength, float):
+        print("No units provided for wavelength. Assuming microns.")
         wavelength *= u.um
 
-    if isinstance(wavelength.value, float | int):
-        assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
-    elif isinstance(wavelength.value, list | np.ndarray):
-        lowmask = np.array(wavelength.to("um").value) >= 0.3  # noqa: PLR2004
-        highmask = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
-        assert np.all(lowmask) and np.all(highmask)
+    assert isinstance(wavelength, Quantity)
 
+    if not wavelength.isscalar:
+        assert T.isscalar, (
+            "Only one array input is allowed, not both wavelength and temperature"
+        )
+        assert p.isscalar, (
+            "Only one array input is allowed, not both wavelength and pressure"
+        )
+        return [ciddor(wavelength=wl, T=T, p=p, h=h, x_c=x_c) for wl in wavelength]
+
+    if not T.isscalar:
+        assert p.isscalar, (
+            "Only one array input is allowed, not both temperature amd pressure"
+        )
+        return [ciddor(wavelength=wavelength, T=iT, p=p, h=h, x_c=x_c) for iT in T]
+
+    if not p.isscalar:
+        return [ciddor(wavelength=wavelength, T=T, p=ip, h=h, x_c=x_c) for ip in p]
+
+    assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
     T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
     assert -40 <= T_C.value <= 100  # noqa: PLR2004
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
@@ -182,10 +236,34 @@ def ciddor(
     )
 
 
+@overload
 def edlen(
-    wavelength: Quantity = 656 * u.nm,
-    T: Quantity = 10 * u.deg_C,
-    p: Quantity = 101_325 * u.Pa,
+    wavelength: ScalarQuantity, T: ScalarQuantity, p: ScalarQuantity, h: float = 0.0
+) -> float: ...
+
+
+@overload
+def edlen(
+    wavelength: ArrayQuantity, T: ScalarQuantity, p: ScalarQuantity, h: float = 0.0
+) -> list[float]: ...
+
+
+@overload
+def edlen(
+    wavelength: ScalarQuantity, T: ArrayQuantity, p: ScalarQuantity, h: float = 0.0
+) -> list[float]: ...
+
+
+@overload
+def edlen(
+    wavelength: ScalarQuantity, T: ScalarQuantity, p: ArrayQuantity, h: float = 0.0
+) -> list[float]: ...
+
+
+def edlen(
+    wavelength: ScalarQuantity | ArrayQuantity = 656 * u.nm,
+    T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
+    p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
     h: float = 0.0,
 ) -> float:
     """
@@ -196,13 +274,34 @@ def edlen(
     `ref_index.edlen` function.
     """
 
-    if isinstance(wavelength.value, float | int):
-        assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
-    elif isinstance(wavelength.value, list | np.ndarray):
-        lowmask: np.ndarray = np.array(wavelength.to("um").value) >= 0.3  # noqa: PLR2004
-        highmask: np.ndarray = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
-        assert np.all(lowmask) and np.all(highmask)
+    if isinstance(wavelength, float):
+        print("Not units provided for wavelength. Assuming microns")
+        wavelength *= u.um
 
+    assert isinstance(wavelength, Quantity)
+
+    if not wavelength.isscalar:
+        # lowmask: np.ndarray = np.array(wavelength.to("um").value) >= 0.3  # noqa: PLR2004
+        # highmask: np.ndarray = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
+        # assert np.all(lowmask) and np.all(highmask)
+        assert T.isscalar, (
+            "Only one array input is allowed, not both wavelength and temperature"
+        )
+        assert p.isscalar, (
+            "Only one array input is allowed, not both wavelength and pressure"
+        )
+        return [edlen(wl, T=T, p=p, h=h) for wl in wavelength]
+
+    if not T.isscalar:
+        assert p.isscalar, (
+            "Only one array input is allowed, not both temperature amd pressure"
+        )
+        return [edlen(wavelength, T=iT, p=p, h=h) for iT in T]
+
+    if not p.isscalar:
+        return [edlen(wavelength, T=T, p=ip, h=h) for ip in p]
+
+    assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
     T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
     assert -40 <= T_C.value <= 100  # noqa: PLR2004
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
