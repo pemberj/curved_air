@@ -17,7 +17,7 @@ import numpy as np
 import ref_index
 from astropy import units as u
 from astropy.units import Quantity
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 
 from curved_air.typing import ArrayQuantity, ScalarQuantity
 
@@ -450,7 +450,7 @@ Airmass models only, they do not depend on wavelength!
 """
 
 
-def _plane_parallel(z: Quantity = 67 * u.deg) -> ArrayLike:
+def _plane_parallel(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     """
     Zeroth-order approximation of airmass as a function of zenith distance
     """
@@ -458,9 +458,8 @@ def _plane_parallel(z: Quantity = 67 * u.deg) -> ArrayLike:
     return np.sec(z)
 
 
-def _young_irvine(z: Quantity = 67 * u.deg) -> ArrayLike:
-    """
-    https://en.wikipedia.org/wiki/Air_mass_(astronomy)
+def _young_irvine(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
+    """https://en.wikipedia.org/wiki/Air_mass_(astronomy)tronomy)
 
     Usable results up to z~80 degrees
     """
@@ -468,7 +467,7 @@ def _young_irvine(z: Quantity = 67 * u.deg) -> ArrayLike:
     return np.sec(z) * (1 - 0.0012 * (np.sec(z) ** 2 - 1))
 
 
-def _hardie(z: Quantity = 67 * u.deg) -> ArrayLike:
+def _hardie(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     """
     https://en.wikipedia.org/wiki/Air_mass_(astronomy)
 
@@ -483,31 +482,25 @@ def _hardie(z: Quantity = 67 * u.deg) -> ArrayLike:
     )
 
 
-def _rozenberg(z: Quantity = 67 * u.deg) -> ArrayLike:
+def _rozenberg(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     """
     https://en.wikipedia.org/wiki/Air_mass_(astronomy)
-
-
     """
 
     return 1 / (np.cos(z) + 0.025 * np.exp(-11 * np.cos(z)))
 
 
-def _kasten_young(z: Quantity = 67 * u.deg) -> ArrayLike:
+def _kasten_young(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     """
     https://en.wikipedia.org/wiki/Air_mass_(astronomy)
-
-
     """
 
     return 1 / (np.cos(z) + 0.50572 * (6.007995 * u.deg + 90 * u.deg - z) ** -1.6364)
 
 
-def _young(z: Quantity = 67 * u.deg) -> ArrayLike:
+def _young(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     """
     https://en.wikipedia.org/wiki/Air_mass_(astronomy)
-
-
     """
 
     return (1.002432 * np.cos(z) ** 2 + 0.148386 * np.cos(z) + 0.0096467) / (
@@ -515,11 +508,9 @@ def _young(z: Quantity = 67 * u.deg) -> ArrayLike:
     )
 
 
-def _pickering(z: Quantity = 67 * u.deg) -> ArrayLike:
+def _pickering(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     """
     https://en.wikipedia.org/wiki/Air_mass_(astronomy)
-
-
     """
 
     h = 90 * u.deg - z
@@ -527,7 +518,7 @@ def _pickering(z: Quantity = 67 * u.deg) -> ArrayLike:
     return 1 / np.sin(h + 244 / (165 + 47 * h**1.1))
 
 
-def _(wls: ArrayLike) -> ArrayLike:
+def _(z: Quantity = 67 * u.deg) -> NDArray[np.floating]:
     raise NotImplementedError
 
 
