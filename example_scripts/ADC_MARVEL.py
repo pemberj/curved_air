@@ -14,18 +14,18 @@ for the visible range. These glasses are used for the ADCs for the MARVEL facili
 import re
 from pathlib import Path
 
-from astropy import units as u
 import matplotlib.pyplot as plt
+from astropy import units as u
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics import PrismStack, ADC
+from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    script_path = Path(__file__).parent
+    script_path: Path = Path(__file__).parent
     agf_dir: Path = script_path / "../data/AGFs"
 
     agf_files: list[Path] = sorted(
