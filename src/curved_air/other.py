@@ -43,19 +43,19 @@ _fraunhofer_lines: dict[str, ScalarQuantity] = {
     "A": 759.370 * u.nm,
     "r": 706.52 * u.nm,
     "B": 686.719 * u.nm,
-    # "C": 656.281 * u.nm, # Halpha
+    # "C": 656.281 * u.nm,  # Halpha
     "C'": 643.85 * u.nm,
     "a": 627.661 * u.nm,
     # "D1": 589.592 * u.nm,
     # "D2": 588.995 * u.nm,
-    # "d$_{Na}$": 587.5618 * u.nm,
+    # "d": 587.5618 * u.nm, # Sodium
     "E2": 527.039 * u.nm,
     "b1": 518.362 * u.nm,
     "b2": 517.270 * u.nm,
     "b3": 516.891 * u.nm,
     "b4": 516.733 * u.nm,
     "c": 495.761 * u.nm,
-    # "F": 486.134 * u.nm, # Hbeta
+    # "F": 486.134 * u.nm,  # Hbeta
     "F'": 479.99 * u.nm,
     "d$_{Fe}$": 466.814 * u.nm,
     "e": 438.355 * u.nm,

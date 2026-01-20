@@ -57,6 +57,12 @@ status_dictionary: dict[int, str] = {
     5: "Melt",
 }
 
+dCF: dict[str, ScalarQuantity] = {
+    "d": 587.5618 * u.nm,
+    "C": 656.281 * u.nm,
+    "F": 486.134 * u.nm,
+}
+
 
 @dataclass
 class Glass:
@@ -122,18 +128,6 @@ class Glass:
     @property
     def Abbe_number(self) -> float:
         return self.vd
-
-    @property
-    def n_d(self) -> float:
-        return self.n("d")
-
-    @property
-    def n_F(self) -> float:
-        return self.n("F")
-
-    @property
-    def n_C(self) -> float:
-        return self.n("C")
 
     @property
     def WL(self) -> list[float]:
@@ -245,14 +239,14 @@ class Glass:
 
         if isinstance(wls, str):
             try:
-                wls: Quantity = _fraunhofer_lines[wls]
+                wls: Quantity = (dCF | _fraunhofer_lines)[wls]
             except KeyError:
                 print(
                     f"Unknown wavelength string {wls}. Valid options are"
-                    + f"{', '.join(_fraunhofer_lines.keys())}"
+                    + f"{', '.join((dCF | _fraunhofer_lines).keys())}"
                 )
                 print("Using default wavelength of 588 nm")
-                return self.n_d
+                return self.nd
 
         if isinstance(wls, list) and all(isinstance(wl, str) for wl in wls):
             return np.ndarray([self.refractive_index(wl) for wl in wls])  # type: ignore
@@ -271,6 +265,18 @@ class Glass:
 
     def n(self, wls: Quantity | float | str | list[str] = "d") -> float | ArrayLike:
         return self.refractive_index(wls)
+
+    @property
+    def n_d(self) -> float:
+        return self.n("d")
+
+    @property
+    def n_F(self) -> float:
+        return self.n("F")
+
+    @property
+    def n_C(self) -> float:
+        return self.n("C")
 
     @overload
     def dn(self, wls: ScalarQuantity | float) -> float: ...

@@ -14,21 +14,25 @@ this to a new AGF file for use in Zemax.
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
 
 # from glass_select.glass import GlassCatalogue, _optimise_ADC
 from curved_air.glass import GlassCatalogue
 from curved_air.plotting import plot_style
 
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity
+
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    script_path = Path(__file__).parent
-    agf_dir = script_path / "../data/AGFs"
+    script_path: Path = Path(__file__).parent
+    agf_dir: Path = script_path / "../data/AGFs"
 
     agf_files: list[Path] = sorted(
         [
@@ -53,17 +57,29 @@ def main() -> None:
         )
     )
 
-    print(f"{gc["K10"].rii_dispersion_coefficients = }")
-    print(f"{gc["K10"].formula = }")
+    g = "K10"
+    print()
+    print(f"{g}")
+    print(f"Formula # :   {gc[g].formula}")
+    print(f"Coefficients: {gc[g].rii_dispersion_coefficients}")
+    print(f"nd          = {gc[g].nd}")
+    print()
+    print(f"n(0.5)      = {gc[g].n(0.5)}")
+    print(f"n(0.5um)    = {gc[g].n(0.5 * u.um)}")
+    print(f"n(500nm)    = {gc[g].n(500 * u.nm)}")
+    print()
+    print(f"n()         = {gc[g].n()}")
+    print(f"n('d')      = {gc[g].n('d')}")
+    print(f"n_d         = {gc[g].n_d}")
 
-    print(f"{gc["K10"].n() = }")
-    print(f"{gc['K10'].n(0.5) = }")
-    print(f"{gc['K10'].n(0.5*u.um) = }")
-    print(f"{gc['K10'].n(500*u.nm) = }")
+    wls: ArrayQuantity = np.linspace(0.39, 0.95, 100) * u.um
 
-    wls = np.linspace(0.39, 0.95, 100) * u.um
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
+    ax.plot(wls, gc[g].n(wls))
+    ax.set_xlabel("Wavelength (microns)")
+    ax.set_ylabel("Refractive index")
 
-    plt.plot(wls, gc["K10"].n(wls))
     plt.show()
 
 
