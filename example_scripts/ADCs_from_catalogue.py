@@ -29,10 +29,10 @@ plt.style.use(plot_style)
 
 
 def main() -> None:
-    script_path = Path(__file__).parent
+    script_path: Path = Path(__file__).parent
     agf_dir: Path = script_path / "../data/AGFs"
 
-    agf_files = sorted(
+    agf_files: list[Path] = sorted(
         [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("ohara|schott", f.name)]
     )
 
@@ -41,9 +41,9 @@ def main() -> None:
 
     print(agf_files)
 
-    catalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
-    catalogue = catalogue.filter(
+    catalogue: GlassCatalogue = catalogue.filter(
         min_wl=380 * u.nm,
         max_wl=950 * u.nm,
         min_transmission=0.97,
