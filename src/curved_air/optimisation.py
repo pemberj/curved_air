@@ -20,6 +20,7 @@ from scipy.optimize import curve_fit
 from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.ADC import PrismStack
 from curved_air.optics.dispersers import Prism
+from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 if TYPE_CHECKING:
     from typing import Any
@@ -27,9 +28,9 @@ if TYPE_CHECKING:
 
 def find_overlapping_refrective_index(
     glass_catalogue: GlassCatalogue,
-    target_wavelength: Quantity = 0.55 * u.um,
-    minwl: Quantity = 0.39 * u.um,
-    maxwl: Quantity = 0.95 * u.um,
+    target_wavelength: ScalarQuantity = 0.55 * u.um,
+    minwl: ScalarQuantity = 0.39 * u.um,
+    maxwl: ScalarQuantity = 0.95 * u.um,
     # fractional_margin: float = 0.1,
 ) -> dict[str, list]:
     """
@@ -87,14 +88,17 @@ def find_overlapping_refrective_index(
 
 def anomalous_dispersion(
     glass_catalogue: GlassCatalogue,
-    wavelength_range: ArrayLike = None,
+    wavelength_range: ArrayQuantity | None = None,
     num_glasses: int = 2,
     max_apex_ratio: float = 1.05,
 ) -> dict[str, list]:
     """ """
 
     if wavelength_range is None:
-        wavelength_range = np.linspace(0.39, 0.95, 20)  # default value
+        # Set default value
+        wavelength_range: ArrayQuantity = np.linspace(0.39, 0.95, 20) * u.um
+
+    assert isinstance(wavelength_range, Quantity)
 
     results: dict = {
         "g1": [],
@@ -145,12 +149,12 @@ def anomalous_dispersion(
                     # where_anomalous = dispersion[np.where(dispersion > 0)]
                     # return np.sum(where_anomalous)
 
-                    p1 = Prism(glass=glass1, apex_angle=10 * u.deg)  # noqa: B023
-                    p2 = Prism(glass=glass2, apex_angle=-k * 10 * u.deg)  # noqa: B023
+                    p1: Prism = Prism(glass=glass1, apex_angle=10 * u.deg)  # noqa: B023
+                    p2: Prism = Prism(glass=glass2, apex_angle=-k * 10 * u.deg)  # noqa: B023
 
-                    compound_prism = PrismStack(prism_list=[p1, p2])
+                    compound_prism: PrismStack = PrismStack(prism_list=[p1, p2])
 
-                    effective_n = compound_prism.trace(wavelength_range * u.um).value
+                    effective_n = compound_prism.trace(wavelength_range).value
 
                     effective_n = effective_n / (effective_n[0] / abs(effective_n[0]))
                     dispersion = np.diff(effective_n)

@@ -11,12 +11,15 @@ here.
 """
 
 from dataclasses import dataclass, field
+from typing import overload
 
 import astropy.units as u
 import numpy as np
 from astropy.units import Quantity
 from numpy.typing import ArrayLike
 from scipy.integrate import quad
+
+from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
 @dataclass
@@ -27,18 +30,18 @@ class Beam:
     No propagation is described here, for that see the subclasses.
     """
 
-    wavelength: Quantity = 633 * u.nm
+    wavelength: ScalarQuantity = 633 * u.nm
     E_0: float = 1
     n: float = 1
 
     debug_level: int = 0
 
     @property
-    def k_scalar(self) -> Quantity:
+    def k_scalar(self) -> ScalarQuantity:
         return 2 * np.pi * self.n / self.wavelength
 
     @property
-    def k(self) -> Quantity:
+    def k(self) -> ScalarQuantity:
         return self.k_scalar
 
     def __str__(self) -> str:
@@ -55,7 +58,7 @@ class GaussianBeam(Beam):
     https://en.wikipedia.org/wiki/Gaussian_beam
     """
 
-    w_0: Quantity = 10 * u.um
+    w_0: ScalarQuantity = 10 * u.um
 
     printed: dict = field(default_factory=dict)
 
@@ -65,13 +68,19 @@ class GaussianBeam(Beam):
                 print(f"{p}: {val}")
 
     @property
-    def z_R(self) -> Quantity:
+    def z_R(self) -> ScalarQuantity:
         """
         z_R, Rayleigh range, sometimes z_0
         (not to be confused with a distance to the beam waist)
         """
 
         return ((np.pi * self.n * self.w_0**2) / self.wavelength).si
+
+    @overload
+    def w_squared(self, z: ScalarQuantity) -> ScalarQuantity: ...
+
+    @overload
+    def w_squared(self, z: ArrayQuantity) -> ArrayQuantity: ...
 
     def w_squared(self, z: Quantity = 0 * u.mm) -> Quantity:
         """
@@ -89,6 +98,12 @@ class GaussianBeam(Beam):
 
         return (self.w_0**2 * (1 + (_z) ** 2)).si
 
+    @overload
+    def w(self, z: ScalarQuantity) -> ScalarQuantity: ...
+
+    @overload
+    def w(self, z: ArrayQuantity) -> ArrayQuantity: ...
+
     def w(self, z: Quantity = 0 * u.mm) -> Quantity:
         """
         w, beam width
@@ -103,6 +118,12 @@ class GaussianBeam(Beam):
             print(np.sqrt(self.w_squared(z)).si)
 
         return np.sqrt(self.w_squared(z)).si
+
+    @overload
+    def R(self, z: ScalarQuantity) -> ScalarQuantity: ...
+
+    @overload
+    def R(self, z: ArrayQuantity) -> ArrayQuantity: ...
 
     def R(self, z: Quantity = 0 * u.mm) -> Quantity:
         """
@@ -126,11 +147,11 @@ class GaussianBeam(Beam):
 
     def amplitude(
         self,
-        r: Quantity | None = None,
-        x: Quantity = 0 * u.mm,
-        y: Quantity = 0 * u.mm,
-        z: Quantity = 0 * u.mm,
-    ) -> Quantity:
+        r: ScalarQuantity | None = None,
+        x: ScalarQuantity = 0 * u.mm,
+        y: ScalarQuantity = 0 * u.mm,
+        z: ScalarQuantity = 0 * u.mm,
+    ) -> ScalarQuantity:
         """
         The amplitude of the electric field at the given coordinates
         """
@@ -141,6 +162,12 @@ class GaussianBeam(Beam):
             * (self.w_0 / self.w(z)).si
             * np.exp((-(r**2) / (self.w_squared(z))).si)
         )
+
+    @overload
+    def Gouy_phase(self, z: ScalarQuantity) -> ScalarQuantity: ...
+
+    @overload
+    def Gouy_phase(self, z: ArrayQuantity) -> ArrayQuantity: ...
 
     def Gouy_phase(self, z: Quantity = 0 * u.mm) -> Quantity:
         """
@@ -154,6 +181,12 @@ class GaussianBeam(Beam):
 
         return np.arctan((z / self.z_R).si) / u.radian
 
+    @overload
+    def longitudinal_phase(self, z: ScalarQuantity) -> ScalarQuantity: ...
+
+    @overload
+    def longitudinal_phase(self, z: ArrayQuantity) -> ArrayQuantity: ...
+
     def longitudinal_phase(self, z: Quantity = 0 * u.mm) -> Quantity:
         """
         The longitudinal phase of the E field at a distance z from the beam waist
@@ -161,23 +194,82 @@ class GaussianBeam(Beam):
 
         return (self.k * z).si
 
+    @overload
     def radial_phase(
         self,
-        r: Quantity | None = None,
-        x: Quantity = 0 * u.mm,
-        y: Quantity = 0 * u.mm,
-        z: Quantity = 0 * u.mm,
-    ) -> Quantity:
+        r: ScalarQuantity | None,
+        x: ScalarQuantity,
+        y: ScalarQuantity,
+        z: ScalarQuantity,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def radial_phase(
+        self,
+        x: ScalarQuantity,
+        y: ScalarQuantity,
+        z: ScalarQuantity,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def radial_phase(
+        self,
+        z: ScalarQuantity,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def radial_phase(
+        self,
+        r: ScalarQuantity | None,
+        x: ScalarQuantity,
+        y: ScalarQuantity,
+        z: ArrayQuantity,
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def radial_phase(
+        self,
+        x: ScalarQuantity,
+        y: ScalarQuantity,
+        z: ArrayQuantity,
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def radial_phase(
+        self,
+        z: ArrayQuantity,
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def radial_phase(
+        self,
+        r: ScalarQuantity,
+        z: ScalarQuantity | ArrayQuantity,
+    ) -> ArrayQuantity: ...
+
+    def radial_phase(
+        self,
+        r: ScalarQuantity | None = None,
+        x: ScalarQuantity = 0 * u.mm,
+        y: ScalarQuantity = 0 * u.mm,
+        z: ScalarQuantity | ArrayQuantity = 0 * u.mm,
+    ) -> ScalarQuantity | ArrayQuantity:
         """
         The radial phase of the E field at the given coordinates
         """
-        r: Quantity = np.sqrt(x**2 + y**2) if r is None else r.si
+        if r is not None and (x is not None or y is not None):
+            print("Either r or (x, y) should be specified. Using r value.")
+
+        r: ScalarQuantity = np.sqrt(x**2 + y**2) if r is None else r.si
 
         return (self.k.si * (r**2).si) / (2 * self.R(z).si)
 
     def E_field(
-        self, x: Quantity = 0 * u.mm, y: Quantity = 0 * u.mm, z: Quantity = 0 * u.mm
-    ) -> Quantity:
+        self,
+        x: ScalarQuantity = 0 * u.mm,
+        y: ScalarQuantity = 0 * u.mm,
+        z: ScalarQuantity = 0 * u.mm,
+    ) -> ScalarQuantity:
         """
         Returns the complex E field of the wave, encoding amplitude and phase,
         at the given coordinates
@@ -187,19 +279,19 @@ class GaussianBeam(Beam):
             -1j
             * (
                 self.longitudinal_phase(z)
-                + self.radial_phase(x, y, z)
+                + self.radial_phase(x=x, y=y, z=z)
                 - self.Gouy_phase(z)
             )
         )
 
     def E_field_partial(
         self,
-        r: Quantity | None = None,
-        x: Quantity = 0 * u.mm,
-        y: Quantity = 0 * u.mm,
-        z: Quantity = 0 * u.mm,
+        r: ScalarQuantity | None = None,
+        x: ScalarQuantity = 0 * u.mm,
+        y: ScalarQuantity = 0 * u.mm,
+        z: ScalarQuantity = 0 * u.mm,
         include: str = "amplitude longitudinal",
-    ) -> Quantity:
+    ) -> ScalarQuantity:
         """
         A function to construct partial Gaussian beams, for instance including
         only Gouy phase or only radial phase, for inspection of the
@@ -238,14 +330,18 @@ class GaussianBeam(Beam):
 
         return E
 
-    def E_gouy_integrated(self, r: float = np.inf, z: Quantity = 0 * u.mm) -> Quantity:
+    def E_gouy_integrated(
+        self,
+        r: float = np.inf,
+        z: ScalarQuantity = 0 * u.mm,
+    ) -> ScalarQuantity:
         """
         A function that returns the E-field incorporating only the Gouy phase component
         integrated from r=0 to the given r in the plane a given distance z from the beam
         waist.
         """
 
-        ret: Quantity = (
+        ret: ScalarQuantity = (
             self.E_0
             * self.w_0
             * self.w(z=z)
@@ -256,20 +352,20 @@ class GaussianBeam(Beam):
         if np.isinf(r):
             return ret
 
-        exponent: Quantity = -((r**2) / (self.w(z) ** 2)).si
+        exponent: float = -((r**2) / (self.w(z) ** 2)).si.value
         ret *= 1 - np.exp(exponent)
         return ret
 
     def E_radial_integrated(
-        self, r: float = np.inf, z: Quantity = 0 * u.mm
-    ) -> Quantity:
+        self, r: float = np.inf, z: ScalarQuantity = 0 * u.mm
+    ) -> ScalarQuantity:
         """
         A function that returns the E-field incorporating only the radial phase
         component integrated from r=0 to the given radius r in the plane a given
         distance z from the beam waist.
         """
 
-        ret: Quantity = (
+        ret: ScalarQuantity = (
             self.E_0
             * (self.w_0 / self.w(z=z)).si
             * np.pi
@@ -284,14 +380,20 @@ class GaussianBeam(Beam):
             # print(f"{self.R(z=z) = }")
             return ret
 
-        exponent1: Quantity = -(r**2) * (1 / self.w(z=z) ** 2).si
-        exponent2: Quantity = -(r**2) * ((1j * self.k) / (2 * self.R(z=z))).si
-        exponent: Quantity = exponent1 + exponent2
+        exponent1: ScalarQuantity = -(r**2) * (1 / self.w(z=z) ** 2).si
+        assert exponent1.unit == u.dimensionless_unscaled
+        exponent2: ScalarQuantity = -(r**2) * ((1j * self.k) / (2 * self.R(z=z))).si
+        assert exponent2.unit == u.dimensionless_unscaled
+        exponent: float = (exponent1 + exponent2).value
         ret *= 1 - np.exp(exponent)
 
         return ret
 
-    def summed_E_field(self, z: Quantity = 0 * u.mm, exclude: str = "none") -> Quantity:
+    def summed_E_field(
+        self,
+        z: ScalarQuantity = 0 * u.mm,
+        exclude: str = "none",
+    ) -> ScalarQuantity:
         """
         For a beam symmetric about the optical axis. Integrating over r from 0
         to infinity gives the summed (inegrated) E field across a plane at z.
@@ -299,14 +401,14 @@ class GaussianBeam(Beam):
         Fabry-Perot etalon.
         """
 
-        A: Quantity = (u.m**2 / self.w(z) ** 2) + 1j * (
+        A: ScalarQuantity = (u.m**2 / self.w(z) ** 2) + 1j * (
             (self.k * u.m**2) / (2 * self.R(z))
         )
-        integral_over_r: Quantity = np.pi / A
+        integral_over_r: ScalarQuantity = np.pi / A
 
         # baseline result, including only the amplitude and longitudinal phase,
         # ie. a plane wave beam
-        ret: Quantity = (
+        ret: ScalarQuantity = (
             self.E_0 * (self.w_0 / self.w(z)) * np.exp(-1j * self.longitudinal_phase(z))
         )
 
@@ -352,7 +454,7 @@ class PlanarBeam(Beam):
     An implementation of a very simple plane electromagnetic wave
     """
 
-    plane_normal: tuple | ArrayLike = (0, 0, 1)
+    plane_normal: tuple[float, ...] = (0, 0, 1)
 
     def __post_init__(self) -> None:
         if self.debug_level > 0:
@@ -365,12 +467,15 @@ class PlanarBeam(Beam):
         )
 
     @property
-    def k_vector(self) -> tuple | ArrayLike:
-        return self.k_scalar * self.plane_normal
+    def k_vector(self) -> tuple[float, ...]:
+        return tuple(self.k_scalar * i for i in self.plane_normal)
 
     def E_field(
-        self, x: Quantity = 0 * u.mm, y: Quantity = 0 * u.mm, z: Quantity = 0 * u.mm
-    ) -> Quantity:
+        self,
+        x: ScalarQuantity = 0 * u.mm,
+        y: ScalarQuantity = 0 * u.mm,
+        z: ScalarQuantity = 0 * u.mm,
+    ) -> ScalarQuantity:
         """
         https://en.wikipedia.org/wiki/Electromagnetic_wave_equation
         """
@@ -395,25 +500,28 @@ class SphericalBeam(Beam):
     """
 
     f_number: int | float = 10
-    plane_normal: ArrayLike = (0, 0, 1)
+    plane_normal: tuple[float, ...] = (0, 0, 1)
 
-    k_vector: ArrayLike = None
+    k_vector: tuple[float, ...] | None = None
 
     def __post_init__(self) -> None:
-        self.plane_normal = np.array(self.plane_normal)
-        self.plane_normal = self.plane_normal / np.linalg.norm(self.plane_normal)
+        self.plane_normal: tuple[float, ...] = tuple(
+            np.array(self.plane_normal) / np.linalg.norm(self.plane_normal)
+        )
 
-        self.k_vector = self.k_scalar * self.plane_normal
+        self.k_vector: tuple[float, ...] = tuple(
+            self.k_scalar * i for i in self.plane_normal
+        )
 
-    def beam_diameter(self, z: Quantity) -> Quantity:
+    def beam_diameter(self, z: ScalarQuantity) -> ScalarQuantity:
         return z / self.f_number
 
     def E_field(
         self,
-        x: ArrayLike | Quantity = 0 * u.mm,
-        y: ArrayLike | Quantity = 0 * u.mm,
-        z: ArrayLike | Quantity = 0 * u.mm,
-    ) -> Quantity:
+        x: ArrayLike | ScalarQuantity = 0 * u.mm,
+        y: ArrayLike | ScalarQuantity = 0 * u.mm,
+        z: ArrayLike | ScalarQuantity = 0 * u.mm,
+    ) -> ScalarQuantity:
         """
         Calculate the electric field at a point in space
         """
@@ -425,7 +533,7 @@ class SphericalBeam(Beam):
         if isinstance(z, Quantity):
             z: float = z.to(u.mm).value
 
-        x_shape: tuple[int] = np.shape(x)
+        x_shape: tuple[int, ...] = np.shape(x)
         # y_shape = np.shape(y)  # TODO: don't assume x, y, and z are the same shape
         # z_shape = np.shape(z)
 
@@ -439,24 +547,38 @@ class SphericalBeam(Beam):
         print(f"{np.shape(y) = }")
         print(f"{np.shape(z) = }")
 
-        r: Quantity = np.array([x, y, z]) * u.mm
+        r: ArrayQuantity = np.array([x, y, z]) * u.mm
 
         # r_norm = np.linalg.norm(r, axis=0)
 
         # area = np.pi * (r_norm / (2 * self.f_number))**2
-        area: Quantity = 1 * u.mm**2
+        area: ScalarQuantity = 1 * u.mm**2
 
-        E: Quantity = self.E_0 / area.value
-        phase: Quantity = np.exp(1j * (np.dot(self.k_vector, r).si))
+        E: ScalarQuantity = self.E_0 / area.value
+        phase: ScalarQuantity = np.exp(1j * (np.dot(self.k_vector, r).si))  # type: ignore
 
-        return np.array(E * phase).reshape(x_shape)
+        return np.array(E.value * phase).reshape(x_shape) * E.unit
+
+    @overload
+    def summed_E_field(
+        self,
+        z: ScalarQuantity,
+        max_radius: ScalarQuantity | None,
+    ) -> Quantity: ...
+
+    @overload
+    def summed_E_field(
+        self,
+        z: ArrayQuantity,
+        max_radius: ScalarQuantity | None,
+    ) -> ArrayQuantity: ...
 
     def summed_E_field(
         self,
-        z: Quantity = 0 * u.mm,
-        max_radius: Quantity | None = None,
+        z: ScalarQuantity | ArrayQuantity = 0 * u.mm,
+        max_radius: ScalarQuantity | None = None,
         force_radius: bool = False,
-    ) -> Quantity | list[Quantity]:
+    ) -> ScalarQuantity | ArrayQuantity | float:  # TODO fix
         """
         Using the analytic expression for a spherical beam, this function
         calculates the integral of the E field over a circular aperture
@@ -466,19 +588,10 @@ class SphericalBeam(Beam):
         if isinstance(z, Quantity):
             z: float = z.to(u.mm).value
 
-        try:
-            len(z)
-            out: list[Quantity] = []
-
-            for i, zi in enumerate(z):
-                if self.debug_level > 0:
-                    print(f"z[{i}] = {zi}")
-                out.append(self.summed_E_field(zi, max_radius))
-
-            return out
-
-        except TypeError:
-            pass
+        if not z.isscalar:
+            return [
+                self.summed_E_field(zi, max_radius).value for zi in z
+            ] * self.E_0.unit
 
         if z == 0:
             return self.E_0
@@ -499,7 +612,7 @@ class SphericalBeam(Beam):
 
             return (1 / sqrtr2x2) * np.exp(-1j * k * sqrtr2x2) * r
 
-        I, error = quad(integrand, 0, radius.to(u.mm).value, limit=100)  # noqa: E741
+        I, _error = quad(integrand, 0, radius.to(u.mm).value, limit=100)  # noqa: E741
 
         return 2 * np.pi * self.E_0 * I
 
@@ -511,7 +624,9 @@ class SphericalBeam(Beam):
         """Use the analytic expression for a slice through the beam at a distance z"""
 
         if isinstance(z, list):
-            return [self.integrated_E_field(z=zi, radius=radius) for zi in z]
+            return [
+                self.integrated_E_field(z=zi, radius=radius).value for zi in z
+            ] * self.E_0.unit
 
         if isinstance(z, Quantity):
             z: float | np.ndarray = z.to(u.mm).value

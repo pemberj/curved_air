@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias, overload
+from typing import TYPE_CHECKING, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,11 +44,10 @@ if TYPE_CHECKING:
     from matplotlib.backend_bases import MouseEvent
     from numpy.typing import ArrayLike
 
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+
 plt.style.use(plot_style)
 
-
-ScalarQuantity: TypeAlias = Quantity
-ArrayQuantity: TypeAlias = Quantity
 
 status_dictionary: dict[int, str] = {
     1: "Standard",
@@ -199,37 +198,36 @@ class Glass:
         return self
 
     @overload
-    def transmission(self, wl: ScalarQuantity) -> tuple[float]: ...
+    def transmission(self, wl: ScalarQuantity) -> float: ...
 
     @overload
-    def transmission(self, wl: ArrayQuantity) -> tuple[np.ndarray]: ...
+    def transmission(self, wl: ArrayQuantity) -> np.ndarray: ...
 
     def transmission(
         self,
-        wl: Quantity,
-    ) -> tuple[float] | tuple[np.ndarray] | None:
+        wl: ScalarQuantity | ArrayQuantity,
+    ) -> float | np.ndarray:
         """
         The internal transmission of the glass at the specified wavelength(s)
         """
+        assert isinstance(wl, Quantity)
+
         if wl.isscalar:
             wl: float = wl.to(u.um).value
-        elif isinstance(wl, Quantity) or (
-            isinstance(wl, list) and isinstance(wl[0], Quantity)
-        ):
-            wl: list[float] = [_iwl.to(u.um).value for _iwl in wl]
+        else:
+            wl: list[float] = [float(iwl.to(u.um).value) for iwl in wl]
 
-        WL: list[float] = [w for w in self.wl if w > 0]
-        IT: list[float] = self.IT
         if wl is None:
-            wl: list[float] = WL
+            wl: list[float] = self.wl
 
         try:
-            return np.interp(wl, xp=WL, fp=IT, left=0.0, right=0.0)  # type: ignore
-        except:
+            return np.interp(wl, xp=self.wl, fp=self.IT, left=0.0, right=0.0)
+        except Exception as e:
+            print(e)
             print(f"Could not compute transmission for {self.name}")
             print(f"{self.wl = }")
             print(f"{self.IT = }")
-            return None
+            return np.array([np.nan] * len(wl))
 
     @overload
     def refractive_index(
@@ -299,7 +297,9 @@ class Glass:
 
         elif isinstance(wls, int | float):
             wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
-            return (np.gradient(self.refractive_index(wls)) / np.gradient(wls))[1]
+            return (np.gradient(self.refractive_index(wls * u.um)) / np.gradient(wls))[
+                1
+            ]
 
         assert isinstance(wls, np.ndarray) | isinstance(wls, list)
         # Otherwise, return the gradient over the array
@@ -318,13 +318,18 @@ class Glass:
         https://www.primeoptics.com.au/Reference/dRPD_description.pdf
         """
 
-        if isinstance(wls, list | np.ndarray) and len(wls) == 1:
+        if isinstance(wls, Quantity):
+            wls: np.ndarray = wls.to(u.um).value
+
+        if len(wls) == 1:
             wls: float = wls[0]
 
         elif isinstance(wls, int | float):
             wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
 
-            return float(np.mean((self.refractive_index(wls[1]) - 1) / (-self.dn(wls))))
+            return float(
+                np.mean((self.refractive_index(wls[1]) - 1) / (-self.dn(wls * u.um)))
+            )
 
         return (self.refractive_index(wls) - 1) / (-self.dn(wls))
 
@@ -351,13 +356,16 @@ class Glass:
 
         if wls is None:
             wls: float = self.wl[0]
-        elif isinstance(wls, list | np.ndarray) and len(wls) == 1:
-            wls: float = wls[0]
+
+        elif isinstance(wls, Quantity):
+            if wls.isscalar:
+                wls: float = wls.to(u.um).value
+            wls: np.ndarray = wls.to(u.um).value
 
         if isinstance(wls, int | float):
             wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
 
-        return self.dV(wls - np.gradient(wls)) / self.dV(wls)
+        return self.dV(wls - np.gradient(wls)) / self.dV(wls * u.um)
 
     def plot(
         self,
@@ -997,7 +1005,7 @@ class GlassCatalogue(dict):
                         if glass.status != status_code:
                             continue
                     else:  # It is a list or ArrayLike
-                        if glass.status not in status_code:  # ty: ignore
+                        if glass.status not in status_code:
                             continue
                 except TypeError:
                     ...
@@ -1056,8 +1064,8 @@ class GlassCatalogue(dict):
                 except AssertionError:
                     ...
 
-                transmission_wls = np.linspace(
-                    min_wl.to("um").value, max_wl.to("um").value, 20
+                transmission_wls: ArrayQuantity = (
+                    np.linspace(min_wl.to("um").value, max_wl.to("um").value, 20) * u.um
                 )
                 transmission = glass.transmission(wl=transmission_wls)
 
@@ -1098,20 +1106,22 @@ class GlassCatalogue(dict):
         - [ ] Add interactivity to the plot, with hover-over labels
         """
 
-        if not axis:
-            fig = plt.figure()
-            ax = fig.gca()
+        if axis is None:
+            fig: plt.Figure = plt.figure()
+            ax: plt.Axes = fig.gca()
         else:
-            ax = axis
+            ax: plt.Axes = axis
 
-        names = [g.name for g in self.glasses]
+        names: list[str] = [g.name for g in self.glasses]
 
         # Somewhat bulky code to color-code the points by the original file
-        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-        all_original_files = [g.original_file for g in self.glasses]
-        unique_original_files = list(set(all_original_files))
-        manufacturer_indices = {f: i for i, f in enumerate(unique_original_files)}
-        cols = [colors[manufacturer_indices[f]] for f in all_original_files]
+        colors: list[str] = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        all_original_files: list[str] = [g.original_file for g in self.glasses]
+        unique_original_files: list[str] = list(set(all_original_files))
+        manufacturer_indices: dict[str, int] = {
+            f: i for i, f in enumerate(unique_original_files)
+        }
+        cols: list[str] = [colors[manufacturer_indices[f]] for f in all_original_files]
 
         # for _, glass in self.items():
         points = ax.scatter(
@@ -1177,11 +1187,11 @@ class GlassCatalogue(dict):
         axis: plt.Axes | None = None,
         wls: ArrayLike | Quantity | None = None,
     ) -> GlassCatalogue:
-        if not axis:
-            fig = plt.figure()
-            ax = fig.gca()
+        if axis is None:
+            fig: plt.Figure = plt.figure()
+            ax: plt.Axes = fig.gca()
         else:
-            ax = axis
+            ax: plt.Axes = axis
 
         for _, glass in self.items():
             glass.plot(wls=wls, metric="transmission", axis=ax, show=False)

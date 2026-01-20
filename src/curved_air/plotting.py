@@ -18,7 +18,7 @@ from astropy.units import Quantity
 from numpy.typing import NDArray
 from pyfonts import load_font
 
-from curved_air.typing import ArrayQuantity, ScalarQuantity
+from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
 def load_custom_font() -> None:

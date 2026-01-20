@@ -19,7 +19,7 @@ from astropy import units as u
 from astropy.units import Quantity
 from numpy.typing import NDArray
 
-from curved_air.typing import ArrayQuantity, ScalarQuantity
+from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 _balmer_lines: dict[str, ScalarQuantity] = {
     "H$\\alpha$": 656.279 * u.nm,

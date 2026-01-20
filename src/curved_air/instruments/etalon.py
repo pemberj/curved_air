@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TypeAlias, overload
+from typing import TYPE_CHECKING, overload
 
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
 
-ScalarQuantity: TypeAlias = Quantity
-ArrayQuantity: TypeAlias = Quantity
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
 @dataclass
@@ -67,7 +67,7 @@ class Etalon:
         """
 
         if isinstance(wavelength, list) or not wavelength.isscalar:
-            assert all(isinstance(wl, ScalarQuantity) for wl in wavelength)
+            assert all(isinstance(wl, Quantity) for wl in wavelength)
             return [self.delta_lambda(wl).to(u.pm).value for wl in wavelength] * u.pm
 
         n_g = 1

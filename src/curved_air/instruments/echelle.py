@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
-from numbers import Real
-from typing import TYPE_CHECKING, TypeAlias, overload
+from typing import TYPE_CHECKING, overload
 
 import numpy as np
 from astropy import units as u
@@ -12,11 +11,10 @@ from astropy.units import Quantity
 if TYPE_CHECKING:
     from matplotlib import pyplot as plt
 
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+
 from curved_air.detectors import Detector
 from curved_air.optics.dispersers import EchelleGrating, Grism, Prism
-
-ScalarQuantity: TypeAlias = Quantity[Real]
-ArrayQuantity: TypeAlias = Quantity[np.ndarray] | Quantity[list[Real]]
 
 
 @dataclass
@@ -93,7 +91,7 @@ class EchelleSpectrograph:
 
         return np.linspace(min_m_wl.to(u.um).value, max_m_wl.to(u.um).value, num) * u.um
 
-    def full_wavelengths(self) -> dict[int, list[ArrayQuantity]]:
+    def full_wavelengths(self) -> dict[int, ArrayQuantity]:
         """ """
 
         return {m: self.order_wavelengths(m) for m in self.spectral_orders}
@@ -162,8 +160,12 @@ class EchelleSpectrograph:
         wl1: ScalarQuantity = self.grating.blaze_wavelength(m=o1)
         wl2: ScalarQuantity = self.grating.blaze_wavelength(m=o2)
 
-        x1: ScalarQuantity = self.image_plane_position(m=o1, wavelength=wl1)
-        x2: ScalarQuantity = self.image_plane_position(m=o2, wavelength=wl2)
+        x1: tuple[ScalarQuantity, ScalarQuantity] = self.image_plane_position(
+            m=o1, wavelength=wl1
+        )
+        x2: tuple[ScalarQuantity, ScalarQuantity] = self.image_plane_position(
+            m=o2, wavelength=wl2
+        )
 
         return abs(x1[0] - x2[0])
 
@@ -176,8 +178,12 @@ class EchelleSpectrograph:
         wl1: ScalarQuantity = self.grating.blaze_wavelength(m=o1)
         wl2: ScalarQuantity = self.grating.blaze_wavelength(m=o2)
 
-        x1: ScalarQuantity = self.image_plane_position(m=o1, wavelength=wl1)
-        x2: ScalarQuantity = self.image_plane_position(m=o2, wavelength=wl2)
+        x1: tuple[ScalarQuantity, ScalarQuantity] = self.image_plane_position(
+            m=o1, wavelength=wl1
+        )
+        x2: tuple[ScalarQuantity, ScalarQuantity] = self.image_plane_position(
+            m=o2, wavelength=wl2
+        )
 
         return abs(x1[0] - x2[0])
 
@@ -220,10 +226,10 @@ class EchelleSpectrograph:
         wl: Quantity,
         m: int | None = None,
     ) -> float | list[float]:
-        if isinstance(wl, ScalarQuantity):
-            return int(wl / self.resolution_element(wl=wl, m=m))
+        if wl.isscalar:
+            return float((wl / self.resolution_element(wl=wl, m=m)).si.value)
 
-        return wl / self.resolution_element(wl=wl, m=m)
+        return [(iwl / self.resolution_element(wl=iwl, m=m)).si.value for iwl in wl]
 
     def print_parameters(self) -> EchelleSpectrograph:
         print(f"{'Collimated beam diameter:':<30}", end="")
@@ -303,7 +309,7 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
 
         # TODO: how to check if a Quantity is actually a list or array underneath?
         if isinstance(wavelength, list | tuple):
-            assert all(isinstance(iwl, ScalarQuantity) for iwl in wavelength)
+            assert all(isinstance(iwl, Quantity) for iwl in wavelength)
             return [
                 self.image_plane_position(m, wl).to(u.mm).value for wl in wavelength
             ] * u.mm

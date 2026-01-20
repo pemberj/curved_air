@@ -12,22 +12,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
+
+from curved_air.glass import Glass
+from curved_air.other import Air
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from numpy.typing import ArrayLike
 
-from curved_air.glass import Glass
-from curved_air.other import Air
-
-ScalarQuantity: TypeAlias = Quantity
-ArrayQuantity: TypeAlias = Quantity
+    from curved_air.typing import ArrayQuantity, ScalarQuantity
 
 
 @dataclass
@@ -85,9 +84,12 @@ class EchelleGrating(Disperser):
 
     @cached_property
     def diffraction_orders(self) -> list[int]:
-        assert isinstance(self.min_wl, ScalarQuantity) and isinstance(
-            self.max_wl, ScalarQuantity
-        )
+        assert isinstance(self.min_wl, Quantity)
+        assert self.min_wl.isscalar
+
+        assert isinstance(self.max_wl, Quantity)
+        assert self.max_wl.isscalar
+
         min_m: int = self.order_number(self.max_wl, quantised=True)
         max_m: int = self.order_number(self.min_wl, quantised=True)
 
@@ -455,13 +457,13 @@ class Prism(CrossDisperser):
         Calculate the mid-wavelength of the prism.
         """
 
+        assert isinstance(self.min_wl, Quantity) and self.min_wl.isscalar
+        assert isinstance(self.max_wl, Quantity) and self.max_wl.isscalar
+
         mid_refractive_index: float = (
             self.glass.refractive_index(self.min_wl)
             + self.glass.refractive_index(self.max_wl)
         ) / 2
-
-        assert isinstance(self.min_wl, ScalarQuantity)
-        assert isinstance(self.max_wl, ScalarQuantity)
 
         wls: ArrayQuantity = (
             np.linspace(
@@ -501,7 +503,9 @@ class Prism(CrossDisperser):
         """
 
         if incidence_angle is None:
-            assert isinstance(self.incidence_angle, ScalarQuantity)
+            assert isinstance(self.incidence_angle, Quantity)
+            assert self.incidence_angle.isscalar
+
             incidence_angle: ScalarQuantity = self.incidence_angle
 
         assert isinstance(wl, Quantity)
@@ -514,8 +518,8 @@ class Prism(CrossDisperser):
                 for w, f in zip(wl, field_angle, strict=False)
             ] * u.deg
 
-        assert isinstance(wl, ScalarQuantity)
-        assert isinstance(field_angle, ScalarQuantity)
+        assert isinstance(wl, Quantity) and wl.isscalar
+        assert isinstance(field_angle, Quantity) and field_angle.isscalar
 
         i: ScalarQuantity = incidence_angle  # shorthand
 
@@ -571,7 +575,8 @@ class Prism(CrossDisperser):
         incidence_angle: Quantity | None = None,
     ) -> Quantity:
         if incidence_angle is None:
-            assert isinstance(self.incidence_angle, ScalarQuantity)
+            assert isinstance(self.incidence_angle, Quantity)
+            assert self.incidence_angle.isscalar
             incidence_angle: ScalarQuantity = self.incidence_angle
 
         return (
@@ -591,10 +596,13 @@ class Prism(CrossDisperser):
         """
 
         if min_wl is None:
-            assert isinstance(self.min_wl, ScalarQuantity)
+            assert isinstance(self.min_wl, Quantity)
+            assert self.min_wl.isscalar
             min_wl: ScalarQuantity = self.min_wl
+
         if max_wl is None:
-            assert isinstance(self.max_wl, ScalarQuantity)
+            assert isinstance(self.max_wl, Quantity)
+            assert self.max_wl.isscalar
             max_wl: ScalarQuantity = self.max_wl
 
         min_wl_incidence: ScalarQuantity = self.minimum_deviation_incidence_angle(
@@ -707,10 +715,13 @@ class Prism(CrossDisperser):
         """ """
 
         if min_wl is None:
-            assert isinstance(self.min_wl, ScalarQuantity)
+            assert isinstance(self.min_wl, Quantity)
+            assert self.min_wl.isscalar
             min_wl: ScalarQuantity = self.min_wl
+
         if max_wl is None:
-            assert isinstance(self.max_wl, ScalarQuantity)
+            assert isinstance(self.max_wl, Quantity)
+            assert self.max_wl.isscalar
             max_wl: ScalarQuantity = self.max_wl
 
         min_angle: ScalarQuantity = (-self.deviation_angle(wl=min_wl)).to(u.deg)
@@ -742,10 +753,12 @@ class Prism(CrossDisperser):
         assert isinstance(wls, Quantity)
 
         if incidence_angle is None:
-            assert isinstance(self.incidence_angle, ScalarQuantity)
+            assert isinstance(self.incidence_angle, Quantity)
+            assert self.incidence_angle.isscalar
             incidence_angle: ScalarQuantity = self.incidence_angle
 
-        assert isinstance(incidence_angle, ScalarQuantity)
+        assert isinstance(incidence_angle, Quantity)
+        assert incidence_angle.isscalar
 
         try:
             rays: ArrayQuantity = incidence_angle * np.ones(len(wls))
@@ -811,7 +824,8 @@ class Grism(CrossDisperser):
         TODO: Allow for array inputs?
         """
         if incidence_angle is None:
-            assert isinstance(self.incidence_angle, ScalarQuantity)
+            assert isinstance(self.incidence_angle, Quantity)
+            assert self.incidence_angle.isscalar
             incidence_angle: ScalarQuantity = self.incidence_angle
 
         assert isinstance(incidence_angle, Quantity)
@@ -938,9 +952,10 @@ class SimpleGrating(CrossDisperser):
 
     @property
     def central_angle(self) -> ScalarQuantity:
-        assert isinstance(self.min_wl, ScalarQuantity)
-        assert isinstance(self.max_wl, ScalarQuantity)
+        assert isinstance(self.min_wl, Quantity) and self.min_wl.isscalar
         beta_min_wl: ScalarQuantity = self.diffraction_angle(wl=self.min_wl)
+
+        assert isinstance(self.max_wl, Quantity) and self.max_wl.isscalar
         beta_max_wl: ScalarQuantity = self.diffraction_angle(wl=self.max_wl)
 
         return (beta_min_wl + beta_max_wl) / 2

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 from astropy import units as u
@@ -14,12 +14,10 @@ if TYPE_CHECKING:
 
     from curved_air.glass import Glass
     from curved_air.optics.dispersers import Prism
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 from curved_air.optics.dispersers import _refract
 from curved_air.other import Air, Model
-
-ScalarQuantity: TypeAlias = Quantity
-ArrayQuantity: TypeAlias = Quantity
 
 
 @dataclass
@@ -54,8 +52,20 @@ class PrismStack:
     @overload
     def trace(
         self,
+        wls: ScalarQuantity,
+    ) -> ScalarQuantity: ...
+
+    @overload
+    def trace(
+        self,
         wls: ArrayQuantity | None,
         incidence_angle: ScalarQuantity,
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def trace(
+        self,
+        wls: ArrayQuantity | None,
     ) -> ArrayQuantity: ...
 
     def trace(
@@ -112,8 +122,8 @@ class PrismStack:
 
     def zero_deviation_wavelengths(
         self,
-        min_wl: ScalarQuantity = 0.39 * u.um,
-        max_wl: ScalarQuantity = 1.50 * u.um,
+        min_wl: ScalarQuantity | float = 0.39 * u.um,
+        max_wl: ScalarQuantity | float = 1.50 * u.um,
         num_wls: int = 100,
         incidence_angle: ScalarQuantity = 0 * u.deg,
     ) -> Quantity:
@@ -126,20 +136,23 @@ class PrismStack:
         """
 
         if isinstance(min_wl, Quantity) and isinstance(max_wl, Quantity):
-            wls: Quantity = (
+            wls: ArrayQuantity = (
                 np.linspace(min_wl.to("um").value, max_wl.to("um").value, num_wls)
                 * u.um
             )
         elif isinstance(min_wl, int | float) and isinstance(max_wl, int | float):
-            wls: Quantity = np.linspace(min_wl, max_wl, num_wls) * u.um
+            print(
+                "No units provided for minimum and maximum wavelengths. Assuming microns."
+            )
+            wls: ArrayQuantity = np.linspace(min_wl, max_wl, num_wls) * u.um
         else:
             raise TypeError(
                 "min_wl and max_wl parameters must be int, float, "
                 + "or astropy.units.quantity.Quantity with appropriate units."
             )
 
-        out_angles: Quantity = self.trace(wls=wls, incidence_angle=incidence_angle)
-        zwls: Quantity = wls[
+        out_angles: ArrayQuantity = self.trace(wls=wls, incidence_angle=incidence_angle)
+        zwls: ArrayQuantity = wls[
             np.where(
                 np.array(out_angles.value)[:-1] / np.array(out_angles.value)[1:] < 0
             )
@@ -187,7 +200,7 @@ class ADC:
         )
 
     @property
-    def alpha2(self) -> Quantity:
+    def alpha2(self) -> ScalarQuantity:
         assert isinstance(self.alpha, Quantity)
         assert isinstance(self.beta, Quantity)
 
@@ -208,21 +221,21 @@ class ADC:
         )
 
     @property
-    def residuals_RMS(self) -> Quantity:
+    def residuals_RMS(self) -> ScalarQuantity:
         assert self.residuals_function is not None
         RMS: float = np.sqrt(np.mean(self.residuals_function(wls=self.wls(100)) ** 2))
 
         return RMS.to(u.mas)
 
     @property
-    def residuals_RSS(self) -> Quantity:
+    def residuals_RSS(self) -> ScalarQuantity:
         assert self.residuals_function is not None
         RSS: float = np.sqrt(np.sum(self.residuals_function(wls=self.wls(100)) ** 2))
 
         return RSS.to(u.mas)
 
     @property
-    def residuals_PTV(self) -> Quantity:
+    def residuals_PTV(self) -> ScalarQuantity:
         assert self.residuals_function is not None
         PTV: float = abs(
             max(self.residuals_function(wls=self.wls(100)))

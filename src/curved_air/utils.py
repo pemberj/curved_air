@@ -17,7 +17,7 @@ from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 
 from curved_air.optics.dispersers import EchelleGrating
-from curved_air.typing import ScalarQuantity
+from curved_air.type_hinting import ScalarQuantity
 
 
 def richardson_gratings(

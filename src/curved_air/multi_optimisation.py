@@ -8,16 +8,16 @@ a catalogue of glasses. This code is largely unfinished...
 """
 
 import itertools
+from typing import TYPE_CHECKING
 
 import astropy.units as u
 import numpy as np
 import scipy.optimize
 from numpy.typing import ArrayLike
-from typing import TYPE_CHECKING
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics.dispersers import Prism
 from curved_air.instruments.ADC import PrismStack
+from curved_air.optics.dispersers import Prism
 
 if TYPE_CHECKING:
     from astropy.units import Quantity
@@ -87,7 +87,9 @@ def constant_dispersion(
                     for g, a in zip(combination, A, strict=False)  # noqa: B023
                 ]
             )
-            dispersion: Quantity = stack.trace(wavelengths, incidence_angle=i).to("deg")
+            dispersion: Quantity = stack.trace(wls=wavelengths, incidence_angle=i).to(
+                "deg"
+            )
             return np.sum(
                 np.power((dispersion - (m * wavelengths + b)).to("deg").value, 2)
             )
