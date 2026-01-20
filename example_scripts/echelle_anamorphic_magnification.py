@@ -23,7 +23,8 @@ from curved_air.plotting import plot_style
 from curved_air.utils import richardson_gratings
 
 if TYPE_CHECKING:
-    from curved_air.optics import Grating
+    from curved_air.optics.dispersers import EchelleGrating
+    from curved_air.type_hinting import ScalarQuantity
 
 plt.style.use(plot_style)
 
@@ -34,17 +35,17 @@ markers = ["o", "s", "D", "P", "v", "^", "<", ">", "h", "H", "p", "*", "+", "X"]
 
 
 def main() -> None:
-    gratings: list[Grating] = richardson_gratings()
+    gratings: list[EchelleGrating] = richardson_gratings()
 
-    fig = plt.figure("Anamorphic magnification", figsize=(8, 6))
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Anamorphic magnification", figsize=(8, 6))
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        if g.gpmm.value >= 100:
+        if g.gpmm.value >= 100:  # noqa: PLR2004
             continue
 
-        g.min_wl = 380 * u.nm
-        g.max_wl = 950 * u.nm
+        g.min_wl: ScalarQuantity = 380 * u.nm
+        g.max_wl: ScalarQuantity = 950 * u.nm
 
         ax.plot(
             g.R,
