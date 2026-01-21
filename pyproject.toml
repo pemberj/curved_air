@@ -38,6 +38,9 @@ line-length = 88
 indent-width = 4
 
 [tool.ruff.lint]
+# Disable fix for unused imports (`F401`).
+unfixable = ["F401"]
+
 select = [
     "F",  # Pyflakes
     "E4",
