@@ -6,9 +6,9 @@
 # [tool.uv.sources]
 # curved_air = { path = "..", editable = true }
 # ///
-
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 from astropy import units as u
 from astropy.units import Quantity  # noqa: F401
@@ -16,10 +16,12 @@ from matplotlib import pyplot as plt
 from rich import print as rprint  # noqa: A004, F401
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics import Grating, Prism
+from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.plotting import plot_style, wavelength_to_rgb
 from curved_air.utils import richardson_gratings
 
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 plt.style.use(plot_style)
 
 SCRIPT_PATH = Path(__file__).parent
@@ -36,15 +38,30 @@ agf_files = [
 if not agf_files:
     raise FileNotFoundError("No AGF files found in the data directory.")
 
-schott = GlassCatalogue().read_AGF(agf_filename=agf_files)
+schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
 
-markers = ["o", "s", "D", "P", "v", "^", "<", ">", "h", "H", "p", "*", "+", "X"]
+markers: list[str] = [
+    "o",
+    "s",
+    "D",
+    "P",
+    "v",
+    "^",
+    "<",
+    ">",
+    "h",
+    "H",
+    "p",
+    "*",
+    "+",
+    "X",
+]
 
 
-def plot_grating_options(gratings: list[Grating]) -> None:
-    fig = plt.figure("Grating options")
-    ax = fig.gca()
+def plot_grating_options(gratings: list[EchelleGrating]) -> None:
+    fig: plt.Figure = plt.figure("Grating options")
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
         ax.plot(
@@ -82,14 +99,13 @@ def plot_grating_options(gratings: list[Grating]) -> None:
     )
 
 
-def plot_wavelength_vs_m(gratings: list[Grating]) -> None:
+def plot_wavelength_vs_m(gratings: list[EchelleGrating]) -> None:
     """
     Plot the blaze wavelength as a function of order number.
     """
-    import matplotlib.pyplot as plt
 
-    fig = plt.figure("Wavelength as a function of order number")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Wavelength as a function of order number")
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
         ms = g.diffraction_orders
@@ -117,19 +133,18 @@ def plot_wavelength_vs_m(gratings: list[Grating]) -> None:
     )
 
 
-def plot_opening_angle_vs_m(gratings: list[Grating]) -> None:
+def plot_opening_angle_vs_m(gratings: list[EchelleGrating]) -> None:
     """_summary_
 
     Args:
-        gratings (list[Grating]): _description_
+        gratings (list[EchelleGrating]): _description_
     """
-    fig = plt.figure("Order opening angle as a function of order number")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Order opening angle as a function of order number")
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        ms = g.diffraction_orders
-        angles = g.order_opening_angle(ms)
-        angles = [a.to(u.deg).value for a in angles]
+        ms: list[int] = g.diffraction_orders
+        angles: list[float] = [a.to(u.deg).value for a in g.order_opening_angle(ms)]
 
         ax.plot(
             ms,
@@ -153,23 +168,20 @@ def plot_opening_angle_vs_m(gratings: list[Grating]) -> None:
     )
 
 
-def plot_opening_angle_vs_blaze_wavelength(gratings: list[Grating]) -> None:
+def plot_opening_angle_vs_blaze_wavelength(gratings: list[EchelleGrating]) -> None:
     """_summary_
 
     Args:
-        gratings (list[Grating]): _description_
+        gratings (list[EchelleGrating]): _description_
     """
-    fig = plt.figure("Opening angle as a function of blaze wavelength")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Opening angle as a function of blaze wavelength")
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        ms = g.diffraction_orders
-        blaze_wavelengths = g.blaze_wavelength(ms)
-        blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
-
-        ms = g.diffraction_orders
-        angles = g.order_opening_angle(ms)
-        angles = [a.to(u.deg).value for a in angles]
+        ms: list[int] = g.diffraction_orders
+        blaze_wavelengths: ArrayQuantity = g.blaze_wavelength(ms)
+        blaze_wavelengths: list[float] = [b.to(u.um).value for b in blaze_wavelengths]
+        angles: list[float] = [a.to(u.deg).value for a in g.order_opening_angle(ms)]
 
         ax.plot(
             blaze_wavelengths,
@@ -193,27 +205,24 @@ def plot_opening_angle_vs_blaze_wavelength(gratings: list[Grating]) -> None:
     )
 
 
-def plot_opening_angle_vs_R_and_gpmm(gratings: list[Grating]) -> None:
+def plot_opening_angle_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> None:
     """_summary_
 
     Args:
-        gratings (list[Grating]): _description_
+        gratings (list[EchelleGrating]): _description_
     """
-    fig = plt.figure("Order opening angle as a function of R-number")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Order opening angle as a function of R-number")
+    ax: plt.Axes = fig.gca()
 
-    fig2 = plt.figure("Order opening angle as a function of groove density")
-    ax2 = fig2.gca()
+    fig2: plt.Figure = plt.figure("Order opening angle as a function of groove density")
+    ax2: plt.Axes = fig2.gca()
 
     for i, g in enumerate(gratings):
-        Rs = g.R
-        gpmms = g.gpmm
-        ms = g.diffraction_orders
-        angles = g.order_opening_angle(ms)
-        angles = max([a.to(u.deg).value for a in angles])
+        ms: list[int] = g.diffraction_orders
+        angles: float = max([a.to(u.deg).value for a in g.order_opening_angle(ms)])
 
         ax.plot(
-            Rs,
+            g.R,
             angles,
             marker=markers[i],
             markersize=15,
@@ -225,7 +234,8 @@ def plot_opening_angle_vs_R_and_gpmm(gratings: list[Grating]) -> None:
         )
 
         ax2.plot(
-            gpmms,
+            g.R,
+            g.gpmm,
             angles,
             marker=markers[i],
             markersize=15,
@@ -250,19 +260,20 @@ def plot_opening_angle_vs_R_and_gpmm(gratings: list[Grating]) -> None:
     )
 
 
-def plot_opening_angle_times_R_number(gratings: list[Grating]) -> None:
+def plot_opening_angle_times_R_number(gratings: list[EchelleGrating]) -> None:
     """
     Args:
-        gratings (list[Grating]): _description_
+        gratings (list[EchelleGrating]): _description_
     """
-    fig = plt.figure("Order opening angle times R-number as a function of R-number")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure(
+        "Order opening angle times R-number as a function of R-number"
+    )
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        ms = g.diffraction_orders
-        red_m = min(ms)
-        angles = g.order_opening_angle(ms)
-        angles = max([a.to(u.deg).value for a in angles])
+        ms: list[int] = g.diffraction_orders
+        red_m: int = min(ms)
+        angles: float = max([a.to(u.deg).value for a in g.order_opening_angle(ms)])
 
         ax.plot(
             g.R / red_m * g.gpmm,
@@ -287,9 +298,9 @@ def plot_opening_angle_times_R_number(gratings: list[Grating]) -> None:
     )
 
 
-def plot_angular_dispersion_vs_R_and_gpmm(gratings: list[Grating]) -> None:
-    fig = plt.figure("Angular dispersion as a function of R-number")
-    ax = fig.gca()
+def plot_angular_dispersion_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> None:
+    fig: plt.Figure = plt.figure("Angular dispersion as a function of R-number")
+    ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
         ax.plot(
@@ -315,12 +326,12 @@ def plot_angular_dispersion_vs_R_and_gpmm(gratings: list[Grating]) -> None:
     )
 
 
-def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
+def plot_reddest_orders_separation(gratings: list[EchelleGrating]) -> None:
     fig: plt.Figure = plt.figure("Reddest orders separation")
     ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        slit_magnification = g.R / 2.7
+        slit_magnification: float = g.R / 2.7
 
         marker = ax.plot(
             g.R,
@@ -359,7 +370,9 @@ def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
             zorder=-10,
         )
 
-        color = wavelength_to_rgb(wavelength=650 * u.nm, fade_factor=0.6)
+        color: tuple[float, float, float] = wavelength_to_rgb(
+            wavelength=650 * u.nm, fade_factor=0.6
+        )
 
         if g.catalogue_number == "53-*-417E":
             ax.plot(
@@ -417,50 +430,54 @@ def plot_reddest_orders_separation(gratings: list[Grating]) -> None:
     )
 
 
-def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
+def plot_required_cross_dispersion(gratings: list[EchelleGrating]) -> None:
     """ """
     prism = Prism(
         glass=schott["F2"],
         apex_angle=60 * u.deg,
     )
-    angular_dispersion_950 = prism.local_angular_dispersion(wl=950 * u.nm).to(
-        u.deg / u.nm
-    )
+    angular_dispersion_950: ScalarQuantity = prism.local_angular_dispersion(
+        wl=950 * u.nm
+    ).to(u.deg / u.nm)
     rprint(f"{angular_dispersion_950 = }")
 
-    slit_length = 1.08 * u.mm
+    slit_length: ScalarQuantity = 1.08 * u.mm
 
     # MARVEL magnification
-    slit_angular_size = (slit_length * (u.radian / (1125 * u.mm))).to(u.deg)
+    slit_angular_size: ScalarQuantity = (slit_length * (u.radian / (1125 * u.mm))).to(
+        u.deg
+    )
 
-    yoffset = slit_angular_size
+    # yoffset = slit_angular_size
 
     fig: plt.Figure = plt.figure("Required cross-dispersion", figsize=(8, 5))
     ax: plt.Axes = fig.gca()
 
     for i, g in enumerate(gratings):
-        slit_magnification = g.R / 2.7
+        slit_magnification: float = g.R / 2.7
 
-        slit_angular_size = (
+        slit_angular_size: ScalarQuantity = (
             slit_length * (u.radian / (1125 * u.mm)) * slit_magnification
         ).to(u.deg)
 
         rprint(f"{g.R = }")
         rprint(f"{slit_angular_size = }")
 
-        reddest_m = g.min_order
+        reddest_m: int = g.min_order
 
-        wl1 = g.blaze_wavelength(reddest_m + 1)
-        wl2 = g.blaze_wavelength(reddest_m)
+        wl1: ScalarQuantity = g.blaze_wavelength(reddest_m + 1)
+        wl2: ScalarQuantity = g.blaze_wavelength(reddest_m)
 
         # rprint(wl1, wl2)
 
-        reddest_angular_spread = prism.angular_spread(min_wl=wl1, max_wl=wl2).to(u.deg)
+        reddest_angular_spread: ScalarQuantity = prism.angular_spread(
+            min_wl=wl1, max_wl=wl2
+        ).to(u.deg)
         # delta_wavelength: Quantity = (wl2 - wl1).to(u.nm)
 
         # rprint(f"{reddest_angular_spread / delta_wavelength = }")
 
-        y = slit_angular_size / reddest_angular_spread
+        y: float = (slit_angular_size / reddest_angular_spread).value
 
         rprint(y)
 
@@ -476,7 +493,9 @@ def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
             label=f"R={g.R}, {g.gpmm.value} g/mm",
         )
 
-        color = wavelength_to_rgb(wavelength=650 * u.nm, fade_factor=0.6)
+        color: tuple[float, float, float] = wavelength_to_rgb(
+            wavelength=650 * u.nm, fade_factor=0.6
+        )
 
         if g.catalogue_number == "53-*-417E":
             ax.plot(
@@ -533,15 +552,15 @@ def plot_required_cross_dispersion(gratings: list[Grating]) -> None:
 
 
 def main() -> None:
-    gratings: list[Grating] = richardson_gratings(
+    gratings: list[EchelleGrating] = richardson_gratings(
         selection_query="Ruled_width>=400 and Grooves_per_mm<=110",
     )
 
     for g in gratings:
-        g.min_wl = 380 * u.nm
-        g.max_wl = 950 * u.nm
+        g.min_wl: ScalarQuantity = 380 * u.nm
+        g.max_wl: ScalarQuantity = 950 * u.nm
 
-        g.sign_of_blaze = -1
+        g.sign_of_blaze: Literal[1, -1] = -1
         rprint(f"{g}")
         # rprint(f"Aspect ratio: {g.aspect_ratio()}")
         # grid = order_grid(grating=g)
