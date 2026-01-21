@@ -461,14 +461,17 @@ class PlanarBeam(Beam):
             print(self.__dict__)
 
     @property
-    def k_scalar(self) -> float:
+    def k_scalar(self) -> ScalarQuantity:
         return (2 * np.pi * self.n / self.wavelength) * np.linalg.norm(
             self.plane_normal
         )
 
     @property
-    def k_vector(self) -> tuple[float, ...]:
-        return tuple(self.k_scalar * i for i in self.plane_normal)
+    def k_vector(self) -> ArrayQuantity:
+        return (
+            tuple(self.k_scalar.value * i for i in self.plane_normal)
+            * self.k_scalar.unit
+        )
 
     def E_field(
         self,
@@ -502,15 +505,16 @@ class SphericalBeam(Beam):
     f_number: int | float = 10
     plane_normal: tuple[float, ...] = (0, 0, 1)
 
-    k_vector: tuple[float, ...] | None = None
+    k_vector: ArrayQuantity | None = None
 
     def __post_init__(self) -> None:
         self.plane_normal: tuple[float, ...] = tuple(
             np.array(self.plane_normal) / np.linalg.norm(self.plane_normal)
         )
 
-        self.k_vector: tuple[float, ...] = tuple(
-            self.k_scalar * i for i in self.plane_normal
+        self.k_vector: ArrayQuantity = (
+            tuple(self.k_scalar.value * i for i in self.plane_normal)
+            * self.k_scalar.unit
         )
 
     def beam_diameter(self, z: ScalarQuantity) -> ScalarQuantity:
