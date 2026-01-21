@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 plt.style.use(plot_style)
 
 SCRIPT_PATH = Path(__file__).parent
-OUT_PATH = Path("/home/jake/Nextcloud-IvS/Thesis Plots")
+OUT_PATH = Path("/home/japember/Projects/grating_options_plots")
+OUT_PATH.mkdir(parents=True, exist_ok=True)
 
 agf_dir = SCRIPT_PATH / "../data/AGFs"
 
@@ -205,7 +206,7 @@ def plot_opening_angle_vs_blaze_wavelength(gratings: list[EchelleGrating]) -> No
     )
 
 
-def plot_opening_angle_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> None:
+def plot_opening_angle_vs_R(gratings: list[EchelleGrating]) -> None:
     """_summary_
 
     Args:
@@ -213,9 +214,6 @@ def plot_opening_angle_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> None:
     """
     fig: plt.Figure = plt.figure("Order opening angle as a function of R-number")
     ax: plt.Axes = fig.gca()
-
-    fig2: plt.Figure = plt.figure("Order opening angle as a function of groove density")
-    ax2: plt.Axes = fig2.gca()
 
     for i, g in enumerate(gratings):
         ms: list[int] = g.diffraction_orders
@@ -233,8 +231,32 @@ def plot_opening_angle_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> None:
             label=f"R={g.R}, {g.gpmm.value} g/mm",
         )
 
-        ax2.plot(
-            g.R,
+    ax.set_xlabel("Grating R-number")
+    ax.set_ylabel("Reddest-wavelength order FSR opening angle [degrees]")
+
+    ax.legend()
+
+    plt.savefig(
+        Path(OUT_PATH / "gratings-opening-angle-vs-R.png"),
+        dpi=300,
+    )
+
+
+def plot_opening_angle_vs_gpmm(gratings: list[EchelleGrating]) -> None:
+    """_summary_
+
+    Args:
+        gratings (list[EchelleGrating]): _description_
+    """
+
+    fig: plt.Figure = plt.figure("Order opening angle as a function of groove density")
+    ax: plt.Axes = fig.gca()
+
+    for i, g in enumerate(gratings):
+        ms: list[int] = g.diffraction_orders
+        angles: float = max([a.to(u.deg).value for a in g.order_opening_angle(ms)])
+
+        ax.plot(
             g.gpmm,
             angles,
             marker=markers[i],
@@ -246,16 +268,13 @@ def plot_opening_angle_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> None:
             label=f"R={g.R}, {g.gpmm.value} g/mm",
         )
 
-    ax.set_xlabel("Grating R-number")
-    ax2.set_xlabel("Grating groove density [grooves/mm]")
+    ax.set_xlabel("Grating groove density [grooves/mm]")
     ax.set_ylabel("Reddest-wavelength order FSR opening angle [degrees]")
-    ax2.set_ylabel("Reddest-wavelength order FSR opening angle [degrees]")
 
     ax.legend()
-    ax2.legend()
 
     plt.savefig(
-        Path(OUT_PATH / "gratings-opening-angle-vs-R-and-gpmm.png"),
+        Path(OUT_PATH / "gratings-opening-angle-vs-gpmm.png"),
         dpi=300,
     )
 
@@ -305,7 +324,9 @@ def plot_angular_dispersion_vs_R_and_gpmm(gratings: list[EchelleGrating]) -> Non
     for i, g in enumerate(gratings):
         ax.plot(
             g.R,
-            g.angular_dispersion(m=g.order_number(g.max_wl)).to(u.degree / u.nm),
+            g.angular_dispersion(m=g.order_number(g.max_wl, quantised=True)).to(
+                u.degree / u.nm
+            ),
             marker=markers[i],
             markersize=15,
             markeredgecolor="k",
@@ -566,18 +587,17 @@ def main() -> None:
         # grid = order_grid(grating=g)
         # rprint(grid)
 
-    # plot_grating_options(gratings)
-    # plot_wavelength_vs_m(gratings)
-    # plot_opening_angle_vs_m(gratings)
-    # plot_opening_angle_vs_blaze_wavelength(gratings)
-    # plot_opening_angle_vs_R_and_gpmm(gratings)
+    plot_grating_options(gratings)
+    plot_wavelength_vs_m(gratings)
+    plot_opening_angle_vs_m(gratings)
+    plot_opening_angle_vs_blaze_wavelength(gratings)
+    plot_opening_angle_vs_R(gratings)
+    plot_opening_angle_vs_gpmm(gratings)
 
-    # plot_opening_angle_times_R_number(gratings)
+    plot_opening_angle_times_R_number(gratings)
 
-    # plot_angular_dispersion_vs_R_and_gpmm(gratings)
-    # plot_reddest_orders_separation(gratings)
-
-    # plot_order_separation(gratings)
+    plot_angular_dispersion_vs_R_and_gpmm(gratings)
+    plot_reddest_orders_separation(gratings)
 
     plot_required_cross_dispersion(gratings)
 

@@ -183,7 +183,7 @@ class EchelleGrating(Disperser):
             ms: list[int] = [int(im) for im in m]
             return [self.order_FSR(m).to(u.nm).value for m in ms] * u.nm
 
-        assert isinstance(m, int)
+        assert isinstance(m, int), f"Expected int, got {m}, {type(m)}"
 
         m_wavelength: ScalarQuantity = self.blaze_wavelength(m=m)
         m_plus_one_wavelength: ScalarQuantity = self.blaze_wavelength(m=m + 1)
@@ -383,7 +383,9 @@ class EchelleGrating(Disperser):
 
     @property
     def reddest_order_separation(self) -> ScalarQuantity:
-        return self.order_FSR(m=self.order_number(wl=self.max_wl), FSR_fraction=1.0)
+        return self.order_FSR(
+            m=self.order_number(wl=self.max_wl, quantised=True), FSR_fraction=1.0
+        )
 
     def __str__(self) -> str:
         return (
