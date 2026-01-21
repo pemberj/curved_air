@@ -12,13 +12,14 @@ import numpy as np
 from astropy import units as u
 from matplotlib import pyplot as plt
 
-from curved_air.optics import Grating
+from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
     from astropy.units import Quantity
+    from curved_air.type_hinting import ArrayQuantity
 
 plt.style.use(plot_style)
 
@@ -28,7 +29,7 @@ SCRIPT_PATH = Path(__file__).parent
 def main() -> None:
     """ """
 
-    MARVEL_grating: Grating = Grating(
+    MARVEL_grating: EchelleGrating = EchelleGrating(
         catalogue_number="53-*-417E",
         groove_frequency=52.67 / u.mm,
         blaze_angle=69.7 * u.deg,
@@ -37,10 +38,10 @@ def main() -> None:
         max_wl=950 * u.nm,
     )
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
-    ms = MARVEL_grating.diffraction_orders
+    ms: list[int] = MARVEL_grating.diffraction_orders
 
     for m in ms:
         if m % 10 != 0:
@@ -56,13 +57,15 @@ def main() -> None:
             ),
         )
 
-        wavelengths = np.linspace(wl1.to(u.nm).value, wl2.to(u.nm).value, 200) * u.nm
-        angles = [
+        wavelengths: ArrayQuantity = (
+            np.linspace(wl1.to(u.nm).value, wl2.to(u.nm).value, 200) * u.nm
+        )
+        angles: ArrayQuantity = [
             MARVEL_grating.diffraction_angle(m=m, wl=wl).to(u.deg).value
             for wl in wavelengths
         ] * u.deg
 
-        efficiencies: ArrayLike = MARVEL_grating.relative_intensity(m=m, wl=wavelengths)
+        efficiencies: ArrayLike = MARVEL_grating.relative_intensity(wl=wavelengths)
 
         ax.plot(
             angles.to(u.deg).value,

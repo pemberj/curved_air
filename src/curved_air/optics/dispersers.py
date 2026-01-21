@@ -356,6 +356,10 @@ class EchelleGrating(Disperser):
         given diffraction order.
 
         TODO: fix this up!
+
+        At the moment this finds the diffraction order in which the wavelength is
+        closest to the blaze peak. Maybe I should put the `m` parameter back in,
+        allowing the user to specify the order they want the efficiency for?
         """
 
         # N = 400 * u.mm / self.groove_period  # Number of grooves illuminated

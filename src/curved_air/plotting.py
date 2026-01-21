@@ -18,6 +18,7 @@ from astropy.units import Quantity
 from numpy.typing import NDArray
 from pyfonts import load_font
 
+
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
@@ -110,8 +111,14 @@ def stroke(thickness: float = 4) -> list:
 
 @overload
 def wavelength_to_rgb(
-    wavelength: float | ScalarQuantity, gamma: float, fade_factor: float
+    wavelength: float | ScalarQuantity, gamma: float = 0.8, fade_factor: float = 0.8
 ) -> tuple[float, float, float]: ...
+
+
+# @overload
+# def wavelength_to_rgb(
+#     wavelength: float | ScalarQuantity,
+# ) -> tuple[float, float, float]: ...
 
 
 @overload
@@ -142,19 +149,31 @@ def wavelength_to_rgb(
 
     Based on code by Dan Bruton (http://www.physics.sfasu.edu/astro/color/spectra.html)
     """
+
+    if isinstance(wavelength, list | np.ndarray) and (
+        isinstance(wavelength, Quantity) and not wavelength.isscalar
+    ):
+        return [
+            wavelength_to_rgb(wavelength=wl, gamma=gamma, fade_factor=fade_factor)
+            for wl in wavelength
+        ]
+
     if isinstance(wavelength, float):
         # Make sure `wls` is given in nanometers if no units are passed
         assert 5 < wavelength < 5000  # noqa: PLR2004
         wavelength: ScalarQuantity = wavelength * u.nm
 
-    elif isinstance(wavelength, list | np.ndarray):
-        assert all(isinstance(wl, float) for wl in wavelength)
-        wavelength: ArrayQuantity = wavelength * u.nm
+    # elif not isinstance(wavelength, Quantity)
+    #     print(f"{wavelength = }", type(wavelength))
+    #     assert all(isinstance(wl, float) for wl in wavelength)
+    #     wavelength: ArrayQuantity = wavelength * u.nm
+
+    print(f"{wavelength = }", type(wavelength))
 
     assert isinstance(wavelength, Quantity)
 
     try:
-        wavelength: ScalarQuantity | ArrayQuantity = wavelength.to("nm")
+        wavelength: float = wavelength.to("nm").value
     except AttributeError as e:
         raise e
 
