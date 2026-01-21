@@ -1,3 +1,14 @@
+"""
+A description of an echelle spectrograph
+
+The included class EchelleSpectrograph can be used for various types of analysis, plot
+generation, etc. for echelle spectrographs.
+
+Also included is a DoublePassEchelleSpectrograph class for describing an echelle
+spectrograph where the light passes twice through the cross-disperser. For now the
+cross-disperser of this type of instrument must be a Prism.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -8,25 +19,25 @@ import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
 
+from curved_air.detectors import Detector
+from curved_air.optics.dispersers import EchelleGrating, Grism, Prism, SimpleGrating
+
 if TYPE_CHECKING:
     from matplotlib import pyplot as plt
 
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
-
-from curved_air.detectors import Detector
-from curved_air.optics.dispersers import EchelleGrating, Grism, Prism
 
 
 @dataclass
 class EchelleSpectrograph:
     name: str = ""
     grating: EchelleGrating = field(default_factory=EchelleGrating)
-    cross_disperser: Prism | Grism = field(default_factory=Prism)
+    cross_disperser: Prism | Grism | SimpleGrating = field(default_factory=Prism)
     detector: Detector = field(default_factory=Detector)
 
     beam_diameter: ScalarQuantity | None = None
-    min_wl: ScalarQuantity = 390 * u.nm
-    max_wl: ScalarQuantity = 950 * u.nm
+    min_wl: ScalarQuantity | None = 390 * u.nm
+    max_wl: ScalarQuantity | None = 950 * u.nm
     collimator_focal_length: ScalarQuantity = 1125 * u.mm
     slit_width: ScalarQuantity = 40 * u.um
     slit_length: ScalarQuantity = 0.5 * u.mm
@@ -35,17 +46,17 @@ class EchelleSpectrograph:
 
     def __post_init__(self) -> None:
         if self.beam_diameter is None:
-            self.beam_diameter = self.grating.beam_diameter
+            self.beam_diameter: ScalarQuantity = self.grating.beam_diameter
 
         if self.grating.min_wl is None:
-            self.grating.min_wl = self.min_wl
+            self.grating.min_wl: ScalarQuantity = self.min_wl
         if self.grating.max_wl is None:
-            self.grating.max_wl = self.max_wl
+            self.grating.max_wl: ScalarQuantity = self.max_wl
 
         if self.cross_disperser.min_wl is None:
-            self.cross_disperser.min_wl = self.min_wl
+            self.cross_disperser.min_wl: ScalarQuantity = self.min_wl
         if self.cross_disperser.max_wl is None:
-            self.cross_disperser.max_wl = self.max_wl
+            self.cross_disperser.max_wl: ScalarQuantity = self.max_wl
 
     def plot_detector_edge(self, ax: plt.Axes, name: bool = True) -> None:
         self.detector.plot_edge(ax=ax, name=name)
@@ -115,23 +126,26 @@ class EchelleSpectrograph:
     def image_plane_position(
         self,
         m: int,
-        wavelength: list[ScalarQuantity] | tuple[ScalarQuantity],
-    ) -> list[tuple[ScalarQuantity, ScalarQuantity]]: ...
+        wavelength: ArrayQuantity | list[ScalarQuantity] | tuple[ScalarQuantity],
+    ) -> ArrayQuantity: ...
 
     def image_plane_position(
         self,
         m: int,
-        wavelength: ScalarQuantity | list[ScalarQuantity] | tuple[ScalarQuantity],
-    ) -> (
-        tuple[ScalarQuantity, ScalarQuantity]
-        | list[tuple[ScalarQuantity, ScalarQuantity]]
-    ):
+        wavelength: ScalarQuantity
+        | ArrayQuantity
+        | list[ScalarQuantity]
+        | tuple[ScalarQuantity],
+    ) -> ArrayQuantity:
         """ """
 
-        if isinstance(wavelength, list | tuple):
-            return [
-                self.image_plane_position(m, wl).to(u.mm).value for wl in wavelength
-            ] * u.mm
+        if isinstance(wavelength, list | tuple) or (
+            isinstance(wavelength, Quantity) and not wavelength.isscalar
+        ):
+            return [self.image_plane_position(m, wl).value for wl in wavelength] * u.mm
+
+        assert isinstance(wavelength, Quantity)
+        assert wavelength.isscalar
 
         grating_angle: ScalarQuantity = self.grating.diffraction_angle(
             m=m, wl=wavelength
@@ -149,7 +163,10 @@ class EchelleSpectrograph:
             cross_disperser_angle / self.camera_plate_scale
         )
 
-        return (cross_dispersion_direction_position, dispersion_direction_position)
+        return (
+            cross_dispersion_direction_position.value,
+            dispersion_direction_position.value,
+        ) * u.mm
 
     @cached_property
     def reddest_order_image_plane_separation(self) -> ScalarQuantity:
@@ -294,18 +311,21 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
     def image_plane_position(
         self,
         m: int,
-        wavelength: list[ScalarQuantity] | tuple[ScalarQuantity],
-    ) -> list[tuple[ScalarQuantity, ScalarQuantity]]: ...
+        wavelength: ArrayQuantity | list[ScalarQuantity] | tuple[ScalarQuantity],
+    ) -> ArrayQuantity: ...
 
     def image_plane_position(
         self,
         m: int,
-        wavelength: ScalarQuantity | list[ScalarQuantity] | tuple[ScalarQuantity],
-    ) -> (
-        tuple[ScalarQuantity, ScalarQuantity]
-        | list[tuple[ScalarQuantity, ScalarQuantity]]
-    ):
+        wavelength: ScalarQuantity
+        | ArrayQuantity
+        | list[ScalarQuantity]
+        | tuple[ScalarQuantity],
+    ) -> tuple[ScalarQuantity, ScalarQuantity] | ArrayQuantity:
         """ """
+
+        # For now, this only works with a Prism cross-disperser
+        assert isinstance(self.cross_disperser, Prism)
 
         # TODO: how to check if a Quantity is actually a list or array underneath?
         if isinstance(wavelength, list | tuple):
@@ -327,7 +347,7 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
             max_wl=self.grating.max_wl,
         )
 
-        grating_angle = _grating.diffraction_angle(m=m, wl=wavelength)
+        grating_angle: Quantity = _grating.diffraction_angle(m=m, wl=wavelength)
 
         _prism_second_pass: Prism = Prism(
             glass=self.cross_disperser.glass,
@@ -339,7 +359,7 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
             - 2 * prism_first_pass_angle,
         )
 
-        prism_second_pass_angle = 2 * _prism_second_pass.dispersion_angle(
+        prism_second_pass_angle: Quantity = 2 * _prism_second_pass.dispersion_angle(
             wl=wavelength,
             field_angle=grating_angle,
         )

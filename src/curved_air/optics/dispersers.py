@@ -24,7 +24,7 @@ from curved_air.other import Air
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from numpy.typing import ArrayLike
+    from numpy.typing import NDArray
 
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
@@ -350,7 +350,7 @@ class EchelleGrating(Disperser):
         self,
         # m: int,
         wl: Quantity,
-    ) -> float | ArrayLike:
+    ) -> float | NDArray[np.floating]:
         """
         Calculate the relative intensity of a particular wavelength or wavelengths in a
         given diffraction order.
@@ -423,15 +423,17 @@ class Prism(CrossDisperser):
 
         if self.incidence_angle is None:
             if self.min_wl is not None and self.max_wl is not None:
-                self.incidence_angle = self.find_incidence_angle()
+                self.incidence_angle: ScalarQuantity = self.find_incidence_angle()
             else:
-                self.incidence_angle = self.minimum_deviation_incidence_angle()
+                self.incidence_angle: ScalarQuantity = (
+                    self.minimum_deviation_incidence_angle()
+                )
 
         if self.min_wl is None:
-            self.min_wl: ScalarQuantity = self.glass.wlmin
+            self.min_wl: ScalarQuantity = self.glass.wlmin * u.um
 
         if self.max_wl is None:
-            self.max_wl: ScalarQuantity = self.glass.wlmax
+            self.max_wl: ScalarQuantity = self.glass.wlmax * u.um
 
     @overload
     def refractive_index(self, wavelength: None) -> Callable: ...
@@ -473,13 +475,10 @@ class Prism(CrossDisperser):
             + self.glass.refractive_index(self.max_wl)
         ) / 2
 
-        wls: ArrayQuantity = (
-            np.linspace(
-                self.min_wl.to(u.um).value,
-                self.max_wl.to(u.um).value,
-                500,
-            )
-            * u.um
+        wls: NDArray[np.floating] = np.linspace(
+            self.min_wl.to(u.um).value,
+            self.max_wl.to(u.um).value,
+            500,
         )
 
         return wls[np.argmin(abs(self.glass.n(wls) - mid_refractive_index))] * u.um
@@ -668,12 +667,12 @@ class Prism(CrossDisperser):
 
     @overload
     def dispersion_angle(
-        self, wl: ScalarQuantity, field_angle: ScalarQuantity
+        self, wl: ScalarQuantity, field_angle: ScalarQuantity = 0 * u.deg
     ) -> ScalarQuantity: ...
 
     @overload
     def dispersion_angle(
-        self, wl: ArrayQuantity, field_angle: ScalarQuantity
+        self, wl: ArrayQuantity, field_angle: ScalarQuantity = 0 * u.deg
     ) -> ArrayQuantity: ...
 
     @overload
@@ -683,8 +682,8 @@ class Prism(CrossDisperser):
 
     def dispersion_angle(
         self,
-        wl: Quantity,
-        field_angle: Quantity,
+        wl: ScalarQuantity | ArrayQuantity,
+        field_angle: Quantity | ArrayQuantity = 0 * u.deg,
     ) -> Quantity:
         """
         TODO: Allow for EITHER multiple wavelengths or multiple field angles as per overloads
@@ -749,7 +748,7 @@ class Prism(CrossDisperser):
         wls: Quantity | None = None,
         incidence_angle: Quantity | None = None,
         debug_level: float = 0,
-    ) -> ArrayLike:
+    ) -> ArrayQuantity:
         """
         Trace a set of rays through the Prism, solving Snell's Law at each
         interface
@@ -969,17 +968,25 @@ class SimpleGrating(CrossDisperser):
         return (beta_min_wl + beta_max_wl) / 2
 
     @overload
-    def dispersion_angle(self, wl: ScalarQuantity | float) -> ScalarQuantity: ...
+    def dispersion_angle(
+        self, wl: ScalarQuantity, field_angle: ScalarQuantity = 0 * u.deg
+    ) -> ScalarQuantity: ...
 
     @overload
-    def dispersion_angle(self, wl: ArrayQuantity) -> ArrayQuantity: ...
+    def dispersion_angle(
+        self, wl: ArrayQuantity, field_angle: ScalarQuantity = 0 * u.deg
+    ) -> ArrayQuantity: ...
 
     def dispersion_angle(
         self,
         wl: Quantity,
-        _field_angle: ScalarQuantity = 0 * u.deg,
+        field_angle: ScalarQuantity = 0 * u.deg,
     ) -> Quantity:
         # No treatment of field angle here
+
+        if field_angle.value != 0:
+            # Field angle not supported in SimpleGrating!
+            field_angle: ScalarQuantity = 0 * u.deg
 
         if isinstance(wl, list | tuple):
             return [self.dispersion_angle(iwl).to(u.deg).value for iwl in wl] * u.deg
