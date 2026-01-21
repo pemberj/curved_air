@@ -14,26 +14,33 @@ the echelle grating.
 
 import astropy.units as u
 import numpy as np
+from typing import TYPE_CHECKING
 from matplotlib import pyplot as plt
 
-from curved_air.optics import Grating
+from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style
 from curved_air.utils import calculate_transfer_mirror_height
+
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    fig = plt.figure("Transfer mirror height")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Transfer mirror height")
+    ax: plt.Axes = fig.gca()
 
-    combinations = ([31.6, 31.6, 52.67, 13.33], [63.5, 76, 69.7, 80.6])
+    combinations: tuple[list[float], list[float]] = (
+        [31.6, 31.6, 52.67, 13.33],
+        [63.5, 76, 69.7, 80.6],
+    )
 
     for gpmm, blaze in np.transpose(combinations):
-        fls = np.linspace(400, 1200, 20)
-        heights = []
+        fls: ArrayQuantity = np.linspace(400, 1200, 20) * u.mm
+        heights: list[ScalarQuantity] = []
         for fl in fls:
-            grating = Grating(
+            grating: EchelleGrating = EchelleGrating(
                 groove_frequency=gpmm / u.mm,
                 blaze_angle=blaze * u.deg,
                 gamma_angle=0.35 * u.deg,
@@ -41,7 +48,9 @@ def main() -> None:
                 max_wl=850 * u.nm,
             )
 
-            image_height = calculate_transfer_mirror_height(grating, fl * u.mm)
+            image_height: ScalarQuantity = calculate_transfer_mirror_height(
+                grating=grating, collimator_focal_length=fl
+            )
 
             heights.append(image_height.to(u.mm).value)
         ax.plot(
