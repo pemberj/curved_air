@@ -12,27 +12,34 @@ from manufacturer-provided AGF files, filtering the catalogue, and outputting
 this to a new AGF file for use in Zemax.
 """
 
+from typing import TYPE_CHECKING
+
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
 
-from curved_air.optics import Etalon
+from curved_air.instruments.etalon import Etalon
 from curved_air.plotting import plot_style
+
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    BSC = Etalon(n=1.5, thickness=20 * u.mm, theta=0 * u.degree, R_1=0.02, R_2=0.02)
+    thickness: ScalarQuantity = 20 * u.mm
+
+    BSC = Etalon(n=1.5, thickness=thickness, theta=0 * u.degree, R_1=0.02, R_2=0.02)
 
     print(BSC)
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
-    wavelengths = np.linspace(499.99, 500.01, 200) * u.nm
+    wavelengths: ArrayQuantity = np.linspace(499.99, 500.01, 200) * u.nm
 
-    intensity = BSC.intensity(wavelengths)
+    intensity: float = BSC.intensity(wavelengths)
 
     ax.plot(wavelengths, intensity / np.max(intensity))
     ax.axhline(y=1, color="k", linestyle="--", alpha=0.25)

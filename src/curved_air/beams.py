@@ -16,7 +16,6 @@ from typing import overload
 import astropy.units as u
 import numpy as np
 from astropy.units import Quantity
-from numpy.typing import ArrayLike
 from scipy.integrate import quad
 
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
@@ -522,9 +521,9 @@ class SphericalBeam(Beam):
 
     def E_field(
         self,
-        x: ArrayLike | ScalarQuantity = 0 * u.mm,
-        y: ArrayLike | ScalarQuantity = 0 * u.mm,
-        z: ArrayLike | ScalarQuantity = 0 * u.mm,
+        x: ScalarQuantity = 0 * u.mm,
+        y: ScalarQuantity = 0 * u.mm,
+        z: ScalarQuantity = 0 * u.mm,
     ) -> ScalarQuantity:
         """
         Calculate the electric field at a point in space
@@ -567,22 +566,22 @@ class SphericalBeam(Beam):
     def summed_E_field(
         self,
         z: ScalarQuantity,
-        max_radius: ScalarQuantity | None,
-    ) -> Quantity: ...
+        max_radius: ScalarQuantity | None = None,
+    ) -> float: ...
 
     @overload
     def summed_E_field(
         self,
         z: ArrayQuantity,
-        max_radius: ScalarQuantity | None,
-    ) -> ArrayQuantity: ...
+        max_radius: ScalarQuantity | None = None,
+    ) -> list[float]: ...
 
     def summed_E_field(
         self,
         z: ScalarQuantity | ArrayQuantity = 0 * u.mm,
         max_radius: ScalarQuantity | None = None,
-        force_radius: bool = False,
-    ) -> ScalarQuantity | ArrayQuantity | float:  # TODO fix
+        force_radius: bool = True,
+    ) -> float | list[float]:  # TODO fix
         """
         Using the analytic expression for a spherical beam, this function
         calculates the integral of the E field over a circular aperture
@@ -590,12 +589,13 @@ class SphericalBeam(Beam):
         """
 
         if isinstance(z, Quantity):
+            zunit: u.Unit = z.unit
             z: float = z.to(u.mm).value
 
-        if not z.isscalar:
+        if isinstance(z, list | np.ndarray):
             return [
-                self.summed_E_field(zi, max_radius).value for zi in z
-            ] * self.E_0.unit
+                self.summed_E_field(z=zi * zunit, max_radius=max_radius) for zi in z
+            ]
 
         if z == 0:
             return self.E_0

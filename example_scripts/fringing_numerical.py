@@ -14,25 +14,32 @@ plane-wave-illuminated etalon should give the same result as the analytic
 version.
 """
 
-import numpy as np
+from typing import TYPE_CHECKING
+
 import astropy.units as u
+import numpy as np
 from matplotlib import pyplot as plt
 
 from curved_air.beams import PlanarBeam, SphericalBeam
-from curved_air.optics import Etalon
+from curved_air.instruments.etalon import Etalon
 from curved_air.plotting import plot_style
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    n = 1.5
-    mirror_spacing = 20 * u.mm
-    round_trip = 2 * mirror_spacing * n
-    round_trip_mm = round_trip.to(u.mm).value
-    num_round_trips = 20
-    mirror_reflectivity = 0.02
-    f_number = 10
+    n: float = 1.5
+    mirror_spacing: ScalarQuantity = 20 * u.mm
+    round_trip: ScalarQuantity = 2 * mirror_spacing * n
+    round_trip_mm: float = round_trip.to(u.mm).value
+    num_round_trips: int = 20
+    mirror_reflectivity: float = 0.02
+    f_number: float = 10
 
     analytic_BSC = Etalon(
         n=n,
@@ -42,20 +49,21 @@ def main() -> None:
         R_2=None,
     )
 
-    reflectivity = np.array(
+    reflectivity: NDArray = np.array(
         [mirror_reflectivity ** (n) for n in range(1, num_round_trips)]
     )
 
-    Zs = np.arange(0, round_trip_mm * (num_round_trips - 1), round_trip_mm) * u.mm
-
-    c = 6e-3 / 7692 * 1e9
-    w = 0.1
-    wavelengths = np.linspace(c - w / 2, c + w / 2, 301) * u.nm
+    Zs: ArrayQuantity = (
+        np.arange(0, round_trip_mm * (num_round_trips - 1), round_trip_mm) * u.mm
+    )
+    c: float = 6e-3 / 7692 * 1e9
+    w: float = 0.1
+    wavelengths: ArrayQuantity = np.linspace(c - w / 2, c + w / 2, 301) * u.nm
 
     # Three peaks:
     # wavelengths = np.linspace(499.975, 500.025, 500) * u.nm
 
-    output = {}
+    output: dict[str, list[NDArray]] = {}
 
     for wavelength in wavelengths:
         # beam = GaussianBeam(
@@ -77,9 +85,9 @@ def main() -> None:
         beam = PlanarBeam(
             wavelength=wavelength, E_0=1, n=n, plane_normal=(0, 0, 1), debug_level=0
         )
-        results = beam.E_field(x=np.zeros_like(Zs), y=np.zeros_like(Zs), z=Zs)
-        dimmed = results * reflectivity
-        intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
+        results: NDArray = beam.E_field(x=np.zeros_like(Zs), y=np.zeros_like(Zs), z=Zs)
+        dimmed: NDArray = results * reflectivity
+        intensity: float = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
         if "Planar" not in output:
             output["Planar"] = []
         output["Planar"].append(intensity)
@@ -92,18 +100,18 @@ def main() -> None:
             plane_normal=(0, 0, 1),
             debug_level=0,
         )
-        results = beam.summed_E_field(z=Zs)
-        dimmed = results * reflectivity
-        intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
+        results: NDArray = np.array(beam.summed_E_field(z=Zs))
+        dimmed: NDArray = results * reflectivity
+        intensity: float = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
         if "Spherical" not in output:
             output["Spherical"] = []
         output["Spherical"].append(intensity)
 
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure(figsize=(8, 6))
+    ax: plt.Axes = fig.gca()
 
-    distance_between_peaks = analytic_BSC.delta_lambda()  # noqa: F841
-    analytic_intensity = analytic_BSC.intensity(wavelengths)
+    distance_between_peaks: ScalarQuantity = analytic_BSC.delta_lambda()  # noqa: F841
+    analytic_intensity: float = analytic_BSC.intensity(wavelengths)
 
     ax.plot(
         wavelengths,
@@ -116,7 +124,7 @@ def main() -> None:
         # Corresponds to the very first mirror reflection
         # values = (1 - np.sqrt(mirror_reflectivity)) + (1 - values)
         # values = values / np.max(values)
-        norm_values = values / np.max(values)
+        norm_values: NDArray = values / np.max(values)
         # values = np.array(values)
 
         if beam_type == "Spherical":
@@ -130,7 +138,7 @@ def main() -> None:
     ax.set_ylabel("Normalised intensity")
     # ax.set_yticklabels([])
 
-    # ax.set_xlim(min(λs).to("nm").value, max(λs).to("nm").value)
+    # ax.set_xlim(min(wavelengths).to("nm").value, max(wavelengths).to("nm").value)
     # ax.set_ylim(-0.05, 1.1)
 
     ax.legend()
