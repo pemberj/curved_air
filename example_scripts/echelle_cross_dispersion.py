@@ -11,6 +11,7 @@ Compute the inter-order spacing for a given cross-disperser in an echelle spectr
 """
 
 import re
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -18,20 +19,24 @@ import numpy as np
 from astropy import units as u
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics import Prism
+from curved_air.optics.dispersers import Prism
 from curved_air.plotting import plot_style
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    from curved_air.type_hinting import ScalarQuantity, ArrayQuantity
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    script_path = Path(__file__).parent
+    script_path: Path = Path(__file__).parent
     agf_dir: Path = script_path / "../data/AGFs"
 
-    agf_files = sorted(
+    agf_files: list[Path] = sorted(
         [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("schott", f.name)]
     )
-    catalogue = GlassCatalogue().read_AGF(agf_files)
+    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_files)
 
     XD = Prism(
         glass=catalogue["F2"],
@@ -80,47 +85,50 @@ def main() -> None:
     # Now what we really care about: a plot of detector XD position as a function of wavelength
     # To provide information on order spacing
 
-    camera_focal_length = 730 * u.mm
-    plate_scale = u.radian / camera_focal_length
+    camera_focal_length: ScalarQuantity = 730 * u.mm
+    plate_scale: ScalarQuantity = u.radian / camera_focal_length
     # camera_f_ratio = 4.76
     # injection_f_ratio = 3.85
     # slit_magnification = camera_f_ratio / injection_f_ratio
 
-    slit_magnification = 1.13
+    slit_magnification: float = 1.13
 
-    required_gap_pixels = 5
-    pixel_size = 9 * u.um
+    required_gap_pixels: float = 5
+    pixel_size: ScalarQuantity = 9 * u.um
 
-    fibre_spacing = 130 * u.um
-    fibre_width = 40 * u.um
-    raw_slit_length = 4 * fibre_spacing + fibre_width
+    fibre_spacing: ScalarQuantity = 130 * u.um
+    fibre_width: ScalarQuantity = 40 * u.um
+    raw_slit_length: ScalarQuantity = 4 * fibre_spacing + fibre_width
     print(f"{raw_slit_length = }")
 
-    slit_length = 730 * u.um - required_gap_pixels * pixel_size / slit_magnification
+    slit_length: ScalarQuantity = (
+        730 * u.um - required_gap_pixels * pixel_size / slit_magnification
+    )
 
-    sigma = 1 / (52.67 / u.mm)
-    gamma = 0.3 * u.deg
-    theta = 69.7 * u.deg
+    sigma: ScalarQuantity = 1 / (52.67 / u.mm)
+    gamma: ScalarQuantity = 0.3 * u.deg
+    theta: ScalarQuantity = 69.7 * u.deg
 
-    m_times_lambda = (sigma * 2 * np.sin(theta) * np.cos(gamma)).to(u.um)
+    m_times_lambda: ScalarQuantity = (sigma * 2 * np.sin(theta) * np.cos(gamma)).to(
+        u.um
+    )
 
-    wls = np.linspace(0.38, 0.95, 50) * u.um
+    wls: ArrayQuantity = np.linspace(0.38, 0.95, 50) * u.um
     m_min = int(m_times_lambda / np.max(wls) - 1)
     m_max = int(m_times_lambda / np.min(wls) + 1)
 
-    ms = np.arange(m_min, m_max, 1)
-    blaze_wls = [(m_times_lambda / m).to(u.um).value for m in ms] * u.um
+    ms: NDArray[np.int_] = np.arange(m_min, m_max, 1)
+    blaze_wls: ArrayQuantity = [(m_times_lambda / m).to(u.um).value for m in ms] * u.um
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
     # angles2 = [((XD.apex_angle + d - XD.incidence_angle)).to(u.deg).value for d in XD.deviation_angle(blaze_wls)] * u.deg
-    angles = [XD.trace(wl).value for wl in blaze_wls] * u.deg
+    angles: ArrayQuantity = [XD.trace(wl).value for wl in blaze_wls] * u.deg
     # detector_position2 = (angles2 / plate_scale).to(u.mm)
-    detector_position = (angles / plate_scale).to(u.mm)
+    detector_position: ArrayQuantity = (angles / plate_scale).to(u.mm)
     # order_spacing2 = np.abs(np.diff(detector_position2))
-    order_spacing = np.abs(np.diff(detector_position))
-
+    order_spacing: NDArray = np.abs(np.diff(detector_position))
     ax.plot(blaze_wls[1:], order_spacing.to(u.um), marker="o", markersize=5)
     # ax.plot(blaze_wls[1:], order_spacing2.to(u.um), marker="o", markersize=5)
     ax.axhline(

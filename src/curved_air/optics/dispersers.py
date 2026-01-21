@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from numpy.typing import ArrayLike
 
-    from curved_air.typing import ArrayQuantity, ScalarQuantity
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
 @dataclass
@@ -315,9 +315,10 @@ class EchelleGrating(Disperser):
 
         delta_wl: ScalarQuantity = self.order_FSR(m=m) / 100
 
-        delta_theta: ScalarQuantity = self.diffraction_angle(
-            m=m, wl=wl + delta_wl
-        ) - self.diffraction_angle(m=m, wl=wl)  # type: ignore
+        delta_theta: ScalarQuantity = (
+            self.diffraction_angle(m=m, wl=wl + delta_wl).value
+            - self.diffraction_angle(m=m, wl=wl).value
+        ) * u.deg
 
         return delta_theta / delta_wl
 
@@ -441,9 +442,10 @@ class Prism(CrossDisperser):
     def refractive_index(
         self, wavelength: Quantity | None = None
     ) -> Callable | float | np.ndarray:
-        if wavelength:
-            return self.glass.refractive_index(wavelength)
-        return self.glass.refractive_index
+        if wavelength is None:
+            return self.glass.refractive_index
+
+        return self.glass.refractive_index(wavelength)
 
     @property
     def n(self) -> Callable:
@@ -1038,11 +1040,18 @@ def _refract(
                 _n_1: float = n_1(wavelength)
             except TypeError:
                 _n_1: Any = n_1
+
+        elif isinstance(n_1, float | np.ndarray):
+            _n_1: Any = n_1
+
         if callable(n_2):
             try:
                 _n_2: float = n_2(wavelength)
             except TypeError:
                 _n_2: Any = n_2
+
+        elif isinstance(n_2, float | np.ndarray):
+            _n_2: Any = n_2
 
     # By this point, _n_1 and _n_2 should be either floats, ints, or
     # lists/arrays of such
