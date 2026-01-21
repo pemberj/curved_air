@@ -13,11 +13,16 @@ calculates its wavelength-dependent transmission.
 
 import numpy as np
 import astropy.units as u
+from typing import TYPE_CHECKING
 from matplotlib import pyplot as plt
 
-from curved_air.optics import Etalon
+from curved_air.instruments.etalon import Etalon
 from curved_air.utils import FWHM
 from curved_air.plotting import plot_style
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
@@ -25,22 +30,23 @@ plt.style.use(plot_style)
 def main() -> None:
     etalon = Etalon()
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
     # Single peak:
-    # λs = np.linspace(499.998, 500.002, 500) * u.nm
-    c = 6e-3 / 7692 * 1e9
-    w = 0.01
-    wavelengths = np.linspace(c - w / 2, c + w / 2, 501) * u.nm
+    c: float = 6e-3 / 7692 * 1e9
+    w: float = 0.01
+    wavelengths: ArrayQuantity = np.linspace(c - w / 2, c + w / 2, 501) * u.nm
 
     print("Analytic finesse:", etalon.finesse)
 
     # Three peaks:
-    # wavelengths = np.linspace(499.975, 500.025, 200) * u.nm
+    # wavelengths: ArrayQuantity = np.linspace(499.975, 500.025, 501) * u.nm
 
-    intensity = np.real(etalon.intensity(wavelengths))
-    peak_fwhm = np.diff(FWHM(wavelengths.to("pm").value, intensity))[0] * u.pm
+    intensity: NDArray = np.real(etalon.intensity(wavelengths))
+    peak_fwhm: ScalarQuantity = (
+        np.diff(FWHM(wavelengths.to("pm").value, intensity))[0] * u.pm
+    )
 
     ax.plot(
         wavelengths.to("pm").value,
@@ -49,7 +55,8 @@ def main() -> None:
     )
 
     print(
-        "Finesse calculated from FWHM and Δλ: " + f"{etalon.delta_lambda() / peak_fwhm}"
+        "Finesse calculated from FWHM and Δλ: "
+        + f"{etalon.delta_lambda(wavelengths[len(wavelengths) // 2]) / peak_fwhm}"
     )
 
     print(etalon)

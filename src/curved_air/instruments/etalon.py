@@ -54,7 +54,9 @@ class Etalon:
         return (4 * self.R) / ((1 + self.R) ** 2)
 
     @overload
-    def delta_lambda(self, wavelength: ScalarQuantity) -> ScalarQuantity: ...
+    def delta_lambda(
+        self, wavelength: ScalarQuantity = 780 * u.nm
+    ) -> ScalarQuantity: ...
 
     @overload
     def delta_lambda(self, wavelength: ArrayQuantity) -> ArrayQuantity: ...
