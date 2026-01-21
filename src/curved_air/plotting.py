@@ -18,7 +18,6 @@ from astropy.units import Quantity
 from numpy.typing import NDArray
 from pyfonts import load_font
 
-
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
@@ -162,8 +161,6 @@ def wavelength_to_rgb(
         # Make sure `wls` is given in nanometers if no units are passed
         assert 5 < wavelength < 5000  # noqa: PLR2004
         wavelength: ScalarQuantity = wavelength * u.nm
-
-    print(f"{wavelength = }", type(wavelength))
 
     assert isinstance(wavelength, Quantity)
 
