@@ -163,11 +163,6 @@ def wavelength_to_rgb(
         assert 5 < wavelength < 5000  # noqa: PLR2004
         wavelength: ScalarQuantity = wavelength * u.nm
 
-    # elif not isinstance(wavelength, Quantity)
-    #     print(f"{wavelength = }", type(wavelength))
-    #     assert all(isinstance(wl, float) for wl in wavelength)
-    #     wavelength: ArrayQuantity = wavelength * u.nm
-
     print(f"{wavelength = }", type(wavelength))
 
     assert isinstance(wavelength, Quantity)
