@@ -15,9 +15,9 @@ this to a new AGF file for use in Zemax.
 import re
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
 
 # from glass_select.glass import GlassCatalogue, _optimise_ADC
 from curved_air.glass import GlassCatalogue
@@ -27,18 +27,14 @@ plt.style.use(plot_style)
 
 
 def main() -> None:
-    script_path = Path(__file__).parent
-    agf_dir = script_path / "../data/AGFs"
+    script_path: Path = Path(__file__).parent
+    agf_dir: Path = script_path / "../data/AGFs"
 
     print(agf_dir)
     print(agf_dir.glob("*.[Aa][Gg][Ff]"))
 
     agf_files: list[Path] = sorted(
-        [
-            f
-            for f in agf_dir.glob("*.[Aa][Gg][Ff]")
-            if re.search(pattern="ohara|schott", string=f.name)
-        ]
+        [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("ohara|schott", f.name)]
     )
 
     if not agf_files:
@@ -46,7 +42,7 @@ def main() -> None:
 
     gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
-    gc = gc.filter(
+    gc: GlassCatalogue = gc.filter(
         status_description=["standard", "preferred"],
         min_wl=390 * u.nm,
         max_wl=950 * u.nm,

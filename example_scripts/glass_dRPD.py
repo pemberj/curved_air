@@ -1,3 +1,12 @@
+# /// script
+# dependencies = [
+#     "curved_air>=0.1.0",
+#     "PyQT6"
+# ]
+# [tool.uv.sources]
+# curved_air = { path = "..", editable = true }
+# ///
+
 """
 A script to calculate and plot the differential relative partial dispersion between
 glasses.
@@ -7,28 +16,30 @@ http://www.primeoptics.com.au/Reference/dRPD_description.pdf
 """
 
 import re
-import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
 
 from curved_air.glass import GlassCatalogue
 from curved_air.plotting import plot_style
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from curved_air.type_hinting import ArrayQuantity
+
 plt.style.use(plot_style)
 
 
-script_path = Path(__file__).parent
-sys.path.append(script_path / "../src")
-
-
 def main() -> None:
+    script_path: Path = Path(__file__).parent
     agf_dir: Path = script_path / "../data/AGFs"
 
     agf_files: list[Path] = sorted(
-        [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("ohara|schott", f)]
+        [f for f in agf_dir.glob("*.[Aa][Gg][Ff]") if re.search("ohara|schott", f.name)]
     )
 
     if not agf_files:
@@ -38,7 +49,7 @@ def main() -> None:
         GlassCatalogue()
         .read_AGF(agf_filename=agf_files)
         .filter(
-            status_description=["standard | preferred"],
+            # status_description=["standard | preferred"],
             min_wl=390 * u.nm,
             max_wl=950 * u.nm,
             # min_transmission = 0.97,
@@ -46,10 +57,10 @@ def main() -> None:
         )
     )
 
-    wls: np.ndarray = np.linspace(0.39, 2, 30)
+    wls: ArrayQuantity = np.linspace(0.39, 2, 30) * u.um
 
-    reference_glass = "S-FPL51"
-    query_glasses = [
+    reference_glass: str = "S-FPL51"
+    query_glasses: list[str] = [
         "N-BK7",
         "N-LLF6",
         "N-SF5",
@@ -68,27 +79,31 @@ def main() -> None:
         "S-LAH97",
     ]
 
-    ref_dV = catalogue[reference_glass].dV(wls)  # noqa: F841
-    ref_dRPD = catalogue[reference_glass].dRPD(wls)
+    ref_dV: NDArray[np.floating] = catalogue[reference_glass].dV(wls)  # noqa: F841
+    ref_dRPD: NDArray[np.floating] = catalogue[reference_glass].dRPD(wls)
 
-    fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(12, 8))
+    _fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
 
     for g in catalogue:
         for q in query_glasses:
             if q not in g.alternative_names:
                 continue
 
-            y0 = g.dV(wls)  # - ref_dV
-            y1 = g.dRPD(wls) - ref_dRPD
+            y0: NDArray[np.floating] = g.dV(wls)  # - ref_dV
+            y1: NDArray[np.floating] = g.dRPD(wls) - ref_dRPD
 
             if max(np.abs(y1)) > 0.01:  # noqa: PLR2004
                 continue
 
-            axs[0].plot(wls, y0, label=g.name, alpha=0.5)
-            axs[0].text(wls[-1], y0[-1], g.name, fontsize=8, va="center", ha="left")
+            axs[0].plot(wls.value, y0, label=g.name, alpha=0.5)
+            axs[0].text(
+                wls[-1].value, y0[-1], g.name, fontsize=10, va="center", ha="left"
+            )
 
-            axs[1].plot(wls, y1, label=g.name, alpha=0.5)
-            axs[1].text(wls[-1], y1[-1], g.name, fontsize=8, va="center", ha="left")
+            axs[1].plot(wls.value, y1, label=g.name, alpha=0.5)
+            axs[1].text(
+                wls[-1].value, y1[-1], g.name, fontsize=10, va="center", ha="left"
+            )
 
     axs[0].set_ylabel("dV")
     axs[1].set_xlabel("Wavelength (um)")

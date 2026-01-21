@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from typing import Any  # noqa: F401
 
     from matplotlib.backend_bases import MouseEvent
-    from numpy.typing import ArrayLike
+    from numpy.typing import ArrayLike, NDArray
 
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
@@ -315,9 +315,9 @@ class Glass:
     def dV(self, wls: ScalarQuantity | float) -> float: ...
 
     @overload
-    def dV(self, wls: ArrayQuantity | float) -> np.ndarray: ...
+    def dV(self, wls: ArrayQuantity) -> NDArray[np.floating]: ...
 
-    def dV(self, wls: Quantity) -> float | np.ndarray:
+    def dV(self, wls: Quantity) -> float | NDArray[np.floating]:
         """
         Differential Abbe number
 
@@ -343,9 +343,9 @@ class Glass:
     def dRPD(self, wls: ScalarQuantity | float) -> float: ...
 
     @overload
-    def dRPD(self, wls: ArrayQuantity) -> np.ndarray: ...
+    def dRPD(self, wls: ArrayQuantity) -> NDArray[np.floating]: ...
 
-    def dRPD(self, wls: float | Quantity | None = None) -> float | np.ndarray:
+    def dRPD(self, wls: float | Quantity | None = None) -> float | NDArray[np.floating]:
         """[summary]
 
         Parameters
@@ -515,10 +515,10 @@ class GlassCatalogue(dict):
         self.glass_list.append(key)
         super().__setitem__(key, value)
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[Glass]:
         return iter(list(self.values()))
 
-    def itervalues(self) -> Generator:
+    def itervalues(self) -> Generator[Glass]:
         return (self[key] for key in self)
 
     def replace(self, key: str, replacement: Glass) -> None:
