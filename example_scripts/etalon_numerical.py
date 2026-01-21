@@ -14,30 +14,37 @@ plane-wave-illuminated etalon should give the same result as the analytic
 version.
 """
 
+from typing import TYPE_CHECKING
+
 import astropy.units as u
 import numpy as np
 from matplotlib import pyplot as plt
 
 from curved_air.beams import PlanarBeam, SphericalBeam
-from curved_air.optics import Etalon
+from curved_air.instruments.etalon import Etalon
 from curved_air.plotting import plot_style
 from curved_air.utils import FWHM
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
 
 def main() -> None:
-    mirror_spacing = 6 * u.mm  # mm
+    mirror_spacing: ScalarQuantity = 6 * u.mm  # mm
     n = 1
-    round_trip = 2 * mirror_spacing * n
-    round_trip_mm = round_trip.to("mm").value
-    num_round_trips = 30  # number of reflections on the OUTPUT surface
-    mirror_reflectivity = 0.8
-    f_number = 1000
-    num_wavelengths = 500
-    z_0 = 0 * u.mm
+    round_trip: ScalarQuantity = 2 * mirror_spacing * n
+    round_trip_mm: float = round_trip.to("mm").value
+    num_round_trips: int = 30  # number of reflections on the OUTPUT surface
+    mirror_reflectivity: float = 0.8
+    f_number: float = 1000
+    num_wavelengths: int = 500
+    z_0: ScalarQuantity = 0 * u.mm
     # z_0 = -1 * round_trip * num_round_trips
-    z_0_mm = z_0.to("mm").value
+    z_0_mm: float = z_0.to("mm").value
 
     analytic_etalon = Etalon(
         thickness=mirror_spacing,
@@ -46,21 +53,23 @@ def main() -> None:
         R_1=mirror_reflectivity,
     )
 
-    reflectivity = np.array(
+    reflectivity: NDArray = np.array(
         [mirror_reflectivity ** (n) for n in range(1, num_round_trips)]
     )
 
-    Zs = (
+    Zs: ArrayQuantity = (
         np.arange(z_0_mm, z_0_mm + round_trip_mm * (num_round_trips - 1), round_trip_mm)
         * u.mm
     )
 
     # Calculate central wavelength of peak closest to 780nm
-    c = (mirror_spacing / int((mirror_spacing) / (500 * u.nm))).to(u.nm).value
-    w = (50 * u.pm).to(u.nm).value
-    wavelengths = np.linspace(c - w / 2, c + w / 2, num_wavelengths) * u.nm
+    c: float = (mirror_spacing / int((mirror_spacing) / (500 * u.nm))).to(u.nm).value
+    w: float = (50 * u.pm).to(u.nm).value
+    wavelengths: ArrayQuantity = (
+        np.linspace(c - w / 2, c + w / 2, num_wavelengths) * u.nm
+    )
 
-    output = {}
+    output: dict[str, list[NDArray]] = {}
 
     for wavelength in wavelengths:
         # beam = GaussianBeam(
@@ -80,12 +89,12 @@ def main() -> None:
         beam = PlanarBeam(
             wavelength=wavelength, E_0=1, n=1, plane_normal=(0, 0, 1), debug_level=0
         )
-        results = (
+        results: NDArray = (
             beam.E_field(x=np.zeros_like(Zs), y=np.zeros_like(Zs), z=Zs) * reflectivity
         )
-        intensity = np.real(np.sum(results) * np.conj(np.sum(results)))
+        intensity: NDArray = np.real(np.sum(results) * np.conj(np.sum(results)))
         if "Planar" not in output:
-            output["Planar"] = []
+            output["Planar"]: list[NDArray] = []
         output["Planar"].append(intensity)
 
         beam = SphericalBeam(
@@ -96,25 +105,25 @@ def main() -> None:
             plane_normal=(0, 0, 1),
             debug_level=0,
         )
-        results = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
-        dimmed = results * reflectivity
-        intensity = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
+        results: NDArray = beam.integrated_E_field(z=Zs, radius=10 * u.mm)
+        dimmed: NDArray = results * reflectivity
+        intensity: NDArray = np.real(np.sum(dimmed) * np.conj(np.sum(dimmed)))
         if "Spherical" not in output:
             output["Spherical"] = []
         output["Spherical"].append(intensity)
 
     plt.rcParams["axes.formatter.useoffset"] = False
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
-    distance_between_peaks = analytic_etalon.delta_lambda()
-    analytic_intensity = analytic_etalon.intensity(wavelengths)
+    distance_between_peaks: ScalarQuantity = analytic_etalon.delta_lambda()
+    analytic_intensity: float = analytic_etalon.intensity(wavelengths)
 
-    analytic_fwhm = (
+    analytic_fwhm: ArrayQuantity = (
         np.diff(FWHM(wavelengths.to("pm").value, np.real(analytic_intensity)))[0] * u.pm
     )
-    analytic_finesse = distance_between_peaks / analytic_fwhm
+    analytic_finesse: float = distance_between_peaks / analytic_fwhm
 
     ax.plot(
         wavelengths,
@@ -125,12 +134,14 @@ def main() -> None:
 
     for _, [beam_type, values] in enumerate(output.items(), start=1):
         if beam_type in ["Planar", "Spherical"]:
-            norm_values = values - np.min(values)
+            norm_values: NDArray = values - np.min(values)
             norm_values /= np.max(norm_values)
             # norm_values = 1 - norm_values
 
-        peak_fwhm = np.diff(FWHM(wavelengths.to("pm").value, norm_values))[0] * u.pm
-        calculated_finesse = distance_between_peaks / peak_fwhm
+        peak_fwhm: ArrayQuantity = (
+            np.diff(FWHM(wavelengths.to("pm").value, norm_values))[0] * u.pm
+        )
+        calculated_finesse: float = distance_between_peaks / peak_fwhm
 
         ax.plot(
             wavelengths,
