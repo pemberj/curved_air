@@ -7,6 +7,7 @@
 # ///
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
@@ -14,11 +15,11 @@ from matplotlib import pyplot as plt
 
 from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from numpy.typing import ArrayLike
     from astropy.units import Quantity
+    from numpy.typing import ArrayLike
+
     from curved_air.type_hinting import ArrayQuantity
 
 plt.style.use(plot_style)
