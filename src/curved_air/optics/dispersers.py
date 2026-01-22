@@ -645,12 +645,12 @@ class Prism(CrossDisperser):
 
     @overload
     def exitance_angle(
-        self, wl: ScalarQuantity, incidence_angle: ScalarQuantity | None
+        self, wl: ScalarQuantity, incidence_angle: ScalarQuantity | None = None
     ) -> ScalarQuantity: ...
 
     @overload
     def exitance_angle(
-        self, wl: ArrayQuantity, incidence_angle: ScalarQuantity | None
+        self, wl: ArrayQuantity, incidence_angle: ScalarQuantity | None = None
     ) -> ArrayQuantity: ...
 
     @overload

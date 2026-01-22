@@ -5,27 +5,30 @@
 # [tool.uv.sources]
 # curved_air = { path = "..", editable = true }
 # ///
-
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib.patheffects as pe
 import numpy as np
 from astropy import units as u
 from matplotlib import pyplot as plt
 
-from curved_air.glass import GlassCatalogue
-from curved_air.optics import Prism
+from curved_air.glass import Glass, GlassCatalogue
+from curved_air.optics.dispersers import Prism
 from curved_air.plotting import plot_style, wavelength_to_rgb
+
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
-SCRIPT_PATH = Path(__file__).parent
+SCRIPT_PATH: Path = Path(__file__).parent
 
 
-agf_dir = SCRIPT_PATH / "../data/AGFs"
+agf_dir: Path = SCRIPT_PATH / "../data/AGFs"
 
-agf_files = sorted(
+agf_files: list[Path] = sorted(
     [
         f
         for f in agf_dir.glob("*.[Aa][Gg][Ff]")
@@ -35,9 +38,9 @@ agf_files = sorted(
 if not agf_files:
     raise FileNotFoundError("No AGF files found in the data directory.")
 
-gc = GlassCatalogue().read_AGF(agf_filename=agf_files)
+gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
-F2 = gc["F2"]
+F2: Glass = gc["F2"]
 
 
 def plot_mid_dispersion_wavelength() -> None:
@@ -50,13 +53,12 @@ def plot_mid_dispersion_wavelength() -> None:
         max_wl=950 * u.nm,
     )
 
-    fig = plt.figure("Mid-dispersion wavelength of prism")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Mid-dispersion wavelength of prism")
+    ax: plt.Axes = fig.gca()
 
-    wls = np.linspace(390, 950, 100) * u.nm
+    wls: ArrayQuantity = np.linspace(390, 950, 100) * u.nm
 
-    deltas = prism.deviation_angle(wls)
-
+    deltas: ArrayQuantity = prism.deviation_angle(wls)
     ax.plot(
         wls,
         deltas,
@@ -126,12 +128,12 @@ def plot_deviation_angle_by_wavelength() -> None:
         max_wl=950 * u.nm,
     )
 
-    fig = plt.figure("Prism deviation angles and common laser wavelengths")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Prism deviation angles and common laser wavelengths")
+    ax: plt.Axes = fig.gca()
 
-    wls = np.linspace(390, 950, 100) * u.nm
+    wls: ArrayQuantity = np.linspace(390, 950, 100) * u.nm
 
-    deltas = prism.exitance_angle(wls)
+    deltas: ArrayQuantity = prism.exitance_angle(wls)
 
     ax.plot(
         wls,
@@ -192,15 +194,19 @@ def plot_deviation_angle_by_incidence_angle() -> None:
         max_wl=950 * u.nm,
     )
 
-    fig = plt.figure("Prism deviation angles as a function of incidence angle")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure(
+        "Prism deviation angles as a function of incidence angle"
+    )
+    ax: plt.Axes = fig.gca()
 
-    incidence_angles = np.linspace(40, 75, 100) * u.deg
+    incidence_angles: ArrayQuantity = np.linspace(40, 75, 100) * u.deg
     # wavelengths = [380 * u.nm, 494.3 * u.nm, 950 * u.nm]
 
-    wavelength = 494.3 * u.nm
+    wavelength: ScalarQuantity = 494.3 * u.nm
 
-    deltas = prism.deviation_angle(wl=wavelength, incidence_angle=incidence_angles)
+    deltas: ArrayQuantity = prism.deviation_angle(
+        wl=wavelength, incidence_angle=incidence_angles
+    )
 
     ax.plot(
         incidence_angles,
@@ -213,8 +219,8 @@ def plot_deviation_angle_by_incidence_angle() -> None:
     x0, x1 = 35, 80
     y0, y1 = 46, 58
 
-    i = prism.minimum_deviation_incidence_angle(wl=wavelength).value
-    d = prism.minimum_deviation_angle(wl=wavelength).value
+    i: float = prism.minimum_deviation_incidence_angle(wl=wavelength).value
+    d: float = prism.minimum_deviation_angle(wl=wavelength).value
 
     ax.plot(
         [x0, i, i, i],
@@ -255,6 +261,6 @@ def plot_deviation_angle_by_incidence_angle() -> None:
 if __name__ == "__main__":
     plot_mid_dispersion_wavelength()
 
-    # plot_deviation_angle_by_wavelength()
+    plot_deviation_angle_by_wavelength()
 
-    # plot_deviation_angle_by_incidence_angle()
+    plot_deviation_angle_by_incidence_angle()
