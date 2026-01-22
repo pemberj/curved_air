@@ -8,33 +8,37 @@
 # curved_air = { path = "..", editable = true }
 # ///
 
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity  # noqa: F401
 from matplotlib import pyplot as plt
 
-from curved_air.optics import Grating
+from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb
+
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
 
-def plot_FSR(grating: Grating) -> None:
+def plot_FSR(grating: EchelleGrating) -> None:
     """
     Plot the free spectral range of the grating as a function of wavelength.
     """
 
-    fig = plt.figure("Free spectral range")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Free spectral range")
+    ax: plt.Axes = fig.gca()
 
-    ms = grating.diffraction_orders
+    ms: list[int] = grating.diffraction_orders
 
-    blaze_wavelengths = grating.blaze_wavelength(ms)
-    blaze_wavelengths = [b.to(u.um).value for b in blaze_wavelengths]
+    blaze_wavelengths: ArrayQuantity = grating.blaze_wavelength(ms)
+    blaze_wavelengths: list[float] = [b.to(u.um).value for b in blaze_wavelengths]
 
-    FSRs = grating.order_FSR(ms)
-    FSRs = [f.to(u.nm).value for f in FSRs]
+    FSRs: ArrayQuantity = grating.order_FSR(ms)
+    FSRs: list[float] = [f.to(u.nm).value for f in FSRs]
 
     ax.plot(
         blaze_wavelengths,
@@ -55,28 +59,34 @@ def plot_FSR(grating: Grating) -> None:
     plt.show()
 
 
-def plot_spectral_format(grating: Grating) -> None:
+def plot_spectral_format(grating: EchelleGrating) -> None:
     """ """
-    fig = plt.figure("Spectral format")
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure("Spectral format")
+    ax: plt.Axes = fig.gca()
 
     for m in grating.diffraction_orders[::-1]:
-        wl_bounds = grating.order_FSR_bounds(m=m, FSR_fraction=1)
-        wls = np.linspace(
-            wl_bounds[0].to(u.nm).value,
-            wl_bounds[1].to(u.nm).value,
-            100,
+        wl_bounds: ArrayQuantity = grating.order_FSR_bounds(m=m, FSR_fraction=1)
+        wls: ArrayQuantity = (
+            np.linspace(
+                wl_bounds[0].to(u.nm).value,
+                wl_bounds[1].to(u.nm).value,
+                100,
+            )
+            * u.nm
         )
 
-        angles = (
+        angles: tuple[ScalarQuantity, ScalarQuantity] = (
             grating.diffraction_angle(wl=wl_bounds[0], m=m),
             grating.diffraction_angle(wl=wl_bounds[1], m=m),
         )
 
-        angles = np.linspace(
-            angles[0].to(u.deg).value,
-            angles[1].to(u.deg).value,
-            100,
+        angles: ArrayQuantity = (
+            np.linspace(
+                angles[0].to(u.deg).value,
+                angles[1].to(u.deg).value,
+                100,
+            )
+            * u.deg
         )
 
         ax.plot(
@@ -90,7 +100,7 @@ def plot_spectral_format(grating: Grating) -> None:
         if m % 5 == 0:
             ax.text(
                 m,
-                angles[0] - 0.25,
+                angles[0].value - 0.25,
                 f"{np.mean(wls):.0f}nm",
                 ha="center",
                 va="top",
@@ -114,7 +124,7 @@ def plot_ideal_grating_parameters() -> None:
     fig = plt.figure("Ideal grating")
     ax = fig.gca()
 
-    MARVEL_grating: Grating = Grating(
+    MARVEL_grating: EchelleGrating = EchelleGrating(
         name="MARVEL nominal",
         catalogue_number="53-*-417E",
         groove_frequency=52.67 / u.mm,
@@ -124,7 +134,7 @@ def plot_ideal_grating_parameters() -> None:
         max_wl=950 * u.nm,
     )
 
-    ideal_grating: Grating = Grating(
+    ideal_grating: EchelleGrating = EchelleGrating(
         name="MARVEL ideal",
         catalogue_number="_",
         groove_frequency=80 / u.mm,
@@ -180,7 +190,7 @@ def plot_ideal_grating_parameters() -> None:
 
 
 def main() -> None:
-    MARVEL_grating: Grating = Grating(
+    MARVEL_grating: EchelleGrating = EchelleGrating(
         catalogue_number="53-*-417E",
         groove_frequency=52.67 / u.mm,
         blaze_angle=69.7 * u.deg,
@@ -189,7 +199,7 @@ def main() -> None:
         max_wl=950 * u.nm,
     )
 
-    NEID_grating: Grating = Grating(
+    NEID_grating: EchelleGrating = EchelleGrating(
         catalogue_number="53-*-417E",
         groove_frequency=31.6 / u.mm,
         blaze_angle=76 * u.deg,

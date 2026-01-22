@@ -13,6 +13,7 @@ Code grabbed from and old main() function in optimisation.py
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
@@ -21,11 +22,15 @@ from matplotlib import pyplot as plt
 from curved_air.glass import GlassCatalogue
 from curved_air.optimisation import match_target_refractive_index
 
+if TYPE_CHECKING:
+    from curved_air.instruments.ADC import PrismStack
+    from curved_air.type_hinting import ArrayQuantity
+
 
 def main() -> None:
     agf_dir: Path = Path(__file__).parent / "../data/AGFs"
 
-    agf_files = sorted(
+    agf_files: list[Path] = sorted(
         [
             f
             for f in agf_dir.glob("*.[Aa][Gg][Ff]")
@@ -35,7 +40,7 @@ def main() -> None:
     if not agf_files:
         raise FileNotFoundError("No AGF files found in the data directory.")
 
-    gc = (
+    gc: GlassCatalogue = (
         GlassCatalogue()
         .read_AGF(agf_filename=agf_files)
         .filter(
@@ -47,7 +52,7 @@ def main() -> None:
         )
     )
 
-    ADC = match_target_refractive_index(
+    ps: PrismStack = match_target_refractive_index(
         g1=gc["K10"],
         g2=gc["S-FPL51"],
         min_wl=390 * u.nm,
@@ -56,15 +61,15 @@ def main() -> None:
         target_refractive_index=lambda _wl: 1.5,
     )
 
-    for p in ADC.prism_list:
+    for p in ps.prism_list:
         print(p)
 
-    wls = np.linspace(0.39, 0.95, 100) * u.um
+    wls: ArrayQuantity = np.linspace(0.39, 0.95, 100) * u.um
 
-    out_rays = ADC.trace(wls=wls)
+    out_rays: ArrayQuantity = ps.trace(wls=wls)
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
     ax.plot(wls, out_rays.to(u.degree))
     ax.set_xlabel("Wavelength (um)")

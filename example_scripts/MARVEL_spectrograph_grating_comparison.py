@@ -5,32 +5,39 @@
 #     "rich>=10.0.0",
 # ]
 # [tool.uv.sources]
-# curved_air = { path = "/home/jake/Desktop/curved_air", editable = true }
+# curved_air = { path = "..", editable = true }
 # ///
-
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
 from matplotlib import pyplot as plt
 
-from curved_air.glass import GlassCatalogue
-from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.detectors import Detector
+from curved_air.glass import GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
-from curved_air.other import _atomic_lines, _fraunhofer_lines, _balmer_lines  # noqa: F401
+from curved_air.optics.dispersers import EchelleGrating, Prism
+from curved_air.other import (  # noqa: F401
+    _atomic_lines,
+    _balmer_lines,
+    _fraunhofer_lines,
+)
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 from curved_air.utils import richardson_gratings  # noqa: F401
 
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+
 plt.style.use(plot_style)
 
-SCRIPT_PATH = Path(__file__).parent
+SCRIPT_PATH: Path = Path(__file__).parent
 
 
-agf_dir = SCRIPT_PATH / "../data/AGFs"
+agf_dir: Path = SCRIPT_PATH / "../data/AGFs"
 
-agf_files = [
+agf_files: list[Path] = [
     f
     for f in agf_dir.glob("*.[Aa][Gg][Ff]")
     if re.search(pattern="schott", string=f.name)
@@ -39,7 +46,7 @@ agf_files = [
 if not agf_files:
     raise FileNotFoundError("No AGF files found in the data directory.")
 
-schott = GlassCatalogue().read_AGF(agf_filename=agf_files)
+schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
 
 def main(grating: EchelleGrating, plot: bool = False) -> None:
@@ -67,8 +74,8 @@ def main(grating: EchelleGrating, plot: bool = False) -> None:
     ).print_parameters()
 
     if plot:
-        fig = plt.figure("MARVEL spectral format", figsize=(10, 10))
-        ax = fig.gca()
+        fig: plt.Figure = plt.figure("MARVEL spectral format", figsize=(10, 10))
+        ax: plt.Axes = fig.gca()
 
         MARVEL.plot_detector_edge(ax=ax, name=False)
 
@@ -90,16 +97,16 @@ def main(grating: EchelleGrating, plot: bool = False) -> None:
         ax.set_aspect("equal")
 
         for f in range(1):  # number of fibres
-            offset = f * 130 * u.um * MARVEL.slit_magnification
+            offset: ScalarQuantity = f * 130 * u.um * MARVEL.slit_magnification
             for m in MARVEL.spectral_orders:
-                wls = MARVEL.order_wavelengths(m=m)
-                mean_wl = np.mean(wls)
+                wls: ArrayQuantity = MARVEL.order_wavelengths(m=m)
+                mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
 
-                xs, ys = MARVEL.image_plane_position(m=m, wavelength=wls)
+                xs, ys = np.transpose(MARVEL.image_plane_position(m=m, wavelength=wls))
                 ax.plot(
                     xs + offset,
                     ys,
-                    color=wavelength_to_rgb(mean_wl, fade_factor=0.8),  # ty: ignore
+                    color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
                     lw=3.5,
                     # path_effects=stroke(thickness=3.5),
                 )

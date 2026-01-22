@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 import numpy as np  # noqa: F401
 from astropy import units as u
 
-# from glass_select.glass import GlassCatalogue, _optimise_ADC
 from curved_air.glass import GlassCatalogue
 from curved_air.plotting import plot_style
 
@@ -27,33 +26,28 @@ plt.style.use(plot_style)
 
 
 def main() -> None:
-    script_path = Path(__file__).parent
-    agf_dir = script_path / "../data/AGFs"
+    script_path: Path = Path(__file__).parent
+    agf_dir: Path = script_path / "../data/AGFs"
 
-    # MARVEL_gc = GlassCatalogue().read_AGF(agf_filename=agf_dir / "MARVEL_CAMERA.AGF")
-    agf_files = sorted(
+    agf_files: list[Path] = sorted(
         [
             f
             for f in agf_dir.glob("*.[Aa][Gg][Ff]")
             if re.search(pattern="ohara|schott|nikon", string=f.name)
         ]
     )
-    MARVEL_gc = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    MARVEL_gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
-    colours = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    colours: list[str] = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-    colours = {
+    colours: dict[str, str] = {
         "schott": colours[0],
         "ohara": colours[1],
         "corning": colours[2],
         "nikon": colours[3],
     }
 
-    # print("original_file,name,nd,Vd")
-    # for glass in sorted(MARVEL_gc.glasses, key=lambda g: g.nd):
-    #     print(f"{glass.original_file.split('.')[0]},{glass.name},{glass.nd},{glass.Vd}")
-
-    MARVEL_gc = MARVEL_gc.filter(
+    MARVEL_gc: GlassCatalogue = MARVEL_gc.filter(
         # status_description=["standard", "preferred"],
         min_wl=390 * u.nm,
         max_wl=950 * u.nm,
@@ -63,10 +57,6 @@ def main() -> None:
 
     MARVEL_gc.plot_Abbe_diagram()
     MARVEL_gc.plot_transmission(wls=np.linspace(0.39, 0.45, 100) * u.um)
-
-    # print("original_file,name,nd,Vd")
-    # for glass in sorted(gc.glasses, key=lambda g: g.nd):
-    #     print(f"{glass.original_file.split('.')[0]},{glass.name},{glass.nd},{glass.Vd}")
 
     # gc.write_AGF("./OUTPUT_CATALOGUE.AGF")
 
