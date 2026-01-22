@@ -6,21 +6,23 @@
 # [tool.uv.sources]
 # curved_air = { path = "..", editable = true }
 # ///
-
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
-from typing import TYPE_CHECKING
 from matplotlib import pyplot as plt
+
+from curved_air.detectors import Detector
+from curved_air.type_hinting import ScalarQuantity
 
 if TYPE_CHECKING:
     from astropy.units import Quantity
 
 from curved_air.glass import GlassCatalogue
-from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.instruments.echelle import DoublePassEchelleSpectrograph
+from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.other import _atomic_lines
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 
@@ -31,7 +33,7 @@ SCRIPT_PATH: Path = Path(__file__).parent
 
 agf_dir: Path = SCRIPT_PATH / "../data/AGFs"
 
-agf_files: list[str] = [
+agf_files: list[Path] = [
     f
     for f in agf_dir.glob("*.[Aa][Gg][Ff]")
     if re.search(pattern="schott", string=f.name)
@@ -42,50 +44,58 @@ if not agf_files:
 
 schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
 
+MIN_WL: ScalarQuantity = 380 * u.nm
+MAX_WL: ScalarQuantity = 950 * u.nm
+
+MARVEL_GRATING: EchelleGrating = EchelleGrating(
+    name="MARVEL Grating",
+    catalogue_number="53-*-417E",
+    groove_frequency=52.67 / u.mm,
+    ruled_width=50 * u.mm,
+    blaze_angle=69.7 * u.deg,
+    gamma_angle=1.2 * u.deg,
+    min_wl=MIN_WL,
+    max_wl=MAX_WL,
+)
+
+PRISM: Prism = Prism(
+    name="45° N-BK7 Prism",
+    glass=schott["N-BK7"],
+    apex_angle=45 * u.deg,
+    incidence_angle=36.3 * u.deg,
+    min_wl=MIN_WL,
+    max_wl=MAX_WL,
+)
+
+DETECTOR: Detector = Detector(
+    name="MiniMARVEL Detector",
+    pixel_size=2.315 * u.um,
+    nx=5644,
+    ny=8288,
+)
+
 
 def main() -> None:
     MiniMARVEL: DoublePassEchelleSpectrograph = DoublePassEchelleSpectrograph(
         name="MiniMARVEL Double-Pass Single-Mode Spectrograph",
-        grating=EchelleGrating(
-            name="MARVEL Grating",
-            catalogue_number="53-*-417E",
-            groove_frequency=52.67 / u.mm,
-            ruled_width=50 * u.mm,
-            blaze_angle=69.7 * u.deg,
-            gamma_angle=1.2 * u.deg,
-        ),
-        cross_disperser=Prism(
-            name="45° N-BK7 Prism",
-            glass=schott["N-BK7"],
-            apex_angle=45 * u.deg,
-            incidence_angle=36.3 * u.deg,
-        ),
-        min_wl=380 * u.nm,
-        max_wl=950 * u.nm,
+        grating=MARVEL_GRATING,
+        cross_disperser=PRISM,
+        min_wl=MIN_WL,
+        max_wl=MAX_WL,
         collimator_focal_length=200 * u.mm,
         camera_focal_length=200 * u.mm,
-        slit_width=1 * u.um,
-        slit_length=1 * u.um,
+        slit_width=5 * u.um,
+        slit_length=5 * u.um,
         slit_native_focal_ratio=6.5,
-        detector_pixel_size=2.315 * u.um,
-        detector_nx=5644,
-        detector_ny=8288,
+        detector=DETECTOR,
     )
 
-    print(f"{MiniMARVEL.slit_magnification = }")
+    MiniMARVEL.print_parameters()
 
-    print(f"{MiniMARVEL.slit_length * MiniMARVEL.slit_magnification = }")
-    print(f"{MiniMARVEL.reddest_order_image_plane_separation = }")
+    fig: plt.Figure = plt.figure("MiniMARVEL spectral format", figsize=(8, 10))
+    ax: plt.Axes = fig.gca()
 
-    print(f"{MiniMARVEL.slit_width = }")
-    print(f"{MiniMARVEL.slit_sampling = }")
-
-    # assert MARVEL.slit_length < MARVEL.reddest_order_image_plane_separation
-
-    fig = plt.figure("MiniMARVEL spectral format", figsize=(8, 10))
-    ax = fig.gca()
-
-    MiniMARVEL.plot_detector_edge(ax=ax)
+    MiniMARVEL.plot_detector_edge(ax=ax, name=False)
 
     ax.text(
         -6.25,
@@ -116,9 +126,7 @@ def main() -> None:
             ax.plot(
                 -xs + offset,
                 ys,
-                color=wavelength_to_rgb(
-                    mean_wl, fade_factor=0.8
-                ),  # ty: ignore[no-matching-overload]
+                color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
                 lw=2.5,
                 # lw=0,
                 # marker=".",
@@ -194,12 +202,10 @@ def main() -> None:
                         },
                     )
 
-    # ax.patch.set_facecolor("black")
-    # ax.axis("off")
     ax.set_aspect("equal")
 
-    # ax.set_xlabel("Image plane position (mm)", size=16)
-    # ax.set_ylabel("Image plane position (mm)", size=16)
+    ax.set_xlabel("Image plane position (mm)", size=16)
+    ax.set_ylabel("Image plane position (mm)", size=16)
 
     plt.axis("off")
 

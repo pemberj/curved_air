@@ -327,12 +327,19 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
         # For now, this only works with a Prism cross-disperser
         assert isinstance(self.cross_disperser, Prism)
 
-        # TODO: how to check if a Quantity is actually a list or array underneath?
-        if isinstance(wavelength, list | tuple):
+        # TODO: how best to check if a Quantity is actually a list or array underneath?
+        if (
+            not isinstance(wavelength, Quantity)
+            and isinstance(wavelength, list | tuple)
+        ) or (isinstance(wavelength, Quantity) and not wavelength.isscalar):
             assert all(isinstance(iwl, Quantity) for iwl in wavelength)
             return [
                 self.image_plane_position(m, wl).to(u.mm).value for wl in wavelength
             ] * u.mm
+
+        # Otherwise, wavelength is a scalar Quantity
+        assert isinstance(wavelength, Quantity)
+        assert wavelength.isscalar
 
         prism_first_pass_angle: Quantity = self.cross_disperser.dispersion_angle(
             wl=wavelength,

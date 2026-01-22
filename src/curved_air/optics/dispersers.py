@@ -499,37 +499,119 @@ class Prism(CrossDisperser):
         field_angle: ScalarQuantity = 0 * u.deg,
     ) -> ArrayQuantity: ...
 
+    @overload
+    def deviation_angle(
+        self,
+        wl: ScalarQuantity,
+        incidence_angle: ArrayQuantity,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def deviation_angle(
+        self,
+        wl: ScalarQuantity,
+        incidence_angle: ScalarQuantity | None = None,
+        field_angle: ArrayQuantity = 0 * u.deg,
+    ) -> ArrayQuantity: ...
+
+    @overload
+    def deviation_angle(
+        self,
+        wl: ArrayQuantity,
+        incidence_angle: ArrayQuantity,
+        field_angle: ArrayQuantity,
+    ) -> ArrayQuantity: ...
+
     def deviation_angle(
         self,
         wl: ScalarQuantity = 0.6328 * u.um,
         incidence_angle: ScalarQuantity | None = None,
         field_angle: ScalarQuantity = 0 * u.deg,
     ) -> Quantity:
-        """
-        TODO: Allow for array inputs?
-        """
-
         if incidence_angle is None:
             assert isinstance(self.incidence_angle, Quantity)
-            assert self.incidence_angle.isscalar
-
             incidence_angle: ScalarQuantity = self.incidence_angle
 
         assert isinstance(wl, Quantity)
         assert isinstance(field_angle, Quantity)
 
-        # Check if both wl and field_angle are lists or arrays
-        if not wl.isscalar and not field_angle.isscalar:
+        if not wl.isscalar:
+            wl: ArrayQuantity = wl.value.flatten() * wl.unit
+            wl_size: int = len(wl)
+        else:
+            wl_size: int = 1
+
+        if not incidence_angle.isscalar:
+            incidence_angle: ArrayQuantity = (
+                incidence_angle.value.flatten() * incidence_angle.unit
+            )
+            incidence_angle_size: int = len(incidence_angle)
+        else:
+            incidence_angle_size: int = 1
+
+        if not field_angle.isscalar:
+            field_angle: ArrayQuantity = field_angle.value.flatten() * field_angle.unit
+            field_angle_size: int = len(field_angle)
+        else:
+            field_angle_size: int = 1
+
+        if any([wl_size > 1, incidence_angle_size > 1, field_angle_size > 1]):
+            # Ensure all inputs are arrays of the same length, OR scalars
+            if wl_size > 1:
+                assert all(
+                    [
+                        (incidence_angle_size == wl_size or incidence_angle_size == 1),
+                        (field_angle_size == wl_size or field_angle_size == 1),
+                    ]
+                )
+            elif incidence_angle_size > 1:
+                assert all(
+                    [
+                        (wl_size == incidence_angle_size or wl_size == 1),
+                        (
+                            field_angle_size == incidence_angle_size
+                            or field_angle_size == 1
+                        ),
+                    ]
+                )
+            elif field_angle_size > 1:
+                assert all(
+                    [
+                        (wl_size == field_angle_size or wl_size == 1),
+                        (
+                            incidence_angle_size == field_angle_size
+                            or incidence_angle_size == 1
+                        ),
+                    ]
+                )
+
+            # Then broadcast scalars to arrays in the full size
+            if wl_size == 1:
+                wl: ArrayQuantity = (
+                    np.full(max(incidence_angle_size, field_angle_size), wl.value)
+                    * wl.unit
+                )
+
+            if incidence_angle_size == 1:
+                incidence_angle: ArrayQuantity = (
+                    np.full(max(wl_size, field_angle_size), incidence_angle.value)
+                    * incidence_angle.unit
+                )
+
+            if field_angle_size == 1:
+                field_angle: ArrayQuantity = (
+                    np.full(max(wl_size, incidence_angle_size), field_angle.value)
+                    * field_angle.unit
+                )
+
             return [
-                self.dispersion_angle(wl=w, field_angle=f).value
-                for w, f in zip(wl, field_angle, strict=False)
+                self.deviation_angle(wl=w, incidence_angle=i, field_angle=f).value
+                for w, i, f in zip(wl, incidence_angle, field_angle, strict=False)
             ] * u.deg
 
-        assert isinstance(wl, Quantity) and wl.isscalar
-        assert isinstance(field_angle, Quantity) and field_angle.isscalar
-
+        # Otherwise, all inputs are scalars
         i: ScalarQuantity = incidence_angle  # shorthand
-
         if field_angle.value != 0:
             effective_apex_angle: ScalarQuantity = self.effective_apex_angle(
                 field_angle=field_angle
@@ -689,14 +771,40 @@ class Prism(CrossDisperser):
         TODO: Allow for EITHER multiple wavelengths or multiple field angles as per overloads
         """
 
-        if isinstance(wl, list | tuple) or (
-            isinstance(wl, Quantity) and not wl.isscalar
-        ):
+        if not wl.isscalar:
+            wl_size: int = len(wl)
+        else:
+            wl_size: int = 1
+
+        if not field_angle.isscalar:
+            field_angle_size: int = len(field_angle)
+        else:
+            field_angle_size: int = 1
+
+        if any([wl_size > 1, field_angle_size > 1]):
+            # Ensure all inputs are arrays of the same length, OR scalars
+            if wl_size > 1:
+                assert field_angle_size == wl_size or field_angle_size == 1, (
+                    f"{field_angle = }, {field_angle_size = }, {wl = }, {wl_size = }"
+                )
+            elif field_angle_size > 1:
+                assert wl_size == field_angle_size or wl_size == 1
+
+            # Then broadcast scalars to arrays in the full size
+            if wl_size == 1:
+                wl: ArrayQuantity = np.full(field_angle_size, wl.value) * wl.unit
+
+            if field_angle_size == 1:
+                field_angle: ArrayQuantity = (
+                    np.full(wl_size, field_angle.value) * field_angle.unit
+                )
+
             return [
                 self.dispersion_angle(wl=w, field_angle=f).value
                 for w, f in zip(wl, field_angle, strict=False)
             ] * u.deg
 
+        # Otherwise, all inputs are scalars
         zero_angle: ScalarQuantity = self.deviation_angle(wl=self.mid_wavelength)
 
         if field_angle.value != 0:
