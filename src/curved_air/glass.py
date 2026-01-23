@@ -505,11 +505,23 @@ class GlassCatalogue(dict):
     * generate plots:
         - Abbe diagram (change reference wavelength)
         - Etc.
+
+    TODO:
+    Take a string, Path, or list thereof as input and auto-generate GlassCatalogue from
+    AGF file(s)
     """
 
-    def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def __init__(
+        self,
+        agf: str | Path | list[str] | list[Path] | None = None,
+        *args,  # noqa: ANN002
+        **kwargs,  # noqa: ANN003
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.glass_list = list(super().keys())
+
+        if agf:
+            self.read_AGF(agf)
 
     def __setitem__(self, key: str, value: Glass) -> None:
         self.glass_list.append(key)
@@ -541,6 +553,9 @@ class GlassCatalogue(dict):
         """
         This function reads in a Zemax-formatted AGF file (as provided by glass
         manufacturers) and creates a GlassCatalogue from this.
+
+        TODO: if the passed-in string is NOT an AGF filename, search the AGFs using that
+        term instead.
         """
 
         if isinstance(agf_filename, list):

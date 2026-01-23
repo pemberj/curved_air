@@ -8,15 +8,12 @@
 # curved_air = { path = "..", editable = true }
 # ///
 
-import re
-from pathlib import Path
-
 import numpy as np
 from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import Detector
-from curved_air.glass import GlassCatalogue
+from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
 from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.other import (  # noqa: F401
@@ -26,24 +23,12 @@ from curved_air.other import (  # noqa: F401
 )
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+from curved_air.utils import agf_files
 
 plt.style.use(plot_style)
 
-SCRIPT_PATH: Path = Path(__file__).parent
 
-
-agf_dir: Path = SCRIPT_PATH / "../data/AGFs"
-
-agf_files: list[Path] = [
-    f
-    for f in agf_dir.glob("*.[Aa][Gg][Ff]")
-    if re.search(pattern="schott", string=f.name)
-]
-
-if not agf_files:
-    raise FileNotFoundError("No AGF files found in the data directory.")
-
-schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+F2: Glass = GlassCatalogue(agf_files("schott"))["F2"]
 
 MIN_WL: ScalarQuantity = 380 * u.nm
 MAX_WL: ScalarQuantity = 950 * u.nm
@@ -61,7 +46,7 @@ MARVEL_GRATING: EchelleGrating = EchelleGrating(
 
 MARVEL_PRISM: Prism = Prism(
     name="MARVEL Prism",
-    glass=schott["F2"],
+    glass=F2,
     apex_angle=60 * u.deg,
     min_wl=MIN_WL,
     max_wl=MAX_WL,
@@ -174,7 +159,7 @@ def main(plot: bool = False) -> None:
         # ax.patch.set_facecolor("black")
         ax.axis("off")
 
-        # plt.savefig(SCRIPT_PATH / "MARVEL-spectral-format.png", dpi=300)
+        # plt.savefig(Path(__file__).parent / "MARVEL-spectral-format.png", dpi=300)
 
         plt.show()
 

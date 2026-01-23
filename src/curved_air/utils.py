@@ -6,6 +6,7 @@ utils
 This module contains utility functions that are used throughout the curved_air package.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,23 @@ from numpy.typing import NDArray
 
 from curved_air.optics.dispersers import EchelleGrating
 from curved_air.type_hinting import ScalarQuantity
+
+
+def agf_files(search: str = "") -> list[Path]:
+    UTILS_PATH: Path = Path(__file__).parent
+
+    agf_dir: Path = UTILS_PATH / "agfs"
+
+    files: list[Path] = [
+        f
+        for f in agf_dir.glob("*.[Aa][Gg][Ff]")
+        if re.search(pattern=search, string=f.name)
+    ]
+
+    if not files:
+        raise FileNotFoundError("No AGF files found in the data directory.")
+
+    return files
 
 
 def richardson_gratings(
