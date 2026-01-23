@@ -15,16 +15,15 @@ from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import Detector
-from curved_air.type_hinting import ScalarQuantity
-
-if TYPE_CHECKING:
-    from astropy.units import Quantity
-
 from curved_air.glass import GlassCatalogue
 from curved_air.instruments.echelle import DoublePassEchelleSpectrograph
 from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.other import _atomic_lines
-from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
+from curved_air.plotting import plot_style, stroke, wavelength_to_rgb
+from curved_air.type_hinting import ScalarQuantity
+
+if TYPE_CHECKING:
+    from astropy.units import Quantity
 
 plt.style.use(plot_style)
 
@@ -84,9 +83,9 @@ def main() -> None:
         max_wl=MAX_WL,
         collimator_focal_length=200 * u.mm,
         camera_focal_length=200 * u.mm,
-        slit_width=5 * u.um,
-        slit_length=5 * u.um,
-        slit_native_focal_ratio=6.5,
+        slit_width=6 * u.um,
+        slit_length=6 * u.um,
+        slit_native_focal_ratio=8,
         detector=DETECTOR,
     )
 
