@@ -1270,7 +1270,7 @@ def _refract(
 
 
 def main() -> None:
-    from curved_air.glass import GlassCatalogue
+    from curved_air.glass import GlassCatalogue  # noqa: PLC0415
 
     F2 = GlassCatalogue("schott")["F2"]
 
