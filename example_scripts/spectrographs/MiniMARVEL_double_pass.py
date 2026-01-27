@@ -4,10 +4,8 @@
 #     "curved-air>=0.2.0",
 # ]
 # [tool.uv.sources]
-# curved_air = { path = "..", editable = true }
+# curved_air = { path = "../..", editable = true }
 # ///
-import re
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -27,21 +25,7 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
-SCRIPT_PATH: Path = Path(__file__).parent
-
-
-agf_dir: Path = SCRIPT_PATH / "../data/AGFs"
-
-agf_files: list[Path] = [
-    f
-    for f in agf_dir.glob("*.[Aa][Gg][Ff]")
-    if re.search(pattern="schott", string=f.name)
-]
-
-if not agf_files:
-    raise FileNotFoundError("No AGF files found in the data directory.")
-
-schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+BK7 = GlassCatalogue("schott")["N-BK7"]
 
 MIN_WL: ScalarQuantity = 380 * u.nm
 MAX_WL: ScalarQuantity = 950 * u.nm
@@ -59,7 +43,7 @@ MARVEL_GRATING: EchelleGrating = EchelleGrating(
 
 PRISM: Prism = Prism(
     name="45° N-BK7 Prism",
-    glass=schott["N-BK7"],
+    glass=BK7,
     apex_angle=45 * u.deg,
     incidence_angle=36.3 * u.deg,
     min_wl=MIN_WL,

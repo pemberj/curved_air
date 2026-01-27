@@ -518,7 +518,7 @@ class GlassCatalogue(dict):
         **kwargs,  # noqa: ANN003
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.glass_list = list(super().keys())
+        self.glass_list: list[str] = list(super().keys())
 
         if agf:
             self.read_AGF(agf)
@@ -558,13 +558,18 @@ class GlassCatalogue(dict):
         term instead.
         """
 
+        if isinstance(agf_filename, str):
+            if "." not in agf_filename:
+                from curved_air.utils import agf_files  # noqa: PLC0415
+
+                agf_filename: list[Path] = agf_files(agf_filename)
+            else:
+                agf_filename: Path = Path(agf_filename)
+
         if isinstance(agf_filename, list):
             for f in agf_filename:
                 self.read_AGF(f)
             return self
-
-        if isinstance(agf_filename, str):
-            agf_filename: Path = Path(agf_filename)
 
         assert isinstance(agf_filename, Path)
 

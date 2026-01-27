@@ -4,7 +4,7 @@
 #     "curved-air>=0.1.0",
 # ]
 # [tool.uv.sources]
-# curved_air = { path = "..", editable = true }
+# curved_air = { path = "../..", editable = true }
 # ///
 from pathlib import Path
 from typing import TYPE_CHECKING

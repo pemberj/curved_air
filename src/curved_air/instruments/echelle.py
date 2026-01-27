@@ -20,7 +20,11 @@ from astropy import units as u
 from astropy.units import Quantity
 
 from curved_air.detectors import Detector
-from curved_air.optics.dispersers import EchelleGrating, Grism, Prism, SimpleGrating
+from curved_air.optics.dispersers import (
+    CrossDisperser,
+    EchelleGrating,
+    Prism,
+)
 
 if TYPE_CHECKING:
     from matplotlib import pyplot as plt
@@ -32,7 +36,7 @@ if TYPE_CHECKING:
 class EchelleSpectrograph:
     name: str = ""
     grating: EchelleGrating = field(default_factory=EchelleGrating)
-    cross_disperser: Prism | Grism | SimpleGrating = field(default_factory=Prism)
+    cross_disperser: CrossDisperser = field(default_factory=Prism)
     detector: Detector = field(default_factory=Detector)
 
     beam_diameter: ScalarQuantity | None = None

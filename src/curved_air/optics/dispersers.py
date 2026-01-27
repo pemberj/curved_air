@@ -914,6 +914,91 @@ class Prism(CrossDisperser):
 
 
 @dataclass
+class TwoPrisms(CrossDisperser):
+    prism1: Prism = field(default_factory=Prism)
+    prism2: Prism = field(default_factory=Prism)
+
+    def __post_init__(self) -> None:
+        self.prism1.min_wl: Quantity | None = self.min_wl
+        self.prism2.min_wl: Quantity | None = self.min_wl
+
+        if self.incidence_angle is None:
+            self.incidence_angle: ScalarQuantity = self.prism1.incidence_angle
+
+        if self.min_wl is None:
+            assert isinstance(self.prism1.min_wl, Quantity)
+            assert isinstance(self.prism2.min_wl, Quantity)
+            self.min_wl: ScalarQuantity = min(self.prism1.min_wl, self.prism2.min_wl)
+
+        if self.max_wl is None:
+            assert isinstance(self.prism1.max_wl, Quantity)
+            assert isinstance(self.prism2.max_wl, Quantity)
+            self.max_wl: ScalarQuantity = max(self.prism1.max_wl, self.prism2.max_wl)
+
+    def dispersion_angle(
+        self,
+        wl: Quantity = 550 * u.nm,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> Quantity:
+        """
+        Calculate the total dispersion angle from both prisms.
+        """
+
+        first_prism_angle: Quantity = self.prism1.dispersion_angle(
+            wl=wl, field_angle=field_angle
+        )
+
+        assert isinstance(self.prism2.incidence_angle, Quantity)
+        p2 = Prism(
+            glass=self.prism2.glass,
+            apex_angle=self.prism2.apex_angle,
+            incidence_angle=(
+                first_prism_angle.to(u.deg).value
+                + self.prism2.incidence_angle.to(u.deg).value
+            )
+            * u.deg,
+        )
+
+        second_prism_angle: Quantity = p2.dispersion_angle(
+            wl=wl, field_angle=field_angle
+        )
+
+        return second_prism_angle
+
+    def deviation_angle(
+        self,
+        wl: Quantity = 550 * u.nm,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> Quantity:
+        """
+        Calculate the total deviation angle from both prisms.
+        """
+
+        first_prism_angle: Quantity = self.prism1.deviation_angle(
+            wl=wl,
+            field_angle=field_angle,
+        )
+
+        assert isinstance(self.prism2.incidence_angle, Quantity)
+        p2 = Prism(
+            glass=self.prism2.glass,
+            apex_angle=self.prism2.apex_angle,
+            incidence_angle=(
+                first_prism_angle.to(u.deg).value
+                + self.prism2.incidence_angle.to(u.deg).value
+            )
+            * u.deg,
+        )
+
+        second_prism_angle: Quantity = p2.deviation_angle(
+            wl=wl,
+            field_angle=field_angle,
+        )
+
+        return second_prism_angle
+
+
+@dataclass
 class Grism(CrossDisperser):
     apex_angle: ScalarQuantity = 0 * u.deg
     glass: Glass = field(default_factory=Glass)
@@ -1184,7 +1269,27 @@ def _refract(
     return theta_out.to(u.degree)
 
 
-def main() -> None: ...
+def main() -> None:
+    from curved_air.glass import GlassCatalogue
+
+    F2 = GlassCatalogue("schott")["F2"]
+
+    TwoES_XD = TwoPrisms(
+        prism1=Prism(
+            glass=F2,
+            apex_angle=30 * u.deg,
+            incidence_angle=50 * u.deg,
+        ),
+        prism2=Prism(
+            glass=F2,
+            apex_angle=30 * u.deg,
+            incidence_angle=50 * u.deg,
+        ),
+        min_wl=0.4 * u.um,
+        max_wl=0.9 * u.um,
+    )
+
+    print(TwoES_XD.dispersion_angle(wl=0.55 * u.um, field_angle=0 * u.deg))
 
 
 if __name__ == "__main__":

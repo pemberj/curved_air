@@ -5,7 +5,7 @@
 #     "rich>=10.0.0",
 # ]
 # [tool.uv.sources]
-# curved_air = { path = "..", editable = true }
+# curved_air = { path = "../..", editable = true }
 # ///
 
 import numpy as np
@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from curved_air.detectors import Detector
 from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
-from curved_air.optics.dispersers import EchelleGrating, Prism
+from curved_air.optics.dispersers import EchelleGrating, Prism, TwoPrisms
 from curved_air.other import (  # noqa: F401
     _atomic_lines,
     _balmer_lines,
@@ -23,36 +23,46 @@ from curved_air.other import (  # noqa: F401
 )
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
-from curved_air.utils import agf_files
+
+# from curved_air.utils import agf_files
 
 plt.style.use(plot_style)
 
 
-F2: Glass = GlassCatalogue(agf_files("schott"))["F2"]
+F2: Glass = GlassCatalogue("schott")["F2"]
 
-MIN_WL: ScalarQuantity = 380 * u.nm
-MAX_WL: ScalarQuantity = 950 * u.nm
+MIN_WL: ScalarQuantity = 370 * u.nm
+MAX_WL: ScalarQuantity = 900 * u.nm
 
-MARVEL_GRATING: EchelleGrating = EchelleGrating(
-    name="MARVEL Grating",
+TwoES_GRATING: EchelleGrating = EchelleGrating(
+    name="TwoES Grating",
     catalogue_number="53-*-417E",
-    groove_frequency=52.67 / u.mm,
-    ruled_width=400 * u.mm,
-    blaze_angle=69.7 * u.deg,
-    gamma_angle=0.3 * u.deg,
+    groove_frequency=31.6 / u.mm,
+    ruled_width=800 * u.mm,
+    blaze_angle=76 * u.deg,
+    gamma_angle=0.5 * u.deg,
     min_wl=MIN_WL,
     max_wl=MAX_WL,
 )
 
-MARVEL_PRISM: Prism = Prism(
-    name="MARVEL Prism",
-    glass=F2,
-    apex_angle=60 * u.deg,
+TwoES_PRISMS: TwoPrisms = TwoPrisms(
+    prism1=Prism(
+        name="TwoES Prism 1",
+        glass=F2,
+        apex_angle=30 * u.deg,
+        incidence_angle=60 * u.deg,
+    ),
+    prism2=Prism(
+        name="TwoES Prism 2",
+        glass=F2,
+        apex_angle=30 * u.deg,
+        incidence_angle=500 * u.deg,
+    ),
     min_wl=MIN_WL,
     max_wl=MAX_WL,
 )
 
-MARVEL_DETECTOR: Detector = Detector(
+TwoES_DETECTOR: Detector = Detector(
     name="STA1600",
     pixel_size=9 * u.um,
     nx=10560,
@@ -61,25 +71,25 @@ MARVEL_DETECTOR: Detector = Detector(
 
 
 def main(plot: bool = False) -> None:
-    MARVEL: EchelleSpectrograph = EchelleSpectrograph(
-        name="MARVEL Spectrograph",
-        grating=MARVEL_GRATING,
-        cross_disperser=MARVEL_PRISM,
-        detector=MARVEL_DETECTOR,
+    TwoES: EchelleSpectrograph = EchelleSpectrograph(
+        name="2ES Spectrograph",
+        grating=TwoES_GRATING,
+        cross_disperser=TwoES_PRISMS,
+        detector=TwoES_DETECTOR,
         min_wl=MIN_WL,
         max_wl=MAX_WL,
-        collimator_focal_length=1125 * u.mm,
-        camera_focal_length=730 * u.mm,
-        slit_width=40 * u.um,
-        slit_length=0.5 * u.mm,
-        slit_native_focal_ratio=3.85,
+        collimator_focal_length=1000 * u.mm,
+        camera_focal_length=700 * u.mm,
+        slit_width=32 * u.um,
+        slit_length=128 * u.um,
+        slit_native_focal_ratio=4,
     ).print_parameters()
 
     if plot:
-        fig: plt.Figure = plt.figure("MARVEL spectral format", figsize=(10, 10))
+        fig: plt.Figure = plt.figure("2ES spectral format", figsize=(10, 10))
         ax: plt.Axes = fig.gca()
 
-        MARVEL.plot_detector_edge(ax=ax)
+        TwoES.plot_detector_edge(ax=ax)
 
         b = 50
 
@@ -89,22 +99,22 @@ def main(plot: bool = False) -> None:
         ax.set_aspect("equal")
 
         for f in range(1):  # number of fibres
-            offset: ScalarQuantity = f * 130 * u.um * MARVEL.slit_magnification
-            for m in MARVEL.spectral_orders:
-                wls: ArrayQuantity = MARVEL.order_wavelengths(m=m)
+            offset: ScalarQuantity = f * 130 * u.um * TwoES.slit_magnification
+            for m in TwoES.spectral_orders:
+                wls: ArrayQuantity = TwoES.order_wavelengths(m=m)
                 mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
 
-                xs, ys = np.transpose(MARVEL.image_plane_position(m=m, wavelength=wls))
+                xs, ys = np.transpose(TwoES.image_plane_position(m=m, wavelength=wls))
                 ax.plot(
                     xs + offset,
                     ys,
                     color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
-                    lw=3.5,
-                    # path_effects=stroke(thickness=3.5),
+                    lw=2.5,
+                    path_effects=stroke(thickness=5),
                 )
 
                 if m % 5 == 0:
-                    if m == 90:  # noqa: PLR2004
+                    if m == 165:  # noqa: PLR2004
                         mtext = f"{m = }"
                         wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
                     else:
@@ -116,7 +126,7 @@ def main(plot: bool = False) -> None:
 
                     ax.text(
                         (xs[0] + offset).value,
-                        ys[0].value - 1.5,
+                        ys[0].value - 2,
                         mtext,
                         fontsize=14,
                         ha="center",
@@ -128,18 +138,18 @@ def main(plot: bool = False) -> None:
 
                     ax.text(
                         (xs[-1] + offset).value,
-                        ys[-1].value + 1.5,
+                        ys[-1].value + 2,
                         wltext,
                         fontsize=14,
                         ha="center",
                         va="bottom",
                     )
 
-                min_FSR_wl, max_FSR_wl = MARVEL.grating.order_FSR_bounds(m=m)
+                min_FSR_wl, max_FSR_wl = TwoES.grating.order_FSR_bounds(m=m)
 
                 for name, wl in _atomic_lines.items():
                     if min_FSR_wl <= wl <= max_FSR_wl:
-                        x, y = MARVEL.image_plane_position(m=m, wavelength=wl)
+                        x, y = TwoES.image_plane_position(m=m, wavelength=wl)
 
                         ax.text(
                             x.value,
@@ -159,7 +169,7 @@ def main(plot: bool = False) -> None:
         # ax.patch.set_facecolor("black")
         ax.axis("off")
 
-        # plt.savefig(Path(__file__).parent / "MARVEL-spectral-format.png", dpi=300)
+        # plt.savefig(Path(__file__).parent / "TwoES-spectral-format.png", dpi=300)
 
         plt.show()
 
