@@ -54,7 +54,7 @@ class Detector:
                 -(halfy + 1),
                 self.name,
                 fontsize=18,
-                ha="right",
+                ha="left",
                 va="top",
                 alpha=0.5,
             )
