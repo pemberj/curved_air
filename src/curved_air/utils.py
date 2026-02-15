@@ -47,7 +47,7 @@ def richardson_gratings(
     """
 
     if not filename:
-        data_dir = Path(__file__).parent / ".." / ".." / "data"
+        data_dir = Path(__file__).parent / "gratings"
         files = list(data_dir.glob("richardson-echelle-T3.csv"))
         assert len(files) == 1
         file = files[0]

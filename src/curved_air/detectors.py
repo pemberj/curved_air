@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from astropy import units as u
 
@@ -20,6 +20,7 @@ class Detector:
     pixel_size: ScalarQuantity = 9 * u.um
     nx: int = 10560
     ny: int = 10560
+    reference: Any | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.pixel_size, int | float):
@@ -65,6 +66,7 @@ STA1600 = Detector(
     pixel_size=9 * u.um,
     nx=10560,
     ny=10560,
+    reference="http://www.sta-inc.net/wp-content/uploads/2010/08/STA1600LN_011614_v3.pdf",
 )
 
 H4RG_15 = Detector(
@@ -72,6 +74,7 @@ H4RG_15 = Detector(
     pixel_size=15 * u.um,
     nx=4096,
     ny=4096,
+    reference="https://www.teledyne-si.com/what-we-do/products-and-services/hawaii-4rg",
 )
 
 H4RG_10 = Detector(
@@ -79,6 +82,7 @@ H4RG_10 = Detector(
     pixel_size=10 * u.um,
     nx=4096,
     ny=4096,
+    reference="https://www.teledyne-si.com/what-we-do/products-and-services/hawaii-4rg",
 )
 
 H2RG_18 = Detector(
@@ -86,4 +90,17 @@ H2RG_18 = Detector(
     pixel_size=18 * u.um,
     nx=2048,
     ny=2048,
+    reference="https://www.teledyne-si.com/en-us/Products-and-Services_/Documents/Infrared%20and%20Visible%20FPAs/TSI-0855%20H2RG%20Brochure-25Feb2022.pdf",
 )
+
+e2v_9k = Detector(
+    name="e2v CCD290-99",
+    pixel_size=10 * u.um,
+    nx=9216,
+    ny=9232,
+    reference="https://www.teledynespaceimaging.com/en-us/Products_/Pages/CCD290-99.aspx",
+)
+
+DETECTORS: dict[str, Detector] = {
+    d.name: d for d in [STA1600, H4RG_15, H4RG_10, H2RG_18, e2v_9k]
+}

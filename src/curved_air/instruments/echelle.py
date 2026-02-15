@@ -237,10 +237,14 @@ class EchelleSpectrograph:
         return (1 / (spatial_dispersion / self.slit_image_width)).to(wl.unit)
 
     @overload
-    def spectral_resolution(self, wl: ScalarQuantity) -> float: ...
+    def spectral_resolution(
+        self, wl: ScalarQuantity, m: int | None = None
+    ) -> float: ...
 
     @overload
-    def spectral_resolution(self, wl: ArrayQuantity) -> list[float]: ...
+    def spectral_resolution(
+        self, wl: ArrayQuantity, m: int | None = None
+    ) -> list[float]: ...
 
     def spectral_resolution(
         self,
