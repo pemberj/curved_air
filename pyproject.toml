@@ -17,11 +17,13 @@ dependencies = [
     "matplotlib>=3.9.2",
     "numpy>=2.1.3",
     "pandas>=2.2.3",
+    "plotly>=6.5.2",
     "pyfonts>=0.0.2",
     "pyqt6>=6.8.0",
     "ref-index>=1.0",
     "rich>=14.0.0",
     "scipy>=1.14.1",
+    "streamlit>=1.54.0",
     "tqdm>=4.67.1",
 ]
 
