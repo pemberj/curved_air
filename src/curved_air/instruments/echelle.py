@@ -42,7 +42,7 @@ class EchelleSpectrograph:
     beam_diameter: ScalarQuantity | None = None
     min_wl: ScalarQuantity | None = 390 * u.nm
     max_wl: ScalarQuantity | None = 950 * u.nm
-    collimator_focal_length: ScalarQuantity = 1125 * u.mm
+    collimator_focal_length: ScalarQuantity | None = 1125 * u.mm
     slit_width: ScalarQuantity = 40 * u.um
     slit_length: ScalarQuantity = 0.5 * u.mm
     slit_native_focal_ratio: float = 3.85
@@ -67,10 +67,16 @@ class EchelleSpectrograph:
 
     @property
     def collimator_focal_ratio(self) -> float:
+        if self.collimator_focal_length is None or self.beam_diameter is None:
+            raise ValueError(
+                "Collimator focal length and beam diameter must be defined."
+            )
         return self.collimator_focal_length / self.beam_diameter
 
     @property
     def camera_focal_ratio(self) -> float:
+        if self.camera_focal_length is None or self.beam_diameter is None:
+            raise ValueError("Camera focal length and beam diameter must be defined.")
         return self.camera_focal_length / self.beam_diameter
 
     @property
