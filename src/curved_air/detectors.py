@@ -51,11 +51,11 @@ class Detector:
 
         if name:
             ax.text(
-                -(halfx),
-                -(halfy + 1),
-                self.name,
+                x=0,
+                y=-(halfy + 1),
+                s=self.name,
                 fontsize=18,
-                ha="left",
+                ha="center",
                 va="top",
                 alpha=0.5,
             )
