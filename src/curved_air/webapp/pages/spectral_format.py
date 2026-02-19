@@ -366,7 +366,7 @@ with st.sidebar:
             options=["Vertical (y)", "Horizontal (x)"],
             default="Vertical (y)",
             key="sf_dispersion_direction",
-        )
+        )  # type: ignore
 
         label_orders: bool = st.toggle(
             label="Label diffraction orders?", value=True, key="sf_label_orders"
@@ -382,13 +382,13 @@ with st.sidebar:
 
         st.divider()
 
-        plot_type: str = st.pills(
+        plot_type: str | list[str] = st.pills(
             label="Plot type",
             selection_mode="multi",
             options=["Plotly (interactive)", "Matplotlib (static)"],
             default=["Plotly (interactive)"],
             key="sf_plot_type",
-        )
+        )  # type: ignore
 
     st.button("Recompute", type="primary")
 
