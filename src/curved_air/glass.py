@@ -575,7 +575,7 @@ class GlassCatalogue(dict):
 
         original_file: str = agf_filename.name
 
-        print(f"Reading file: {original_file:<20}")
+        # print(f"Reading file: {original_file:<20}")
 
         p: Path = agf_filename
 
