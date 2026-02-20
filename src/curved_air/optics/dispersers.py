@@ -179,6 +179,12 @@ class EchelleGrating(Disperser):
         m: int | list[int] | tuple[int] | np.ndarray,
         FSR_fraction: float = 1.0,
     ) -> ScalarQuantity | ArrayQuantity:
+        """
+        The free spectral range (FSR) of a given diffraction order is the spectral
+        width (in units of wavelength) of wavelengths that appear closest to THIS
+        order's blaze peak. Any further and the wavelength in question appears closer
+        to another order's blaze peak.
+        """
         if isinstance(m, list | tuple | np.ndarray):
             ms: list[int] = [int(im) for im in m]
             return [self.order_FSR(m).to(u.nm).value for m in ms] * u.nm
@@ -191,6 +197,11 @@ class EchelleGrating(Disperser):
         return FSR_fraction * (m_wavelength - m_plus_one_wavelength).to(u.nm)
 
     def order_FSR_bounds(self, m: int, FSR_fraction: float = 1.0) -> ArrayQuantity:
+        """
+        Return the wavelength bounds that define the given order's free spectral range.
+        These bounds can be used to generate a grid of wavelengths that trace out this
+        order.
+        """
         FSR: ScalarQuantity = (
             self.order_FSR(m=m, FSR_fraction=FSR_fraction).to(u.nm).value
         )
