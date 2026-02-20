@@ -472,7 +472,7 @@ with c1:
     st.markdown(magnification_string, text_alignment="center")
 
 with c2:
-    sampling: tuple[float] = tuple(
+    sampling: tuple[float, ...] = tuple(
         [
             spectrograph.slit_sampling * a
             for a in spectrograph.anamorphic_magnification()
@@ -502,8 +502,8 @@ with c2:
 with c4:
     st.markdown("Minimum order separation", text_alignment="center")
 
-    red_sep: float = spectrograph.reddest_order_image_plane_separation
-    blue_sep: float = spectrograph.bluest_order_image_plane_separation
+    red_sep: ScalarQuantity = spectrograph.reddest_order_image_plane_separation
+    blue_sep: ScalarQuantity = spectrograph.bluest_order_image_plane_separation
 
     if min(red_sep, blue_sep) < spectrograph.slit_image_length:
         st.markdown(
