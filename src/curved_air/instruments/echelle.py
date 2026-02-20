@@ -262,6 +262,31 @@ class EchelleSpectrograph:
 
         return [(iwl / self.resolution_element(wl=iwl, m=m)).si.value for iwl in wl]
 
+    def anamorphic_magnification(
+        self,
+        m: int | None = None,
+        FSR_fraction: float = 1.0,
+    ) -> tuple[float]:
+        """
+        Gives the effective magnification factor at each end of a given spectral order.
+        If no order is specified, the order corresponding to the maximum wavelength is
+        used.
+
+        Anamorphic magnification arises from a difference in projected grating (pupil)
+        size as a function of diffraction angle. For longer (larger opening angle)
+        orders, this effect is larger.
+        """
+
+        if m is None:
+            m: int = self.order_number(self.max_wl, quantised=True)
+
+        wls: ArrayQuantity = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
+
+        return (
+            self.grating.anamorphic_magnification(m=m, wl=wls[0]),
+            self.grating.anamorphic_magnification(m=m, wl=wls[1]),
+        )
+
     def print_parameters(self) -> EchelleSpectrograph:
         print(f"{'Collimated beam diameter:':<30}", end="")
         print(f"{self.beam_diameter:.3g}")

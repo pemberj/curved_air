@@ -443,10 +443,12 @@ spectrograph: EchelleSpectrograph = EchelleSpectrograph(
     slit_native_focal_ratio=slit_focal_ratio,
 )
 
+anamorphism: tuple[float] = spectrograph.anamorphic_magnification()
+
 # Summary
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Slit magnification", f"{spectrograph.slit_magnification:.3f}x")
-c2.metric("Slit sampling", f"{spectrograph.slit_sampling:.2f} pixels")
+c2.metric("Slit sampling", f"{spectrograph.slit_sampling * anamorphism:.2f} pixels")
 c3.metric("Number of orders", f"{len(spectrograph.spectral_orders)}")
 c4.metric(
     "Minimum order separation",
