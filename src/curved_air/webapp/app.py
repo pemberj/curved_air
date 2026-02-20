@@ -16,14 +16,9 @@ st.set_page_config(
 
 # ── Navigation ──────────────────────────────────────────────────────────────
 pages: dict[str, list] = {
-    "Home": [
+    "": [
         st.Page("pages/home.py", title="Home", icon="🏠"),
-    ],
-    "Calculators": [
-        # st.Page("pages/echelle_grating.py", title="Echelle Grating", icon="🔬"),
         st.Page("pages/spectral_format.py", title="Spectral Format", icon="🌈"),
-        # st.Page("pages/prism.py", title="Prism Dispersion", icon="🔺"),
-        # st.Page("pages/etalon.py", title="Etalon / Fabry-Pérot", icon="💎"),
     ],
 }
 
