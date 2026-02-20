@@ -278,9 +278,11 @@ class EchelleSpectrograph:
         """
 
         if m is None:
-            m: int = self.order_number(self.max_wl, quantised=True)
+            m: int = self.grating.order_number(self.max_wl, quantised=True)
 
-        wls: ArrayQuantity = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
+        wls: ArrayQuantity = self.grating.order_FSR_bounds(
+            m=m, FSR_fraction=FSR_fraction
+        )
 
         return (
             self.grating.anamorphic_magnification(m=m, wl=wls[0]),
