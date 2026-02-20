@@ -105,7 +105,7 @@ class EchelleSpectrograph:
     ) -> ArrayQuantity:
         """ """
 
-        min_m_wl, max_m_wl = self.grating.order_FSR_bounds(
+        min_m_wl, max_m_wl = self.grating.order_angular_FSR_bounds(
             m=m,
             FSR_fraction=FSR_fraction,
         )

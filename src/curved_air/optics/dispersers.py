@@ -209,11 +209,33 @@ class EchelleGrating(Disperser):
 
         return (blaze_wavelength - FSR / 2, blaze_wavelength + FSR / 2) * u.nm
 
-    @overload
-    def order_opening_angle(self, m: int) -> Quantity: ...
+    def order_angular_FSR_bounds(
+        self, m: int, FSR_fraction: float = 1.0
+    ) -> ArrayQuantity:
+        """
+        Instead of returning the order bounds based on the FSR in wavelength units,
+        return the FSR based on an order's opening angle. This should make the orders
+        symmetric about the blaze peak -- much nicer!
+        """
+
+        return [
+            self.wavelength_at_angle(m=m, angle=self.blaze_angle + a).to(u.um).value
+            for a in self.order_opening_angle(
+                m=m,
+                FSR_fraction=FSR_fraction,
+                return_bounds=True,
+            )
+        ] * u.um
 
     @overload
-    def order_opening_angle(self, m: list[int]) -> list[Quantity]: ...
+    def order_opening_angle(
+        self, m: int, FSR_fraction: float = 1.0, return_bounds: bool = False
+    ) -> Quantity: ...
+
+    @overload
+    def order_opening_angle(
+        self, m: list[int], FSR_fraction: float = 1.0, return_bounds: bool = False
+    ) -> tuple[Quantity]: ...
 
     def order_opening_angle(
         self,
@@ -224,17 +246,14 @@ class EchelleGrating(Disperser):
         if isinstance(m, list | tuple):
             return [self.order_opening_angle(im) for im in m]
 
-        FSR_bounds = self.order_FSR_bounds(m=m, FSR_fraction=FSR_fraction)
-
-        # angles = (self.diffraction_angle(m, wl = FSR_bounds[0]),
-        #           self.diffraction_angle(m, wl = FSR_bounds[1]))
-
-        angles: Quantity = self.diffraction_angle(m=m, wl=FSR_bounds)
-
         if return_bounds:
-            return angles
+            return (
+                (-FSR_fraction * np.tan(self.blaze_angle) * u.radian / m).to(u.deg),
+                (FSR_fraction * np.tan(self.blaze_angle) * u.radian / m).to(u.deg),
+            )
 
-        return max(angles) - min(angles)
+        # Otherwise, just return the opening angle
+        return (FSR_fraction * 2 * np.tan(self.blaze_angle) * u.rad / m).to(u.deg)
 
     @overload
     def diffraction_angle(self, m: int, wl: ScalarQuantity) -> ScalarQuantity: ...
