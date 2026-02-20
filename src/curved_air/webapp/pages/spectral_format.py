@@ -1,8 +1,6 @@
 """
-Spectral Format page.
-
-Build a full echelle spectrograph and visualise the échellogram on the detector
-using interactive Plotly plots.
+This calculator allows for generating a spectral format plot (echellogram) for a given
+echelle spectrograph design configuration.
 """
 
 from __future__ import annotations
@@ -51,14 +49,14 @@ st.header("Spectral Format")
 with st.expander("About this calculator", expanded=False):
     st.markdown(
         """
-        This calculator generates a spectral format plot (echellogram) for a given echelle
-        spectrograph design. Use the sidebar to adjust the spectrograph parameters, and the
-        format plot will update automatically.
-        You can hover over the plot to see the wavelength and position of each point on the
-        detector.
+        This calculator generates a spectral format plot (echellogram) for a given
+        echelle spectrograph design. Use the sidebar to adjust the spectrograph
+        parameters, and the format plot will update automatically.
+        You can hover over the plot to see the wavelength and position of each point on
+        the detector.
 
-        This is meant for quick exploration of the top-level spectrograph design space. The
-        results shown here may differ from a more detailed ray-tracing analysis.
+        This is meant for quick exploration of the top-level spectrograph design space.
+        The results shown here may differ from a more detailed ray-tracing analysis.
 
         All code is written by [Jake Pember](https://github.com/pemberj/)
 
