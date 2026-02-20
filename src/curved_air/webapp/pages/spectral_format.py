@@ -72,7 +72,7 @@ with st.sidebar:
         grating: EchelleGrating = ECHELLE_GRATINGS[grating]
 
         customise_grating: bool = st.toggle(
-            "Customise grating parameters?", key="sf_custom_grating"
+            "Custom grating parameters", key="sf_custom_grating"
         )
 
         if customise_grating:
@@ -119,9 +119,10 @@ with st.sidebar:
             gamma_angle: float = grating.gamma_angle.to(u.deg)
 
     with st.expander(label="Cross-disperser", expanded=False):
-        xd_type = st.selectbox(
+        xd_type = st.pills(
             "Type",
-            ["Prism", "Simple grating"],
+            ["Prism", "Grating"],
+            default="Prism",
             key="sf_xd",
         )
 
@@ -168,7 +169,7 @@ with st.sidebar:
                 * u.deg
             )
 
-        else:
+        else:  # Grating
             xd_groove_freq = (
                 st.number_input(
                     "Cross-disp grooves / mm",
@@ -183,23 +184,39 @@ with st.sidebar:
             )
 
     with st.expander(label="Wavelength range", expanded=False):
-        min_wl = (
+        # Two-point slider
+
+        # wl_range: tuple[float] = st.slider(
+        #     "Wavelength range",
+        #     min_value=100.0,
+        #     value=[380.0, 950.0],
+        #     max_value=2500.0,
+        #     step=5.0,
+        #     key="sf_wlrange",
+        # )
+
+        # min_wl: float = min(wl_range)
+        # max_wl: float = max(wl_range)
+
+        min_wl: float = (
             st.number_input(
                 "Min λ (nm)",
                 min_value=100.0,
                 max_value=5000.0,
                 value=380.0,
+                step=5.0,
                 key="sf_minwl",
             )
             * u.nm
         )
 
-        max_wl = (
+        max_wl: float = (
             st.number_input(
                 "Max λ (nm)",
                 min_value=100.0,
                 max_value=5000.0,
-                value=900.0,
+                value=950.0,
+                step=5.0,
                 key="sf_maxwl",
             )
             * u.nm
@@ -369,15 +386,15 @@ with st.sidebar:
         )  # type: ignore
 
         label_orders: bool = st.toggle(
-            label="Label diffraction orders?", value=True, key="sf_label_orders"
+            label="Label diffraction orders", value=True, key="sf_label_orders"
         )
 
         label_wavelengths: bool = st.toggle(
-            label="Label wavelengths?", value=True, key="sf_label_wavelengths"
+            label="Label wavelengths", value=True, key="sf_label_wavelengths"
         )
 
         label_atomic_lines: bool = st.toggle(
-            label="Label atomic lines?", value=False, key="sf_label_atomic_lines"
+            label="Label atomic lines", value=False, key="sf_label_atomic_lines"
         )
 
         st.divider()
