@@ -34,6 +34,18 @@ if TYPE_CHECKING:
 plt.style.use(plot_style)
 
 
+def _wl_to_hex(wl_nm: float) -> str:
+    r: float
+    g: float
+    b: float
+
+    r, g, b = wavelength_to_rgb(wl_nm * u.nm)[:3]
+    return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+
+DEFAULT_WARN = False
+
+
 st.header("Spectral Format")
 
 with st.expander("About this calculator", expanded=False):
@@ -47,6 +59,10 @@ with st.expander("About this calculator", expanded=False):
 
         This is meant for quick exploration of the top-level spectrograph design space. The
         results shown here may differ from a more detailed ray-tracing analysis.
+
+        All code is written by [Jake Pember](https://github.com/pemberj/)
+
+        Please get in contact if you have any questions, suggestions, or find any bugs!
         """
     )
 
@@ -228,7 +244,7 @@ with st.sidebar:
                 "Slit width (µm)",
                 min_value=5.0,
                 max_value=2000.0,
-                value=25.0,
+                value=40.0,
                 step=5.0,
                 key="sf_slit_width",
             )
@@ -257,29 +273,6 @@ with st.sidebar:
         )
 
     with st.expander(label="Collimator and Camera", expanded=False):
-        # which_optics_to_specify = st.pills(
-        #     "Which optics to specify?",
-        #     options=["Collimator focal length", "Collimated beam diameter"],
-        #     default="Collimator focal length",
-        #     key="sf_optics_spec",
-        # )
-
-        # if which_optics_to_specify == "Collimator focal length":
-        #     f_col = (
-        #         st.number_input(
-        #             "Collimator FL (mm)",
-        #             min_value=100.0,
-        #             max_value=5000.0,
-        #             value=1125.0,
-        #             step=25.0,
-        #             key="sf_fcol",
-        #         )
-        #         * u.mm
-        #     )
-
-        #     beam_diameter = None
-
-        # elif which_optics_to_specify == "Collimated beam diameter":
         if True:  # Temp
             beam_diameter = (
                 st.number_input(
@@ -321,15 +314,15 @@ with st.sidebar:
         )
 
         customise_detector: bool = st.toggle(
-            "Customise detector?", key="sf_custom_detector"
+            "Customise detector", value=False, key="sf_custom_detector"
         )
 
         if customise_detector:
-            det_name = st.text_input(
+            det_name: str = st.text_input(
                 "Detector name", value=DETECTORS[detector].name, key="sf_det_name"
             )
 
-            px_size = (
+            px_size: ScalarQuantity = (
                 st.number_input(
                     "Pixel size (µm)",
                     min_value=1.0,
@@ -341,7 +334,7 @@ with st.sidebar:
                 * u.um
             )
 
-            n_x = st.number_input(
+            n_x: int = st.number_input(
                 "Pixels (x)",
                 min_value=256,
                 max_value=20000,
@@ -350,7 +343,7 @@ with st.sidebar:
                 key="sf_nx",
             )
 
-            n_y = st.number_input(
+            n_y: int = st.number_input(
                 "Pixels (y)",
                 min_value=256,
                 max_value=20000,
@@ -360,13 +353,13 @@ with st.sidebar:
             )
 
         else:
-            det_name = DETECTORS[detector].name
-            px_size = DETECTORS[detector].pixel_size.to(u.um)
-            n_x = DETECTORS[detector].nx
-            n_y = DETECTORS[detector].ny
+            det_name: str = DETECTORS[detector].name
+            px_size: ScalarQuantity = DETECTORS[detector].pixel_size.to(u.um)
+            n_x: int = DETECTORS[detector].nx
+            n_y: int = DETECTORS[detector].ny
 
-        det_name_toggle = st.toggle(
-            "Show detector name in plot?", key="sf_det_name_toggle"
+        det_name_toggle: bool = st.toggle(
+            "Show detector name in plot", value=True, key="sf_det_name_toggle"
         )
 
     with st.expander(label="Plot Format Options", expanded=False):
@@ -407,7 +400,14 @@ with st.sidebar:
             key="sf_plot_type",
         )  # type: ignore
 
-    st.button("Recompute", type="primary")
+    st.space(10)
+
+    warn: bool = st.toggle("Warn about possible design issues", value=DEFAULT_WARN)
+
+    st.space(10)
+
+    with st.container(horizontal_alignment="center"):
+        st.button("Recompute", type="primary")
 
 
 # Create Spectrograph
@@ -415,7 +415,7 @@ with st.sidebar:
 MIN_WL: ScalarQuantity = min_wl.to(u.nm)
 MAX_WL: ScalarQuantity = max_wl.to(u.nm)
 
-grating: EchelleGrating = EchelleGrating(
+GRATING: EchelleGrating = EchelleGrating(
     groove_frequency=groove_freq,
     blaze_angle=blaze_angle,
     gamma_angle=gamma_angle,
@@ -426,20 +426,20 @@ grating: EchelleGrating = EchelleGrating(
 
 if xd_type == "Prism":
     glass: Glass = glasses[glass_name]
-    cross_disperser: CrossDisperser = Prism(
+    CROSS_DISPERSER: CrossDisperser = Prism(
         glass=glass,
         apex_angle=apex_angle,
         min_wl=MIN_WL,
         max_wl=MAX_WL,
     )
 else:
-    cross_disperser: CrossDisperser = SimpleGrating(
+    CROSS_DISPERSER: CrossDisperser = SimpleGrating(
         groove_frequency=xd_groove_freq,
         min_wl=MIN_WL,
         max_wl=MAX_WL,
     )
 
-detector: Detector = Detector(
+DETECTOR: Detector = Detector(
     name=det_name,
     pixel_size=px_size,
     nx=int(n_x),
@@ -447,12 +447,12 @@ detector: Detector = Detector(
 )
 
 spectrograph: EchelleSpectrograph = EchelleSpectrograph(
-    beam_diameter=beam_diameter,
-    grating=grating,
-    cross_disperser=cross_disperser,
-    detector=detector,
+    grating=GRATING,
+    cross_disperser=CROSS_DISPERSER,
+    detector=DETECTOR,
     min_wl=MIN_WL,
     max_wl=MAX_WL,
+    beam_diameter=beam_diameter,
     collimator_focal_length=f_col,
     camera_focal_length=f_cam,
     slit_width=slit_width,
@@ -460,247 +460,178 @@ spectrograph: EchelleSpectrograph = EchelleSpectrograph(
     slit_native_focal_ratio=slit_focal_ratio,
 )
 
-sampling: tuple[float] = tuple(
-    [spectrograph.slit_sampling * a for a in spectrograph.anamorphic_magnification()]
-)
 
 # Summary
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Slit magnification", f"{spectrograph.slit_magnification:.3f}x")
-c2.metric("Slit sampling", f"{min(sampling):.1f}—{max(sampling):.1f} pixels")
-c3.metric("Number of orders", f"{len(spectrograph.spectral_orders)}")
-c4.metric(
-    "Minimum order separation",
-    f"{(min(spectrograph.reddest_order_image_plane_separation, spectrograph.bluest_order_image_plane_separation) / detector.pixel_size).si:.2f} pixels",
+c1, c2, c3, c4, c5 = st.columns(
+    5, gap="xxsmall", vertical_alignment="top", border=True, width="stretch"
 )
-try:
-    R: float = spectrograph.spectral_resolution(wl=0.55 * u.um)
-    c5.metric("R = λ/Δλ @ 550 nm", f"{R:,.0f}")
-except Exception:
-    c5.metric("R = λ/Δλ @ 550 nm", "—")
 
+with c1:
+    magnification_string = f":blue-badge[{spectrograph.slit_magnification:.3f}x]"
+    st.markdown("Slit magnification", text_alignment="center")
+    st.markdown(magnification_string, text_alignment="center")
 
-if "Plotly (interactive)" in plot_type:
-    # Plot Echellogram
-    def _wl_to_hex(wl_nm: float) -> str:
-        r: float
-        g: float
-        b: float
+with c2:
+    sampling: tuple[float] = tuple(
+        [
+            spectrograph.slit_sampling * a
+            for a in spectrograph.anamorphic_magnification()
+        ]
+    )
+    st.markdown("Slit sampling", text_alignment="center")
 
-        r, g, b = wavelength_to_rgb(wl_nm * u.nm)[:3]
-        return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
-
-    with st.spinner("Computing spectral format..."):
-        fig = go.Figure()
-
-        # Detector outline
-        half_x: float = detector.size[0].to(u.mm).value / 2
-        half_y: float = detector.size[1].to(u.mm).value / 2
-        fig.add_shape(
-            type="rect",
-            x0=-half_x,
-            y0=-half_y,
-            x1=half_x,
-            y1=half_y,
-            line={"color": "rgba(255,255,255,0.5)", "width": 3, "dash": "dash"},
-            fillcolor="rgba(0,0,0,0)",
+    if min(sampling) < 3:  # noqa: PLR2004
+        st.markdown(
+            f":orange-badge[:material/warning: {min(sampling):.1f}—{max(sampling):.1f} pixels]",
+            text_alignment="center",
         )
-        if det_name_toggle and det_name:
-            fig.add_annotation(
-                x=0,
-                y=-half_y,
-                text=det_name,
-                xanchor="center",
-                yanchor="top",
-                showarrow=False,
-                font={"size": 20, "color": "rgba(255,255,255,0.5)"},
-            )
-
-        orders: list[int] = spectrograph.spectral_orders
-        for m in orders:
-            wls: ArrayQuantity = spectrograph.order_wavelengths(
-                m=m, num=60, FSR_fraction=fsr_fraction
-            )
-            mean_wl: ScalarQuantity = np.mean(wls.to(u.nm).value)
-            color: str = _wl_to_hex(mean_wl)
-
-            positions = np.array(spectrograph.image_plane_position(m=m, wavelength=wls))
-            xs = positions[:, 0]
-            ys = positions[:, 1]
-
-            if dispersion_direction == "Horizontal (x)":
-                xs, ys = -ys, -xs
-                xshift: float = 20
-                yshift: float = 0
-                xlabel = "Dispersion direction (mm)"
-                ylabel = "Cross-dispersion direction (mm)"
-            elif dispersion_direction == "Vertical (y)":
-                xshift: float = 5
-                yshift: float = 15
-                xlabel = "Cross-dispersion direction (mm)"
-                ylabel = "Dispersion direction (mm)"
-
-            hover_wls = wls.to(u.nm).value
-
-            fig.add_trace(
-                go.Scatter(
-                    x=-xs,
-                    y=ys,
-                    mode="lines",
-                    line={"color": color, "width": 3},
-                    name=f"m={m}",
-                    hovertemplate=(
-                        f"m = {m}<br>"
-                        + "λ = %{customdata:.1f} nm<br>"
-                        + "x = %{x:.2f} mm<br>"
-                        + "y = %{y:.2f} mm<extra></extra>"
-                    ),
-                    customdata=hover_wls,
-                    showlegend=False,
-                )
-            )
-
-            # Label every 5th order
-            if m % 5 == 0:
-                fig.add_annotation(
-                    x=-xs[0],
-                    y=ys[0],
-                    text=f"{m}",
-                    showarrow=False,
-                    font={"size": 10, "color": color},
-                    xshift=-xshift,
-                    yshift=-yshift,
-                    bgcolor="rgba(0,0,0,0.1)",
-                    borderpad=1,
-                )
-                fig.add_annotation(
-                    x=-xs[-1],
-                    y=ys[-1],
-                    text=f"{mean_wl:.0f} nm",
-                    showarrow=False,
-                    font={"size": 10, "color": color},
-                    xshift=xshift,
-                    yshift=yshift,
-                    bgcolor="rgba(0,0,0,0.1)",
-                    borderpad=1,
-                )
-
-            if label_atomic_lines:
-                min_FSR_wl, max_FSR_wl = spectrograph.grating.order_FSR_bounds(m=m)
-                for name, wl in _atomic_lines.items():
-                    if min_FSR_wl <= wl <= max_FSR_wl:
-                        x, y = spectrograph.image_plane_position(m=m, wavelength=wl)
-
-                        if dispersion_direction == "Horizontal (x)":
-                            x, y = -y, -x
-
-                        fig.add_annotation(
-                            x=-x.value,
-                            y=y.value,
-                            text=f"{name}",
-                            showarrow=False,
-                            font={"size": 10},
-                            bgcolor="rgba(0,0,0,0.1)",
-                            borderpad=1,
-                        )
-
-        fig.update_layout(
-            xaxis_title=xlabel,
-            yaxis_title=ylabel,
-            template="plotly_dark",
-            height=1000,
-            yaxis_scaleanchor="x",
-            yaxis_scaleratio=1,
-            margin={"t": 30},
+        if warn:
+            st.warning("Minimum slit sampling is less than 3 pixels!")
+    else:
+        st.markdown(
+            f":green-badge[:material/check: {min(sampling):.1f}—{max(sampling):.1f} pixels]",
+            text_alignment="center",
         )
 
-        st.plotly_chart(fig, width="content")
+    with c3:
+        st.markdown("Number of orders", text_alignment="center")
+        st.markdown(
+            f":blue-badge[{len(spectrograph.spectral_orders)}]", text_alignment="center"
+        )
+
+with c4:
+    st.markdown("Minimum order separation", text_alignment="center")
+
+    red_sep: float = spectrograph.reddest_order_image_plane_separation
+    blue_sep: float = spectrograph.bluest_order_image_plane_separation
+
+    if min(red_sep, blue_sep) < spectrograph.slit_image_length:
+        st.markdown(
+            f":orange-badge[:material/warning: {(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.1f} pixels]",
+            text_alignment="center",
+        )
+        if warn:
+            st.warning(
+                "Minimum order separation is smaller than the imaged slit length!"
+            )
+    else:
+        st.markdown(
+            f":green-badge[:material/check: {(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.1f} pixels]",
+            text_alignment="center",
+        )
 
 
-if "Matplotlib (static)" in plot_type:
-    with st.spinner("Computing spectral format..."):
-        fig: plt.Figure = plt.figure(figsize=(10, 10))
-        ax: plt.Axes = fig.gca()
+with c5:
+    st.markdown("R = λ/Δλ @ 550 nm", text_alignment="center")
 
-        # Detector outline
-        half_x: float = detector.size[0].to(u.mm).value / 2
-        half_y: float = detector.size[1].to(u.mm).value / 2
+    try:
+        R: float = spectrograph.spectral_resolution(wl=0.55 * u.um)
+        st.markdown(f":blue-badge[{R:,.0f}]", text_alignment="center")
+    except Exception:
+        st.markdown(":orange-badge[:material/warning:—]", text_alignment="center")
 
-        spectrograph.plot_detector_edge(ax=ax, name=True)
 
-        b = max(half_x, half_y) + 2
+with st.container(horizontal_alignment="center"):
+    if "Plotly (interactive)" in plot_type:
+        # Plot Echellogram
+        with st.spinner("Computing spectral format..."):
+            fig = go.Figure()
 
-        ax.set_xlim(b, -b)
-        ax.set_ylim(-b, b)
+            # Detector outline
+            half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
+            half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
 
-        ax.set_aspect("equal")
+            b = max(half_x, half_y) * 1.125
 
-        for f in range(1):  # number of fibres
-            offset: ScalarQuantity = f * 130 * u.um * spectrograph.slit_magnification
-            for m in spectrograph.spectral_orders:
+            fig.add_shape(
+                type="rect",
+                x0=-half_x,
+                y0=-half_y,
+                x1=half_x,
+                y1=half_y,
+                line={"color": "rgba(255,255,255,0.5)", "width": 3, "dash": "dash"},
+                fillcolor="rgba(0,0,0,0)",
+            )
+            if det_name_toggle and det_name:
+                fig.add_annotation(
+                    x=0,
+                    y=-half_y,
+                    text=det_name,
+                    xanchor="center",
+                    yanchor="top",
+                    showarrow=False,
+                    font={"size": 20, "color": "rgba(255,255,255,0.5)"},
+                )
+
+            orders: list[int] = spectrograph.spectral_orders
+            for m in orders:
                 wls: ArrayQuantity = spectrograph.order_wavelengths(
                     m=m, num=60, FSR_fraction=fsr_fraction
                 )
-                mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
+                mean_wl: ScalarQuantity = np.mean(wls.to(u.nm).value)
+                color: str = _wl_to_hex(mean_wl)
 
-                xs, ys = np.transpose(
+                positions = np.array(
                     spectrograph.image_plane_position(m=m, wavelength=wls)
                 )
+                xs = positions[:, 0]
+                ys = positions[:, 1]
 
                 if dispersion_direction == "Horizontal (x)":
                     xs, ys = -ys, -xs
+                    xshift: float = 20
+                    yshift: float = 0
+                    xlabel = "Dispersion direction (mm)"
+                    ylabel = "Cross-dispersion direction (mm)"
+                elif dispersion_direction == "Vertical (y)":
+                    xshift: float = 5
+                    yshift: float = 15
+                    xlabel = "Cross-dispersion direction (mm)"
+                    ylabel = "Dispersion direction (mm)"
 
-                ax.plot(
-                    xs + offset,
-                    ys,
-                    color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
-                    lw=3.5,
-                    # path_effects=stroke(thickness=3.5),
+                hover_wls = wls.to(u.nm).value
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=-xs,
+                        y=ys,
+                        mode="lines",
+                        line={"color": color, "width": 3},
+                        name=f"m={m}",
+                        hovertemplate=(
+                            f"m = {m}<br>"
+                            + "λ = %{customdata:.1f} nm<br>"
+                            + "x = %{x:.2f} mm<br>"
+                            + "y = %{y:.2f} mm<extra></extra>"
+                        ),
+                        customdata=hover_wls,
+                        showlegend=False,
+                    )
                 )
 
+                # Label every 5th order
                 if m % 5 == 0:
-                    if m == 90:  # noqa: PLR2004
-                        mtext = f"{m = }"
-                        wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
-                    else:
-                        mtext = f"{m}"
-                        wltext = f"{wls[0].to(u.nm).value:.0f}"
-
-                    if abs(ys[0].value) + 5 > b or abs(ys[-1].value) + 5 > b:
-                        continue
-
-                    if dispersion_direction == "Vertical (y)":
-                        x_offset = 0
-                        y_offset = 1.5
-                        ha_m = "center"
-                        va_m = "top"
-                        ha_wl = "center"
-                        va_wl = "bottom"
-
-                    elif dispersion_direction == "Horizontal (x)":
-                        x_offset = -1.5
-                        y_offset = 0
-                        ha_m = "right"
-                        va_m = "center"
-                        ha_wl = "left"
-                        va_wl = "center"
-
-                    ax.text(
-                        (xs[0] + offset).value - x_offset,
-                        ys[0].value - y_offset,
-                        mtext,
-                        fontsize=14,
-                        ha=ha_m,
-                        va=va_m,
+                    fig.add_annotation(
+                        x=-xs[0],
+                        y=ys[0],
+                        text=f"{m}",
+                        showarrow=False,
+                        font={"size": 10, "color": color},
+                        xshift=-xshift,
+                        yshift=-yshift,
+                        bgcolor="rgba(0,0,0,0.1)",
+                        borderpad=1,
                     )
-
-                    ax.text(
-                        (xs[-1] + offset).value + x_offset,
-                        ys[-1].value + y_offset,
-                        wltext,
-                        fontsize=14,
-                        ha=ha_wl,
-                        va=va_wl,
+                    fig.add_annotation(
+                        x=-xs[-1],
+                        y=ys[-1],
+                        text=f"{mean_wl:.0f} nm",
+                        showarrow=False,
+                        font={"size": 10, "color": color},
+                        xshift=xshift,
+                        yshift=yshift,
+                        bgcolor="rgba(0,0,0,0.1)",
+                        borderpad=1,
                     )
 
                 if label_atomic_lines:
@@ -712,21 +643,159 @@ if "Matplotlib (static)" in plot_type:
                             if dispersion_direction == "Horizontal (x)":
                                 x, y = -y, -x
 
-                            ax.text(
-                                x.value,
-                                y.value,
-                                f"{name}",
-                                fontsize=14,
-                                ha="center",
-                                va="center",
-                                bbox={
-                                    "facecolor": "w",
-                                    "edgecolor": "k",
-                                    "alpha": 0.75,
-                                    "boxstyle": "round,pad=0.25",
-                                },
+                            fig.add_annotation(
+                                x=-x.value,
+                                y=y.value,
+                                text=f"{name}",
+                                showarrow=False,
+                                font={"size": 10},
+                                bgcolor="rgba(0,0,0,0.1)",
+                                borderpad=1,
                             )
 
-        # ax.patch.set_facecolor("black")
-        ax.axis("off")
-        st.pyplot(fig)
+            fig.update_layout(
+                xaxis_title=xlabel,
+                yaxis_title=ylabel,
+                template="plotly_dark",
+                height=1000,
+                yaxis_scaleanchor="x",
+                yaxis_scaleratio=1,
+                margin={"t": 30},
+            )
+
+            # round b to the nearest 20 for nicer tick spacing
+            b: int = 20 * np.ceil(b / 20)
+
+            fig.update_xaxes(
+                tickvals=list(range(-int(b), int(b) + 1, 20)),
+                showgrid=False,
+                zeroline=False,
+            )
+            fig.update_yaxes(
+                tickvals=list(range(-int(b), int(b) + 1, 20)),
+                showgrid=False,
+                zeroline=False,
+            )
+
+            st.plotly_chart(fig, width=800, config={"displayModeBar": True})
+
+    if "Matplotlib (static)" in plot_type:
+        with st.spinner("Computing spectral format..."):
+            fig: plt.Figure = plt.figure(figsize=(10, 10))
+            ax: plt.Axes = fig.gca()
+
+            # Detector outline
+            half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
+            half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
+
+            spectrograph.plot_detector_edge(ax=ax, name=True)
+
+            b = max(half_x, half_y) * 1.125
+
+            ax.set_xlim(b, -b)
+            ax.set_ylim(-b, b)
+
+            ax.set_aspect("equal")
+
+            for f in range(1):  # number of fibres
+                fiber_spacing = 130 * u.um  # Example!
+                offset: ScalarQuantity = (
+                    f * fiber_spacing * spectrograph.slit_magnification
+                )
+                for m in spectrograph.spectral_orders:
+                    wls: ArrayQuantity = spectrograph.order_wavelengths(
+                        m=m, num=60, FSR_fraction=fsr_fraction
+                    )
+                    mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
+
+                    xs, ys = np.transpose(
+                        spectrograph.image_plane_position(m=m, wavelength=wls)
+                    )
+
+                    if dispersion_direction == "Horizontal (x)":
+                        xs, ys = -ys, -xs
+
+                    ax.plot(
+                        xs + offset,
+                        ys,
+                        color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
+                        lw=3.5,
+                        # path_effects=stroke(thickness=3.5),
+                    )
+
+                    if m % 5 == 0:
+                        if m == 90:  # noqa: PLR2004
+                            mtext = f"{m = }"
+                            wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
+                        else:
+                            mtext = f"{m}"
+                            wltext = f"{wls[0].to(u.nm).value:.0f}"
+
+                        if abs(ys[0].value) + 5 > b or abs(ys[-1].value) + 5 > b:
+                            continue
+
+                        if dispersion_direction == "Vertical (y)":
+                            x_offset = 0
+                            y_offset = 1.5
+                            ha_m = "center"
+                            va_m = "top"
+                            ha_wl = "center"
+                            va_wl = "bottom"
+
+                        elif dispersion_direction == "Horizontal (x)":
+                            x_offset = -1.5
+                            y_offset = 0
+                            ha_m = "right"
+                            va_m = "center"
+                            ha_wl = "left"
+                            va_wl = "center"
+
+                        ax.text(
+                            (xs[0] + offset).value - x_offset,
+                            ys[0].value - y_offset,
+                            mtext,
+                            fontsize=14,
+                            ha=ha_m,
+                            va=va_m,
+                        )
+
+                        ax.text(
+                            (xs[-1] + offset).value + x_offset,
+                            ys[-1].value + y_offset,
+                            wltext,
+                            fontsize=14,
+                            ha=ha_wl,
+                            va=va_wl,
+                        )
+
+                    if label_atomic_lines:
+                        min_FSR_wl, max_FSR_wl = spectrograph.grating.order_FSR_bounds(
+                            m=m
+                        )
+                        for name, wl in _atomic_lines.items():
+                            if min_FSR_wl <= wl <= max_FSR_wl:
+                                x, y = spectrograph.image_plane_position(
+                                    m=m, wavelength=wl
+                                )
+
+                                if dispersion_direction == "Horizontal (x)":
+                                    x, y = -y, -x
+
+                                ax.text(
+                                    x.value,
+                                    y.value,
+                                    f"{name}",
+                                    fontsize=14,
+                                    ha="center",
+                                    va="center",
+                                    bbox={
+                                        "facecolor": "w",
+                                        "edgecolor": "k",
+                                        "alpha": 0.75,
+                                        "boxstyle": "round,pad=0.25",
+                                    },
+                                )
+
+            # ax.patch.set_facecolor("black")
+            ax.axis("off")
+            st.pyplot(fig, width=800)
