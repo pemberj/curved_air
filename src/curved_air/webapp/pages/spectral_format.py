@@ -137,7 +137,12 @@ with st.sidebar:
     with st.expander(label="Cross-disperser", expanded=False):
         xd_type = st.pills(
             "Type",
-            ["Prism", "Grating"],
+            [
+                "Prism",
+                "Grating",
+                # "Grism",  # TODO
+                # "Multiple prisms",  # TODO
+            ],
             default="Prism",
             key="sf_xd",
         )
@@ -185,7 +190,29 @@ with st.sidebar:
                 * u.deg
             )
 
-        else:  # Grating
+            plot_toggle = st.toggle("Plot glass refractive index", value=False)
+
+            if plot_toggle:
+                wls = glasses[glass_name].wl
+
+                fig = go.Figure()
+                fig.add_trace(
+                    go.Line(
+                        x=wls,
+                        y=glasses[glass_name].refractive_index(wls),
+                        mode="lines",
+                    )
+                )
+                fig.update_layout(
+                    title=f"{glass_name} Refractive Index",
+                    xaxis_title="Wavelength (nm)",
+                    yaxis_title="Refractive Index",
+                    template="plotly_dark",
+                )
+
+                st.plotly_chart(fig)
+
+        elif xd_type == "Grating":
             xd_groove_freq = (
                 st.number_input(
                     "Cross-disp grooves / mm",
@@ -305,6 +332,15 @@ with st.sidebar:
             * u.mm
         )
 
+        st.metric(
+            "Camera focal ratio",
+            f"f/{(f_cam / beam_diameter).decompose().value:.1f}",
+            help="""The focal ratio of the camera, calculated from the camera focal
+            length and the collimated beam diameter. Extreme low f-ratios can have
+            important implications for the optical design of the camera in terms of
+            complexity, image quality, and cost.""",
+        )
+
     with st.expander(label="Detector", expanded=False):
         detector: str = st.selectbox(
             "Common detectors",
@@ -314,7 +350,7 @@ with st.sidebar:
         )
 
         customise_detector: bool = st.toggle(
-            "Customise detector", value=False, key="sf_custom_detector"
+            "Custom detector parameters", value=False, key="sf_custom_detector"
         )
 
         if customise_detector:
@@ -463,72 +499,82 @@ spectrograph: EchelleSpectrograph = EchelleSpectrograph(
 
 # Summary
 c1, c2, c3, c4, c5 = st.columns(
-    5, gap="xxsmall", vertical_alignment="top", border=True, width="stretch"
+    [1, 1, 1.5, 1.25, 1],
+    gap="xxsmall",
+    vertical_alignment="top",
+    border=True,
+    width="stretch",
 )
 
 with c1:
-    magnification_string = f":blue-badge[{spectrograph.slit_magnification:.3f}x]"
-    st.markdown("Slit magnification", text_alignment="center")
-    st.markdown(magnification_string, text_alignment="center")
+    st.metric(
+        "Number of orders",
+        f"{len(spectrograph.spectral_orders)}",
+        help="""The number of diffraction orders spanned by the given wavelength
+        range.""",
+    )
 
 with c2:
+    st.metric(
+        "Slit magnification",
+        f"{spectrograph.slit_magnification:.3f}x",
+        help="""The optical magnification factor between the slit plane and the detector
+        focal plane. This affects the slit sampling and the imaged slit length on the
+        detector.""",
+    )
+
+with c3:
     sampling: tuple[float, ...] = tuple(
         [
             spectrograph.slit_sampling * a
             for a in spectrograph.anamorphic_magnification()
         ]
     )
-    st.markdown("Slit sampling", text_alignment="center")
 
-    if min(sampling) < 3:  # noqa: PLR2004
-        st.markdown(
-            f":orange-badge[:material/warning: {min(sampling):.1f}—{max(sampling):.1f} pixels]",
-            text_alignment="center",
-        )
-        if warn:
-            st.warning("Minimum slit sampling is less than 3 pixels!")
-    else:
-        st.markdown(
-            f":green-badge[:material/check: {min(sampling):.1f}—{max(sampling):.1f} pixels]",
-            text_alignment="center",
-        )
-
-    with c3:
-        st.markdown("Number of orders", text_alignment="center")
-        st.markdown(
-            f":blue-badge[{len(spectrograph.spectral_orders)}]", text_alignment="center"
-        )
+    st.metric(
+        "Slit sampling",
+        f"{min(sampling):.1f}—{max(sampling):.1f} pixels",
+        help="""The slit sampling in pixels at the detector, anamorphic magnification is
+        accounted for by the range of values given. Any value under 3 pixels will raise
+        a warning that the slit is undersampled.""",
+    )
+    if min(sampling) < 3 and warn:  # noqa: PLR2004
+        st.warning("Minimum slit sampling is less than 3 pixels!")
 
 with c4:
-    st.markdown("Minimum order separation", text_alignment="center")
-
     red_sep: ScalarQuantity = spectrograph.reddest_order_image_plane_separation
     blue_sep: ScalarQuantity = spectrograph.bluest_order_image_plane_separation
 
-    if min(red_sep, blue_sep) < spectrograph.slit_image_length:
-        st.markdown(
-            f":orange-badge[:material/warning: {(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.1f} pixels]",
-            text_alignment="center",
-        )
-        if warn:
-            st.warning(
-                "Minimum order separation is smaller than the imaged slit length!"
-            )
-    else:
-        st.markdown(
-            f":green-badge[:material/check: {(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.1f} pixels]",
-            text_alignment="center",
-        )
+    st.metric(
+        "Minimum order separation",
+        f"{(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.1f} pixels",
+        help="""The minimum separation between adjacent diffraction orders on the
+        detector, at the reddest or bluest orders. This is compared to the imaged slit
+        length to check for potential order overlap issues.""",
+    )
+
+    if min(red_sep, blue_sep) < spectrograph.slit_image_length and warn:
+        st.warning("Minimum order separation is smaller than the imaged slit length!")
 
 
 with c5:
-    st.markdown("R = λ/Δλ @ 550 nm", text_alignment="center")
+    mid_wavelength: ScalarQuantity = (MAX_WL + MIN_WL) / 2
 
-    try:
-        R: float = spectrograph.spectral_resolution(wl=0.55 * u.um)
-        st.markdown(f":blue-badge[{R:,.0f}]", text_alignment="center")
-    except Exception:
-        st.markdown(":orange-badge[:material/warning:—]", text_alignment="center")
+    # round to the nearest 50nm
+    mid_wavelength: ScalarQuantity = (
+        round(mid_wavelength.to(u.nm).value / 50) * 50 * u.nm
+    )
+
+    st.metric(
+        f"R = λ/Δλ @ {mid_wavelength:.0f}",
+        f"{spectrograph.spectral_resolution(wl=mid_wavelength):,.0f}",
+        help="""The spectral resolution (R = λ/Δλ) of the spectrograph at the central
+        wavelength. This should be considered an upper limit, as it does not account for
+        any image quality effects, and assumes a perfectly illuminated slit and ideal
+        sampling. The actual achievable resolution may be lower due to a number of
+        factors not considered here.
+        """,
+    )
 
 
 with st.container(horizontal_alignment="center"):
