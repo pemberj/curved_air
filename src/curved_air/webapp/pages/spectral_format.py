@@ -146,7 +146,7 @@ with st.sidebar:
                 # "Multiple prisms",  # TODO
             ],
             default="Prism",
-        )
+        )  # ty:ignore[invalid-assignment]
 
         if cross_disperser_type == "Prism":
             catalogue: str = st.selectbox(
@@ -227,7 +227,9 @@ with st.sidebar:
                 / u.mm
             )
 
-            if st.session_state["max_wl"] > 2 * st.session_state["min_wl"]:
+            if st.session_state.get("max_wl", 950) > 2 * st.session_state.get(
+                "min_wl", 380
+            ):
                 st.warning(
                     """Warning: with a grating cross-disperser, the wavelength range
                     should not exceed an octave (max λ should be less than 2x min λ) to
