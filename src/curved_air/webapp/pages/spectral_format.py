@@ -522,7 +522,10 @@ with c2:
         f"{spectrograph.slit_magnification:.3f}x",
         help="""The optical magnification factor between the slit plane and the detector
         focal plane. This affects the slit sampling and the imaged slit length on the
-        detector.""",
+        detector. This value is calculated for the blaze peak only, and does not account
+        for the anamorphic magnification from the echelle grating, which varies across
+        each order. Anamorphic magnification is accounted for separately in the 'slit
+        sampling' metric.""",
     )
 
 with c3:
@@ -536,9 +539,9 @@ with c3:
     st.metric(
         "Slit sampling",
         f"{min(sampling):.1f}—{max(sampling):.1f} pixels",
-        help="""The slit sampling in pixels at the detector, anamorphic magnification is
+        help="""The slit sampling in pixels at the detector. Anamorphic magnification is
         accounted for by the range of values given. Any value under 3 pixels will raise
-        a warning that the slit is undersampled.""",
+        an (optional) warning that the slit is undersampled.""",
     )
     if min(sampling) < 3 and st.session_state["warn"]:  # noqa: PLR2004
         st.warning("Minimum slit sampling is less than 3 pixels!")
