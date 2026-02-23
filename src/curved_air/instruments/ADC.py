@@ -248,6 +248,7 @@ class ADC:
         self,
         plot: bool = False,
         num_samples: int = 20,
+        # allow_compound_angle: bool = True
     ) -> dict | None:
         """
         This function finds the best main apex angle and zero-deviation
@@ -259,6 +260,8 @@ class ADC:
         refractive indices, actually trace rays through the ADC
 
         - [ ] Allow to match different target dispersion???
+
+        - [ ] Allow optimising without compound angle?
         """
 
         if len(self.prism_stack.prism_list) != 2:  # noqa: PLR2004
@@ -397,7 +400,7 @@ class ADC:
         save_filename: str | None = None,
         layout: bool = True,
         show: bool = True,
-    ) -> None:
+    ) -> plt.Figure:
         assert isinstance(self.alpha, Quantity)
         assert isinstance(self.epsilon, float)
         assert isinstance(self.wl_0, Quantity)
@@ -413,7 +416,7 @@ class ADC:
 
         num_subplots: Literal[4, 3] = 4 if layout else 3
 
-        _fig, axs = plt.subplots(
+        fig, axs = plt.subplots(
             num_subplots,
             1,
             figsize=(8, 2.5 * num_subplots),
@@ -639,9 +642,7 @@ class ADC:
             if show:
                 plt.show()
 
-        else:
-            # Show the plot if no filename is given, even if show is False?
-            plt.show()
+        return fig
 
     def __str__(self) -> str:
         return f"""
