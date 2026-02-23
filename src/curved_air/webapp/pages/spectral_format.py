@@ -23,22 +23,13 @@ from curved_air.optics.dispersers import (
     SimpleGrating,
 )
 from curved_air.other import _atomic_lines
-from curved_air.plotting import plot_style, wavelength_to_rgb
+from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex
 from curved_air.utils import richardson_gratings
 
 if TYPE_CHECKING:
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
-
-
-def _wl_to_hex(wl_nm: float) -> str:
-    r: float
-    g: float
-    b: float
-
-    r, g, b = wavelength_to_rgb(wl_nm * u.nm)[:3]
-    return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
 
 
 st.header("Spectral Format")
@@ -627,7 +618,7 @@ with st.container(horizontal_alignment="center"):
                     m=m, num=60, FSR_fraction=fsr_fraction
                 )
                 mean_wl: ScalarQuantity = np.mean(wls.to(u.nm).value)
-                color: str = _wl_to_hex(mean_wl)
+                color: str = wl_to_hex(mean_wl)
 
                 positions = np.array(
                     spectrograph.image_plane_position(m=m, wavelength=wls)

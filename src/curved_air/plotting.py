@@ -217,3 +217,12 @@ def fade(
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
 
     return colorsys.hsv_to_rgb(h=h, s=fade_factor * s, v=v)
+
+
+def wl_to_hex(wl_nm: float) -> str:
+    r: float
+    g: float
+    b: float
+
+    r, g, b = wavelength_to_rgb(wl_nm * u.nm)[:3]
+    return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
