@@ -410,9 +410,9 @@ class ADC:
         plt.rcParams["axes.labelsize"] = 14
         plt.rcParams["legend.fontsize"] = 12
 
-        min_thickness: ArrayQuantity = 10 * u.mm
-        gap: ArrayQuantity = 6 * u.mm
-        D_ADC: ArrayQuantity = 25.4 * u.mm
+        min_thickness: ArrayQuantity = 7.5 * u.mm  # TODO: don't hardcode
+        gap: ArrayQuantity = 5 * u.mm  # TODO: don't hardcode
+        D_ADC: ArrayQuantity = self.D_ADC
 
         num_subplots: Literal[4, 3] = 4 if layout else 3
 
