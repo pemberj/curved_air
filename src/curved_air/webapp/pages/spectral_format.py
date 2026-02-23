@@ -727,19 +727,19 @@ with st.container(horizontal_alignment="center"):
                 margin={"t": 30},
             )
 
-            # round b to the nearest 20 for nicer tick spacing
-            b: int = 20 * np.ceil(b / 20)
+            # # round b to the nearest 20 for nicer tick spacing
+            # b: int = 20 * np.ceil(b / 20)
 
-            fig.update_xaxes(
-                tickvals=list(range(-int(b), int(b) + 1, 20)),
-                showgrid=False,
-                zeroline=False,
-            )
-            fig.update_yaxes(
-                tickvals=list(range(-int(b), int(b) + 1, 20)),
-                showgrid=False,
-                zeroline=False,
-            )
+            # fig.update_xaxes(
+            #     tickvals=list(range(-int(b), int(b) + 1, 20)),
+            #     showgrid=False,
+            #     zeroline=False,
+            # )
+            # fig.update_yaxes(
+            #     tickvals=list(range(-int(b), int(b) + 1, 20)),
+            #     showgrid=False,
+            #     zeroline=False,
+            # )
 
             if "Flip x" in st.session_state["coord_transforms"]:
                 fig.update_xaxes(autorange="reversed")
