@@ -64,7 +64,7 @@ dCF: dict[str, ScalarQuantity] = {
 }
 
 GLASS_CATALOGUES: dict[str, Path] = {
-    p.stem: p for p in list((Path(__file__).parent / "agfs").glob("*.[Aa][Gg][Ff]"))
+    p.stem: p for p in sorted((Path(__file__).parent / "agfs").glob("*.[Aa][Gg][Ff]"))
 }
 
 
@@ -562,11 +562,11 @@ class GlassCatalogue(dict):
         term instead.
         """
 
+        print(agf_filename)
+
         if isinstance(agf_filename, str):
             if "." not in agf_filename:
-                from curved_air.utils import agf_files  # noqa: PLC0415
-
-                agf_filename: list[Path] = agf_files(agf_filename)
+                agf_filename: Path = GLASS_CATALOGUES[agf_filename]
             else:
                 agf_filename: Path = Path(agf_filename)
 

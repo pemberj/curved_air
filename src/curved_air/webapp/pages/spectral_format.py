@@ -14,7 +14,7 @@ from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import DETECTORS, Detector
-from curved_air.glass import Glass, GlassCatalogue
+from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
 from curved_air.optics.dispersers import (
     CrossDisperser,
@@ -142,23 +142,21 @@ with st.sidebar:
         if cross_disperser_type == "Prism":
             catalogue: str = st.selectbox(
                 "Glass catalogue",
-                ["Schott", "Ohara", "CDGM"],
+                GLASS_CATALOGUES.keys(),
+                index=list(GLASS_CATALOGUES.keys()).index("Schott")
+                if "Schott" in GLASS_CATALOGUES
+                else 0,
             )
 
+            print(catalogue)
+
             try:
-                glasses = GlassCatalogue(catalogue.lower())
+                glasses = GlassCatalogue(catalogue)
                 glass_names: list[str] = sorted(glasses.keys())
             except Exception:
                 st.error(f"Could not load {catalogue} glass catalogue.")
 
-            if catalogue.lower() == "schott":
-                default_glass: str = "F2"
-            elif catalogue.lower() == "ohara":
-                default_glass: str = "PBM2Y"
-            elif catalogue.lower() == "cdgm":
-                default_glass: str = "F2"
-            else:
-                default_glass: str = glass_names[0]
+            default_glass: str = "F2"
 
             glass_name: str = st.selectbox(
                 "Glass",

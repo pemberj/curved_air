@@ -12,7 +12,7 @@ import streamlit as st
 from astropy import units as u
 from matplotlib import pyplot as plt
 
-from curved_air.glass import Glass, GlassCatalogue
+from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.plotting import plot_style
 
@@ -70,12 +70,14 @@ with st.sidebar:
     with st.expander(label="Glass selection", expanded=True):
         catalogue1: str = st.selectbox(
             "Catalogue for glass 1",
-            ["Schott", "Ohara", "CDGM"],
-            index=0,
+            GLASS_CATALOGUES.keys(),
+            index=list(GLASS_CATALOGUES.keys()).index("Schott")
+            if "Schott" in GLASS_CATALOGUES
+            else 0,
         )
 
         try:
-            glasses1 = GlassCatalogue(catalogue1.lower())
+            glasses1 = GlassCatalogue(catalogue1)
             glass_names1: list[str] = sorted(glasses1.keys())
         except Exception:
             st.error(f"Could not load {catalogue1} glass catalogue.")
@@ -90,12 +92,14 @@ with st.sidebar:
 
         catalogue2: str = st.selectbox(
             "Catalogue for glass 2",
-            ["Schott", "Ohara", "CDGM"],
-            index=1,
+            GLASS_CATALOGUES.keys(),
+            index=list(GLASS_CATALOGUES.keys()).index("Ohara")
+            if "Ohara" in GLASS_CATALOGUES
+            else 0,
         )
 
         try:
-            glasses2 = GlassCatalogue(catalogue2.lower())
+            glasses2 = GlassCatalogue(catalogue2)
             glass_names2: list[str] = sorted(glasses2.keys())
         except Exception:
             st.error(f"Could not load {catalogue2} glass catalogue.")
@@ -199,7 +203,7 @@ with st.sidebar:
             "ADC optimisation criterion",
             ["PTV", "RMS", "RSS", "Max. Abs."],
             default="PTV",
-        )
+        )  # ty:ignore[invalid-assignment]
         if optimisation_criterion == "Max. Abs.":
             optimisation_criterion = "max_abs"
 
