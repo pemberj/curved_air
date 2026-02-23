@@ -10,6 +10,7 @@ the available tools:
 | Calculator | Description |
 |---|---|
 | **Spectral Format** | Configure a full echelle spectrograph (grating + cross-disperser + detector) and visualise the échellogram on the detector. |
+| **Atmospheric Dispersion Corrector** | Design a rotational atmospheric dispersion corrector (ADC) with two different glasses. |
 
 ---
 *Powered by [curved_air](https://github.com/pemberj/curved_air) · Built with

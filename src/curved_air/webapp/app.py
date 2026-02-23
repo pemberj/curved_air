@@ -17,8 +17,21 @@ st.set_page_config(
 # ── Navigation ──────────────────────────────────────────────────────────────
 pages: dict[str, list] = {
     "": [
-        st.Page("pages/home.py", title="Home", icon="🏠"),
-        st.Page("pages/spectral_format.py", title="Spectral Format", icon="🌈"),
+        st.Page(
+            page="pages/home.py",
+            title="Home",
+            icon="🏠",
+        ),
+        st.Page(
+            page="pages/spectral_format.py",
+            title="Spectral Format",
+            icon="🌈",
+        ),
+        st.Page(
+            page="pages/atmospheric_dispersion_corrector.py",
+            title="Atmospheric Dispersion Corrector",
+            icon="🌠",
+        ),
     ],
 }
 
