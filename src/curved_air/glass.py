@@ -562,8 +562,6 @@ class GlassCatalogue(dict):
         term instead.
         """
 
-        print(agf_filename)
-
         if isinstance(agf_filename, str):
             if "." not in agf_filename:
                 agf_filename: Path = GLASS_CATALOGUES[agf_filename]
