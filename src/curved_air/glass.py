@@ -63,6 +63,10 @@ dCF: dict[str, ScalarQuantity] = {
     "F": 486.134 * u.nm,
 }
 
+GLASS_CATALOGUES: dict[str, Path] = {
+    p.stem: p for p in list((Path(__file__).parent / "agfs").glob("*.[Aa][Gg][Ff]"))
+}
+
 
 @dataclass
 class Glass:
