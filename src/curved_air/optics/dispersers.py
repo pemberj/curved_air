@@ -946,9 +946,12 @@ class Prism(CrossDisperser):
 @dataclass
 class TwoPrisms(CrossDisperser):
     prism1: Prism = field(default_factory=Prism)
-    prism2: Prism = field(default_factory=Prism)
+    prism2: Prism | None = None
 
     def __post_init__(self) -> None:
+        if self.prism2 is None:
+            self.prism2: Prism = self.prism1
+
         self.prism1.min_wl: Quantity | None = self.min_wl
         self.prism2.min_wl: Quantity | None = self.min_wl
 
@@ -1302,20 +1305,12 @@ def _refract(
 def main() -> None:
     from curved_air.glass import GlassCatalogue  # noqa: PLC0415
 
-    F2 = GlassCatalogue("schott")["F2"]
+    F2: Glass = GlassCatalogue("Schott")["F2"]
 
-    TwoES_XD = TwoPrisms(
-        prism1=Prism(
-            glass=F2,
-            apex_angle=30 * u.deg,
-            incidence_angle=50 * u.deg,
-        ),
-        prism2=Prism(
-            glass=F2,
-            apex_angle=30 * u.deg,
-            incidence_angle=50 * u.deg,
-        ),
-        min_wl=0.4 * u.um,
+    TwoES_XD: CrossDisperser = TwoPrisms(
+        prism1=Prism(glass=F2, apex_angle=48.7 * u.deg),
+        # prism2=Prism(glass=F2, apex_angle=48.7 * u.deg),
+        min_wl=0.375 * u.um,
         max_wl=0.9 * u.um,
     )
 
