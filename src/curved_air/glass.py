@@ -303,7 +303,7 @@ class Glass:
 
         if isinstance(wls, list | np.ndarray) and len(wls) == 1:
             # If only one element, convert to a float
-            wls: float = wls[0]
+            wls: float = wls[0]  # ty:ignore[invalid-argument-type]
 
         elif isinstance(wls, int | float):
             wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
@@ -623,7 +623,7 @@ class GlassCatalogue(dict):
                     )
 
         #  Empty variable in which a Glass object will be stored
-        g = None
+        g: Glass = None  # ty:ignore[invalid-assignment]
 
         for _, line in enumerate(agf):
             data = [k.strip() for k in line.split(" ")]
@@ -1189,7 +1189,7 @@ class GlassCatalogue(dict):
                 # text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))),
                 #                     " ".join([names[n] for n in ind["ind"]]))
                 annot.set_text(text)
-                annot.get_bbox_patch().set_alpha(0.4)  # type: ignore
+                annot.get_bbox_patch().set_alpha(0.4)
 
             def hover(event: MouseEvent) -> None:
                 vis = annot.get_visible()
@@ -1303,9 +1303,9 @@ class GlassCatalogue(dict):
                     {
                         columns[0]: g1.name,
                         columns[1]: g2.name,
-                        columns[2]: f"{adc.alpha.to(u.deg).value:.5g}",  # ty: ignore
-                        columns[3]: f"{adc.beta.to(u.deg).value:.5g}",  # ty: ignore
-                        columns[4]: f"{adc.wl_0.to(u.um).value:.5g}",  # ty: ignore
+                        columns[2]: f"{adc.alpha.to(u.deg).value:.5g}",
+                        columns[3]: f"{adc.beta.to(u.deg).value:.5g}",
+                        columns[4]: f"{adc.wl_0.to(u.um).value:.5g}",
                         columns[5]: f"{adc.residuals_PTV.to(u.mas).value:.5g}",
                     }
                 )
