@@ -247,10 +247,10 @@ class EchelleGrating(Disperser):
             return [self.order_opening_angle(im) for im in m]
 
         if return_bounds:
-            return (
+            return [
                 (-FSR_fraction * np.tan(self.blaze_angle) * u.radian / m).to(u.deg),
                 (FSR_fraction * np.tan(self.blaze_angle) * u.radian / m).to(u.deg),
-            )
+            ]
 
         # Otherwise, just return the opening angle
         return (FSR_fraction * 2 * np.tan(self.blaze_angle) * u.rad / m).to(u.deg)
