@@ -148,8 +148,6 @@ with st.sidebar:
                 else 0,
             )
 
-            print(catalogue)
-
             try:
                 glasses = GlassCatalogue(catalogue)
                 glass_names: list[str] = sorted(glasses.keys())
