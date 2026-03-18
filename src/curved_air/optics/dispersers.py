@@ -881,6 +881,9 @@ class Prism(CrossDisperser):
 
         return self.angular_spread(min_wl=wl1, max_wl=wl2) / delta_wavelength
 
+    def angular_dispersion(self, wl: Quantity) -> Quantity:
+        return self.local_angular_dispersion(wl=wl)
+
     def trace(
         self,
         wls: Quantity | None = None,
@@ -956,6 +959,7 @@ class TwoPrisms(CrossDisperser):
         self.prism2.min_wl: Quantity | None = self.min_wl
 
         if self.incidence_angle is None:
+            assert isinstance(self.prism1.incidence_angle, Quantity)
             self.incidence_angle: ScalarQuantity = self.prism1.incidence_angle
 
         if self.min_wl is None:
@@ -1163,6 +1167,11 @@ class SimpleGrating(CrossDisperser):
     m: int = 1
     incidence_angle: ScalarQuantity = 0 * u.deg
 
+    def __post_init__(self) -> None:
+        assert self.groove_frequency.unit.is_equivalent(1 / u.mm), (
+            "Groove frequency must be in units of inverse length (e.g. 1/mm)"
+        )
+
     @property
     def groove_period(self) -> ScalarQuantity:
         return 1 / self.groove_frequency
@@ -1222,6 +1231,19 @@ class SimpleGrating(CrossDisperser):
             wl *= u.nm
 
         return (self.diffraction_angle(wl=wl) - self.central_angle).to(u.deg)
+
+    def local_angular_dispersion(self, wl: Quantity) -> Quantity:
+        delta_wavelength: ScalarQuantity = 1 * u.nm
+
+        wl1: ScalarQuantity = wl - delta_wavelength / 2
+        wl2: ScalarQuantity = wl + delta_wavelength / 2
+
+        return (
+            self.dispersion_angle(wl=wl2) - self.dispersion_angle(wl=wl1)
+        ) / delta_wavelength
+
+    def angular_dispersion(self, wl: Quantity) -> Quantity:
+        return self.local_angular_dispersion(wl=wl)
 
 
 @overload
