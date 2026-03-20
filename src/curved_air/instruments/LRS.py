@@ -53,10 +53,10 @@ class LowResolutionSpectrograph:
     min_wl: ScalarQuantity = 400 * u.nm
     max_wl: ScalarQuantity = 800 * u.nm
     beam_diameter: ScalarQuantity = 100 * u.mm
-    collimator_focal_length: ScalarQuantity | None = 800 * u.mm
     slit_width: ScalarQuantity = 50 * u.um
     slit_length: ScalarQuantity = 2 * u.mm
     slit_native_focal_ratio: float = 4
+    collimator_focal_length: ScalarQuantity = 800 * u.mm
     camera_focal_length: ScalarQuantity = 600 * u.mm
 
     def __post_init__(self) -> None:
@@ -100,14 +100,6 @@ class LowResolutionSpectrograph:
     @cached_property
     def collimator_plate_scale(self) -> ScalarQuantity:
         return (1 * u.radian / self.collimator_focal_length).to(u.deg / u.mm)
-
-    @cached_property
-    def collimator_focal_ratio(self) -> float:
-        if self.collimator_focal_length is None or self.beam_diameter is None:
-            raise ValueError(
-                "Collimator focal length and beam diameter must be defined."
-            )
-        return self.collimator_focal_length / self.beam_diameter
 
     @cached_property
     def camera_plate_scale(self) -> ScalarQuantity:
@@ -176,8 +168,6 @@ class LowResolutionSpectrograph:
 
         slit_half_width: ScalarQuantity = self.slit_width / 2
         slit_half_length: ScalarQuantity = self.slit_length / 2
-
-        print(slit_half_length, slit_half_width)
 
         return [
             Coordinate(-slit_half_width, -slit_half_length),
@@ -355,10 +345,10 @@ def test() -> None:
         min_wl=390 * u.nm,
         max_wl=950 * u.nm,
         beam_diameter=100 * u.mm,
-        collimator_focal_length=800 * u.mm,
         slit_width=50 * u.um,
         slit_length=2 * u.mm,
         slit_native_focal_ratio=4,
+        collimator_focal_length=800 * u.mm,
         camera_focal_length=600 * u.mm,
     )
 

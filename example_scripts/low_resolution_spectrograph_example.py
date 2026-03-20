@@ -32,7 +32,7 @@ def main() -> None:
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=100 * u.mm,
-        collimator_focal_length=800 * u.mm,
+        # collimator_focal_length=800 * u.mm,
         slit_width=50 * u.um,
         slit_length=5 * u.mm,
         slit_native_focal_ratio=4,

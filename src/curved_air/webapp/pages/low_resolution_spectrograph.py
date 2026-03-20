@@ -1,12 +1,18 @@
+#! uv run streamlit run
+
 import plotly.graph_objects as go
 import streamlit as st
 from astropy import units as u
+from matplotlib import pyplot as plt
 
 from curved_air.detectors import DETECTORS, Detector
 from curved_air.glass import GLASS_CATALOGUES, GlassCatalogue
 from curved_air.instruments.LRS import LowResolutionSpectrograph
 from curved_air.optics.dispersers import Prism, SimpleGrating
+from curved_air.plotting import plot_style
 from curved_air.type_hinting import ScalarQuantity
+
+plt.style.use(plot_style)
 
 st.title("Low Resolution Spectrograph")
 
@@ -168,8 +174,8 @@ with st.sidebar:
             * u.um
         )
 
-        slit_focal_ratio: float = st.number_input(
-            "Slit native F/#",
+        slit_f_number: float = st.number_input(
+            "Slit native f/#",
             min_value=1.0,
             max_value=20.0,
             value=3.85,
@@ -180,30 +186,49 @@ with st.sidebar:
         )
 
     with st.expander(label="Collimator and Camera", expanded=False):
-        if True:  # Temp
-            beam_diameter: ScalarQuantity = (
-                st.number_input(
-                    "Collimated beam diameter (mm)",
-                    min_value=10.0,
-                    max_value=1200.0,
-                    value=160.0,
-                    step=1.0,
-                    help="""The diameter of the collimated beam at the disperser.
-                    This is a critical parameter that affects the spectral resolution
-                    and the size of the spectral format on the detector.""",
-                )
-                * u.mm
+        beam_diameter: ScalarQuantity = (
+            st.number_input(
+                "Collimated beam diameter (mm)",
+                min_value=10.0,
+                max_value=1200.0,
+                value=100.0,
+                step=1.0,
+                help="""The diameter of the collimated beam at the disperser.
+                This is a critical parameter that affects the spectral resolution
+                and the size of the spectral format on the detector.""",
             )
+            * u.mm
+        )
+
+        f_coll: ScalarQuantity = (
+            st.number_input(
+                "Collimator focal length (mm)",
+                min_value=50.0,
+                max_value=3000.0,
+                value=800.0,
+                step=10.0,
+            )
+            * u.mm
+        )
 
         f_cam: ScalarQuantity = (
             st.number_input(
                 "Camera focal length (mm)",
                 min_value=50.0,
                 max_value=3000.0,
-                value=730.0,
+                value=500.0,
                 step=10.0,
             )
             * u.mm
+        )
+
+        st.metric(
+            "Collimator focal ratio",
+            f"f/{(f_coll / beam_diameter).decompose().value:.1f}",
+            help="""The focal ratio of the collimator, calculated from its focal
+            length and the collimated beam diameter. Extreme low f-ratios can have
+            important implications for the optical design of the camera in terms of
+            complexity, image quality, and cost.""",
         )
 
         st.metric(
@@ -277,14 +302,6 @@ with st.sidebar:
         st.toggle("Show detector name in plot", value=True, key="detector_name")
 
     with st.expander(label="Plot Format Options", expanded=False):
-        fsr_fraction: float = st.slider(
-            "FSR fraction to display",
-            min_value=0.1,
-            max_value=2.0,
-            value=1.0,
-            step=0.05,
-        )
-
         st.segmented_control(
             "Dispersion direction in plot",
             options=["Vertical (y)", "Horizontal (x)"],
@@ -299,11 +316,7 @@ with st.sidebar:
             key="coord_transforms",
         )
 
-        st.toggle(label="Label diffraction orders", value=True, key="label_orders")
-
         st.toggle(label="Label wavelengths", value=True, key="label_wavelengths")
-
-        st.toggle(label="Label atomic lines", value=False, key="label_atomic_lines")
 
         st.divider()
 
@@ -340,10 +353,30 @@ lrs = LowResolutionSpectrograph(
     detector=Detector(name=detector_name, pixel_size=pixel_size, nx=nx, ny=ny),
     min_wl=MIN_WL,
     max_wl=MAX_WL,
-    beam_diameter=100 * u.mm,
-    collimator_focal_length=800 * u.mm,
-    slit_width=50 * u.um,
-    slit_length=2 * u.mm,
-    slit_native_focal_ratio=4,
-    camera_focal_length=600 * u.mm,
+    beam_diameter=beam_diameter,
+    slit_width=slit_width,
+    slit_length=slit_length,
+    slit_native_focal_ratio=slit_f_number,
+    collimator_focal_length=f_coll,
+    camera_focal_length=f_cam,
 )
+
+
+with st.container(horizontal_alignment="center"):
+    if "Plotly (interactive)" in st.session_state["plot_type"]:
+        with st.spinner("Computing spectral format..."):
+            if "Flip x" in st.session_state["coord_transforms"]:
+                # fig.update_xaxes(autorange="reversed")
+                ...
+
+    if "Matplotlib (static)" in st.session_state["plot_type"]:
+        with st.spinner("Computing spectral format..."):
+            fig: plt.Figure = plt.figure()
+            ax: plt.Axes = fig.gca()
+
+            lrs.plot_detector_edge(ax=ax, name=st.session_state["detector_name"])
+            lrs.plot_spectrum(ax=ax, num_wavelengths=300)
+
+            # ax.patch.set_facecolor("black")
+            ax.axis("off")
+            st.pyplot(fig, width=800)
