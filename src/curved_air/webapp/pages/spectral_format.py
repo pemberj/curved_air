@@ -1,3 +1,5 @@
+#! uv run streamlit run
+
 """
 This calculator allows for generating a spectral format plot (echellogram) for a given
 echelle spectrograph design configuration.
@@ -120,6 +122,13 @@ with st.sidebar:
                     refers to the dimension perpendicular to the grooves themselves.""",
                 )
                 * u.mm
+            )
+
+            st.metric(
+                "Grating R-number",
+                f"R{np.tan(blaze_angle):.1f}",
+                help="""The R-number of an echelle grating is a dimensionless parameter
+                defined as the tangent of the blaze angle.""",
             )
 
         else:
