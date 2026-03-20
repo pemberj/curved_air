@@ -101,6 +101,46 @@ e2v_9k = Detector(
     reference="https://www.teledynespaceimaging.com/en-us/Products_/Pages/CCD290-99.aspx",
 )
 
+CCD4k15 = Detector(
+    name="4k CCD (15um)", pixel_size=15 * u.um, nx=4096, ny=4096, reference=""
+)
+
+CCD4k9 = Detector(
+    name="4k CCD (9um)", pixel_size=9 * u.um, nx=4096, ny=4096, reference=""
+)
+
+CCD2k15 = Detector(
+    name="2k CCD (15um)", pixel_size=15 * u.um, nx=2048, ny=2048, reference=""
+)
+
+iKon_L = Detector(
+    name="iKon-L 936",
+    pixel_size=13.5 * u.um,
+    nx=2048,
+    ny=2048,
+    reference="https://andor.oxinst.com/assets/uploads/products/andor/documents/andor-ikon-l-936-specifications.pdf",
+)
+
+iKon_M = Detector(
+    name="iKon-M 934",
+    pixel_size=13 * u.um,
+    nx=1024,
+    ny=1024,
+    reference="https://andor.oxinst.com/assets/uploads/products/andor/documents/andor-ikon-m-934-specifications.pdf",
+)
+
 DETECTORS: dict[str, Detector] = {
-    d.name: d for d in [STA1600, H4RG_15, H4RG_10, H2RG_18, e2v_9k]
+    d.name: d
+    for d in [
+        STA1600,
+        H4RG_15,
+        H4RG_10,
+        H2RG_18,
+        e2v_9k,
+        CCD4k15,
+        CCD4k9,
+        CCD2k15,
+        iKon_L,
+        iKon_M,
+    ]
 }
