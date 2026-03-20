@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class Detector:
-    name: str = "STA1600"
+    name: str = ""
     pixel_size: ScalarQuantity = 9 * u.um
     nx: int = 10560
     ny: int = 10560

@@ -18,7 +18,7 @@ import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
 
-from curved_air.glass import Glass
+from curved_air.glass import Glass, GlassCatalogue
 from curved_air.other import Air
 
 if TYPE_CHECKING:
@@ -449,7 +449,11 @@ class Prism(CrossDisperser):
     apex_angle: ScalarQuantity = 60 * u.deg
 
     def __post_init__(self) -> None:
-        assert self.glass.name != "_default_"
+        if self.glass.name == "_default_":
+            print(
+                "No glass specified for Prism. Defaulting to Schott F2. Specify a glass to silence this warning."
+            )
+            self.glass: Glass = GlassCatalogue("Schott")["F2"]
 
         if self.incidence_angle is None:
             if self.min_wl is not None and self.max_wl is not None:
@@ -956,7 +960,10 @@ class TwoPrisms(CrossDisperser):
             self.prism2: Prism = self.prism1
 
         self.prism1.min_wl: Quantity | None = self.min_wl
+        self.prism1.max_wl: Quantity | None = self.max_wl
+
         self.prism2.min_wl: Quantity | None = self.min_wl
+        self.prism2.max_wl: Quantity | None = self.max_wl
 
         if self.incidence_angle is None:
             assert isinstance(self.prism1.incidence_angle, Quantity)
@@ -1298,7 +1305,7 @@ def _refract(
     else:
         if callable(n_1):
             try:
-                _n_1: float = n_1(wavelength)
+                _n_1: float = n_1(wavelength)  # ty:ignore[call-top-callable]
             except TypeError:
                 _n_1: Any = n_1
 
@@ -1307,7 +1314,7 @@ def _refract(
 
         if callable(n_2):
             try:
-                _n_2: float = n_2(wavelength)
+                _n_2: float = n_2(wavelength)  # ty:ignore[call-top-callable]
             except TypeError:
                 _n_2: Any = n_2
 
