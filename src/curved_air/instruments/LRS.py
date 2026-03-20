@@ -239,7 +239,18 @@ class LowResolutionSpectrograph:
     def plot_detector_edge(self, ax: plt.Axes, name: bool = True) -> None:
         self.detector.plot_edge(ax=ax, name=name)
 
-    def plot_slit_image(self, ax: plt.Axes, wavelength: ScalarQuantity) -> None:
+    def plot_slit_image(
+        self,
+        ax: plt.Axes,
+        wavelength: ScalarQuantity,
+        dispersion_direction: str = "x",
+    ) -> None:
+
+        if dispersion_direction not in ["x", "y"]:
+            raise ValueError(
+                f"Invalid dispersion direction: {dispersion_direction}. Must be 'x' or 'y'.",
+            )
+
         slit_image_vertices: list[Coordinate] = self.slit_image_vertices(
             wavelength=wavelength
         )
@@ -247,17 +258,37 @@ class LowResolutionSpectrograph:
         slit_image_x: list[float] = [float(v.x.value) for v in slit_image_vertices]
         slit_image_y: list[float] = [float(v.y.value) for v in slit_image_vertices]
 
-        ax.plot(
-            [*slit_image_x, slit_image_x[0]],
-            [*slit_image_y, slit_image_y[0]],
-            color=wavelength_to_rgb(wavelength),
-        )
+        match dispersion_direction:
+            case "x":
+                ax.plot(
+                    [*slit_image_x, slit_image_x[0]],
+                    [*slit_image_y, slit_image_y[0]],
+                    color=wavelength_to_rgb(wavelength),
+                )
+            case "y":
+                ax.plot(
+                    [*slit_image_y, slit_image_y[0]],
+                    [*slit_image_x, slit_image_x[0]],
+                    color=wavelength_to_rgb(wavelength),
+                )
 
-    def plot_spectrum(self, ax: plt.Axes, num_wavelengths: int = 30) -> None:
+    def plot_spectrum(
+        self, ax: plt.Axes, num_wavelengths: int = 30, dispersion_direction: str = "x"
+    ) -> None:
+
+        if dispersion_direction not in ["x", "y"]:
+            raise ValueError(
+                f"Invalid dispersion direction: {dispersion_direction}. Must be 'x' or 'y'.",
+            )
+
         wavelengths: ArrayQuantity = self.equidistant_wavelengths(num=num_wavelengths)
 
         for wl in wavelengths:
-            self.plot_slit_image(ax=ax, wavelength=wl)
+            self.plot_slit_image(
+                ax=ax,
+                wavelength=wl,
+                dispersion_direction=dispersion_direction,
+            )
 
         ax.set_xlabel("Dispersion axis (mm)")
         ax.set_ylabel("Slit axis (mm)")
@@ -296,7 +327,7 @@ class LowResolutionSpectrograph:
 
         equidistant_wavelengths: np.ndarray = np.interp(xs, x_unique, wl_unique)
 
-        return equidistant_wavelengths * u.nm
+        return [float(e) for e in equidistant_wavelengths] * u.nm
 
     def print_parameters(self) -> LowResolutionSpectrograph:
         print(f"{'Collimated beam diameter:':<30}", end="")
