@@ -9,7 +9,8 @@ the available tools:
 
 | Calculator | Description |
 |---|---|
-| **Spectral Format** | Configure a full echelle spectrograph (grating + cross-disperser + detector) and visualise the échellogram on the detector. |
+| **Spectral Format** | Configure a full echelle spectrograph (grating + cross-disperser + detector) and visualise the echellogram on the detector. |
+| **Low Resolution Spectrograph** | Set up a low-resolution spectrograph with a single dipserser. |
 | **Atmospheric Dispersion Corrector** | Design a rotational atmospheric dispersion corrector (ADC) with two different glasses. |
 
 ---

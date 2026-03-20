@@ -29,6 +29,11 @@ st.navigation(
             icon="🌈",
         ),
         st.Page(
+            page="pages/low_resolution_spectrograph.py",
+            title="Low Resolution Spectrograph",
+            icon="🌈",
+        ),
+        st.Page(
             page="pages/atmospheric_dispersion_corrector.py",
             title="Atmospheric Dispersion Corrector",
             icon="🌠",
