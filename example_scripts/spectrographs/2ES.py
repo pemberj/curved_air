@@ -29,7 +29,7 @@ from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 plt.style.use(plot_style)
 
 
-F2: Glass = GlassCatalogue("schott")["F2"]
+F2: Glass = GlassCatalogue("Schott")["F2"]
 
 MIN_WL: ScalarQuantity = 370 * u.nm
 MAX_WL: ScalarQuantity = 900 * u.nm
@@ -49,14 +49,12 @@ TwoES_PRISMS: TwoPrisms = TwoPrisms(
     prism1=Prism(
         name="TwoES Prism 1",
         glass=F2,
-        apex_angle=30 * u.deg,
-        incidence_angle=60 * u.deg,
+        apex_angle=48.7 * u.deg,
     ),
     prism2=Prism(
         name="TwoES Prism 2",
         glass=F2,
-        apex_angle=30 * u.deg,
-        incidence_angle=500 * u.deg,
+        apex_angle=48.7 * u.deg,
     ),
     min_wl=MIN_WL,
     max_wl=MAX_WL,
