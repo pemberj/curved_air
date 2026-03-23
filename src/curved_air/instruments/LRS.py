@@ -60,10 +60,25 @@ class LowResolutionSpectrograph:
     camera_focal_length: ScalarQuantity = 600 * u.mm
 
     def __post_init__(self) -> None:
-        if self.disperser.min_wl != self.min_wl:
-            self.disperser.min_wl: ScalarQuantity = self.min_wl
-        if self.disperser.max_wl != self.max_wl:
-            self.disperser.max_wl: ScalarQuantity = self.max_wl
+        self.disperser.min_wl: ScalarQuantity = self.min_wl
+        self.disperser.max_wl: ScalarQuantity = self.max_wl
+
+        if isinstance(self.disperser, Prism):
+            if self.min_wl < self.disperser.glass.wlmin * u.um:
+                raise ValueError(
+                    f"Minimum wavelength {self.min_wl} is below the glass transmission "
+                    + f"limit of {self.disperser.glass.wlmin * u.um}."
+                )
+            if self.max_wl > self.disperser.glass.wlmax * u.um:
+                raise ValueError(
+                    f"Maximum wavelength {self.max_wl} is above the glass transmission "
+                    + f"limit of {self.disperser.glass.wlmax * u.um}."
+                )
+
+            # Update incidence angle based on the wavelength range
+            self.disperser.incidence_angle: ScalarQuantity = (
+                self.disperser.find_incidence_angle()
+            )
 
     @cached_property
     def mid_wl(self) -> ScalarQuantity:
@@ -245,7 +260,6 @@ class LowResolutionSpectrograph:
         wavelength: ScalarQuantity,
         dispersion_direction: str = "x",
     ) -> None:
-
         if dispersion_direction not in ["x", "y"]:
             raise ValueError(
                 f"Invalid dispersion direction: {dispersion_direction}. Must be 'x' or 'y'.",
@@ -275,7 +289,6 @@ class LowResolutionSpectrograph:
     def plot_spectrum(
         self, ax: plt.Axes, num_wavelengths: int = 30, dispersion_direction: str = "x"
     ) -> None:
-
         if dispersion_direction not in ["x", "y"]:
             raise ValueError(
                 f"Invalid dispersion direction: {dispersion_direction}. Must be 'x' or 'y'.",
