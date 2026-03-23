@@ -40,8 +40,8 @@ class EchelleSpectrograph:
     detector: Detector = field(default_factory=Detector)
 
     beam_diameter: ScalarQuantity | None = None
-    min_wl: ScalarQuantity | None = 390 * u.nm
-    max_wl: ScalarQuantity | None = 950 * u.nm
+    min_wl: ScalarQuantity = 390 * u.nm
+    max_wl: ScalarQuantity = 950 * u.nm
     collimator_focal_length: ScalarQuantity | None = 1125 * u.mm
     slit_width: ScalarQuantity = 40 * u.um
     slit_length: ScalarQuantity = 0.5 * u.mm
@@ -52,15 +52,28 @@ class EchelleSpectrograph:
         if self.beam_diameter is None:
             self.beam_diameter: ScalarQuantity = self.grating.beam_diameter
 
-        if self.grating.min_wl is None:
-            self.grating.min_wl: ScalarQuantity = self.min_wl
-        if self.grating.max_wl is None:
-            self.grating.max_wl: ScalarQuantity = self.max_wl
+        self.grating.min_wl: ScalarQuantity = self.min_wl
+        self.grating.max_wl: ScalarQuantity = self.max_wl
 
-        if self.cross_disperser.min_wl is None:
-            self.cross_disperser.min_wl: ScalarQuantity = self.min_wl
-        if self.cross_disperser.max_wl is None:
-            self.cross_disperser.max_wl: ScalarQuantity = self.max_wl
+        self.cross_disperser.min_wl: ScalarQuantity = self.min_wl
+        self.cross_disperser.max_wl: ScalarQuantity = self.max_wl
+
+        if isinstance(self.cross_disperser, Prism):
+            if self.min_wl < self.cross_disperser.glass.wlmin * u.um:
+                raise ValueError(
+                    f"Minimum wavelength {self.min_wl} is below the glass transmission "
+                    + f"limit of {self.cross_disperser.glass.wlmin * u.um}."
+                )
+            if self.max_wl > self.cross_disperser.glass.wlmax * u.um:
+                raise ValueError(
+                    f"Maximum wavelength {self.max_wl} is above the glass transmission "
+                    + f"limit of {self.cross_disperser.glass.wlmax * u.um}."
+                )
+
+            # Update incidence angle based on the wavelength range
+            self.cross_disperser.incidence_angle: ScalarQuantity = (
+                self.cross_disperser.find_incidence_angle()
+            )
 
     def plot_detector_edge(self, ax: plt.Axes, name: bool = True) -> None:
         self.detector.plot_edge(ax=ax, name=name)
@@ -266,7 +279,7 @@ class EchelleSpectrograph:
         self,
         m: int | None = None,
         FSR_fraction: float = 1.0,
-    ) -> tuple[float]:
+    ) -> tuple[float, float]:
         """
         Gives the effective magnification factor at each end of a given spectral order.
         If no order is specified, the order corresponding to the maximum wavelength is

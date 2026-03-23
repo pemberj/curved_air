@@ -8,12 +8,14 @@
 # curved_air = { path = "../..", editable = true }
 # ///
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import Detector
-from curved_air.glass import Glass, GlassCatalogue
+from curved_air.glass import GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
 from curved_air.optics.dispersers import EchelleGrating, Prism
 from curved_air.other import (  # noqa: F401
@@ -22,53 +24,39 @@ from curved_air.other import (  # noqa: F401
     _fraunhofer_lines,
 )
 from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
-from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 # from curved_air.utils import agf_files
 
 plt.style.use(plot_style)
 
 
-F2: Glass = GlassCatalogue("schott")["F2"]
-
-MIN_WL: ScalarQuantity = 380 * u.nm
-MAX_WL: ScalarQuantity = 950 * u.nm
-
-MARVEL_GRATING: EchelleGrating = EchelleGrating(
-    name="MARVEL Grating",
-    catalogue_number="53-*-417E",
-    groove_frequency=52.67 / u.mm,
-    ruled_width=400 * u.mm,
-    blaze_angle=69.7 * u.deg,
-    gamma_angle=0.3 * u.deg,
-    min_wl=MIN_WL,
-    max_wl=MAX_WL,
-)
-
-MARVEL_PRISM: Prism = Prism(
-    name="MARVEL Prism",
-    glass=F2,
-    apex_angle=60 * u.deg,
-    min_wl=MIN_WL,
-    max_wl=MAX_WL,
-)
-
-MARVEL_DETECTOR: Detector = Detector(
-    name="STA1600",
-    pixel_size=9 * u.um,
-    nx=10560,
-    ny=10560,
-)
-
-
 def main(plot: bool = False) -> None:
     MARVEL: EchelleSpectrograph = EchelleSpectrograph(
         name="MARVEL Spectrograph",
-        grating=MARVEL_GRATING,
-        cross_disperser=MARVEL_PRISM,
-        detector=MARVEL_DETECTOR,
-        min_wl=MIN_WL,
-        max_wl=MAX_WL,
+        grating=EchelleGrating(
+            name="MARVEL Grating",
+            catalogue_number="53-*-417E",
+            groove_frequency=52.67 / u.mm,
+            ruled_width=400 * u.mm,
+            blaze_angle=69.7 * u.deg,
+            gamma_angle=0.3 * u.deg,
+        ),
+        cross_disperser=Prism(
+            name="MARVEL Prism",
+            glass=GlassCatalogue("Schott")["F2"],
+            apex_angle=60 * u.deg,
+        ),
+        detector=Detector(
+            name="STA1600",
+            pixel_size=9 * u.um,
+            nx=10560,
+            ny=10560,
+        ),
+        min_wl=380 * u.nm,
+        max_wl=950 * u.nm,
         collimator_focal_length=1125 * u.mm,
         camera_focal_length=730 * u.mm,
         slit_width=40 * u.um,
