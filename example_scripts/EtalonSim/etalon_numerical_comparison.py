@@ -14,7 +14,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from curved_air.beams import GaussianBeam, PlanarBeam, SphericalBeam  # noqa: F401
-from curved_air.optics import Etalon
+from curved_air.instruments.etalon import Etalon
 from curved_air.plotting import plot_style
 from curved_air.utils import FWHM
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
-SCRIPT_NAME: Path = Path(__file__).stem
+SCRIPT_NAME: str = Path(__file__).stem
 SCRIPT_PATH: Path = Path(__file__).parent
 
 
@@ -42,8 +42,8 @@ def main() -> None:
 
     Zs = np.arange(0, round_trip_mm * num_round_trips, round_trip_mm) * u.mm
     # two same-length placeholder arrays for the plane-wave version
-    Xs = np.zeros_like(Zs)
-    Ys = np.zeros_like(Zs)
+    # Xs = np.zeros_like(Zs)
+    # Ys = np.zeros_like(Zs)
 
     target_wavelength = 780 * u.nm
 

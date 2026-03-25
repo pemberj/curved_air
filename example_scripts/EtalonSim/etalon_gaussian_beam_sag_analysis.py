@@ -17,7 +17,7 @@ from curved_air.plotting import plot_style
 
 plt.style.use(plot_style)
 
-SCRIPT_NAME: Path = Path(__file__).stem
+SCRIPT_NAME: str = Path(__file__).stem
 SCRIPT_PATH: Path = Path(__file__).parent
 
 
@@ -53,9 +53,9 @@ def main() -> None:
     for w_0 in beam_diameters:
         beam = GaussianBeam(wavelength=wavelength, w_0=w_0)
 
-        xr = np.linspace(-r, r, 101)
-        yr = np.linspace(-r, r, 101)
-        X, Y = np.meshgrid(xr, yr)
+        # xr = np.linspace(-r, r, 101)
+        # yr = np.linspace(-r, r, 101)
+        # X, Y = np.meshgrid(xr, yr)
         # dist_from_center = np.sqrt(X**2 + Y**2)
         # circle_mask = dist_from_center < r
 
