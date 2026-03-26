@@ -7,6 +7,7 @@
 # [tool.uv.sources]
 # curved_air = { path = "../..", editable = true }
 # ///
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
@@ -16,72 +17,66 @@ from curved_air.detectors import Detector
 from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
 from curved_air.optics.dispersers import EchelleGrating, Prism, TwoPrisms
-from curved_air.other import (  # noqa: F401
-    _atomic_lines,
-    _balmer_lines,
-    _fraunhofer_lines,
-)
-from curved_air.plotting import plot_style, stroke, wavelength_to_rgb  # noqa: F401
-from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+from curved_air.other import _atomic_lines
+from curved_air.plotting import plot_style, stroke, wavelength_to_rgb
 
-# from curved_air.utils import agf_files
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
 
 F2: Glass = GlassCatalogue("Schott")["F2"]
 
-MIN_WL: ScalarQuantity = 370 * u.nm
-MAX_WL: ScalarQuantity = 900 * u.nm
-
-TwoES_GRATING: EchelleGrating = EchelleGrating(
-    name="TwoES Grating",
-    catalogue_number="53-*-417E",
-    groove_frequency=31.6 / u.mm,
-    ruled_width=800 * u.mm,
-    blaze_angle=76 * u.deg,
-    gamma_angle=0.5 * u.deg,
-    min_wl=MIN_WL,
-    max_wl=MAX_WL,
-)
-
-TwoES_PRISMS: TwoPrisms = TwoPrisms(
-    prism1=Prism(
-        name="TwoES Prism 1",
-        glass=F2,
-        apex_angle=48.7 * u.deg,
-    ),
-    prism2=Prism(
-        name="TwoES Prism 2",
-        glass=F2,
-        apex_angle=48.7 * u.deg,
-    ),
-    min_wl=MIN_WL,
-    max_wl=MAX_WL,
-)
-
-TwoES_DETECTOR: Detector = Detector(
-    name="STA1600",
-    pixel_size=9 * u.um,
-    nx=10560,
-    ny=10560,
-)
-
 
 def main(plot: bool = False) -> None:
     TwoES: EchelleSpectrograph = EchelleSpectrograph(
         name="2ES Spectrograph",
-        grating=TwoES_GRATING,
-        cross_disperser=TwoES_PRISMS,
-        detector=TwoES_DETECTOR,
-        min_wl=MIN_WL,
-        max_wl=MAX_WL,
+        grating=EchelleGrating(
+            catalogue_number="53-*-417E",
+            groove_frequency=31.6 / u.mm,
+            ruled_width=400 * u.mm,
+            blaze_angle=76 * u.deg,
+            gamma_angle=0.5 * u.deg,
+        ),
+        cross_disperser=TwoPrisms(
+            prism1=Prism(
+                glass=F2,
+                apex_angle=48.7 * u.deg,
+            ),
+            prism2=Prism(
+                glass=F2,
+                apex_angle=48.7 * u.deg,
+            ),
+        ),
+        detector=Detector(
+            name="STA1600",
+            pixel_size=9 * u.um,
+            nx=10560,
+            ny=10560,
+        ),
+        min_wl=375 * u.nm,
+        max_wl=900 * u.nm,
+        beam_diameter=100 * u.mm,
         collimator_focal_length=1000 * u.mm,
-        camera_focal_length=700 * u.mm,
+        camera_focal_length=570 * u.mm,
         slit_width=32 * u.um,
         slit_length=128 * u.um,
-        slit_native_focal_ratio=4,
+        slit_native_focal_ratio=5,
     ).print_parameters()
+
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
+
+    # Plot the spectral resolution as a function of wavelength
+    wls = np.linspace(TwoES.min_wl, TwoES.max_wl, 100)
+    Rs = np.array([TwoES.spectral_resolution(wl=wl) for wl in wls])
+
+    ax.plot(wls, Rs)
+
+    plt.show()
+
+    return
 
     if plot:
         fig: plt.Figure = plt.figure("2ES spectral format", figsize=(10, 10))

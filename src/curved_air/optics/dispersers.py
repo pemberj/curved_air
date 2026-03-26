@@ -719,14 +719,18 @@ class Prism(CrossDisperser):
         """
 
         if min_wl is None:
-            assert isinstance(self.min_wl, Quantity)
-            assert self.min_wl.isscalar
-            min_wl: ScalarQuantity = self.min_wl
+            if isinstance(self.min_wl, Quantity):
+                assert self.min_wl.isscalar
+                min_wl: ScalarQuantity = self.min_wl
+            else:
+                return 0 * u.deg
 
         if max_wl is None:
-            assert isinstance(self.max_wl, Quantity)
-            assert self.max_wl.isscalar
-            max_wl: ScalarQuantity = self.max_wl
+            if isinstance(self.max_wl, Quantity):
+                assert self.max_wl.isscalar
+                max_wl: ScalarQuantity = self.max_wl
+            else:
+                return 0 * u.deg
 
         min_wl_incidence: ScalarQuantity = self.minimum_deviation_incidence_angle(
             wl=min_wl
@@ -895,8 +899,7 @@ class Prism(CrossDisperser):
         debug_level: float = 0,
     ) -> ArrayQuantity:
         """
-        Trace a set of rays through the Prism, solving Snell's Law at each
-        interface
+        Trace a set of rays through the Prism, solving Snell's Law at each interface
         """
 
         if wls is None:
@@ -968,16 +971,85 @@ class TwoPrisms(CrossDisperser):
         if self.incidence_angle is None:
             assert isinstance(self.prism1.incidence_angle, Quantity)
             self.incidence_angle: ScalarQuantity = self.prism1.incidence_angle
+        else:
+            self.prism1.incidence_angle = self.incidence_angle
 
         if self.min_wl is None:
-            assert isinstance(self.prism1.min_wl, Quantity)
-            assert isinstance(self.prism2.min_wl, Quantity)
-            self.min_wl: ScalarQuantity = min(self.prism1.min_wl, self.prism2.min_wl)
+            if self.prism1.min_wl is not None and self.prism2.min_wl is not None:
+                # assert isinstance(self.prism1.min_wl, Quantity)
+                # assert isinstance(self.prism2.min_wl, Quantity)
+                self.min_wl: ScalarQuantity = min(
+                    self.prism1.min_wl, self.prism2.min_wl
+                )
+            else:
+                self.min_wl = None
 
         if self.max_wl is None:
-            assert isinstance(self.prism1.max_wl, Quantity)
-            assert isinstance(self.prism2.max_wl, Quantity)
-            self.max_wl: ScalarQuantity = max(self.prism1.max_wl, self.prism2.max_wl)
+            if self.prism1.max_wl is not None and self.prism2.max_wl is not None:
+                # assert isinstance(self.prism1.max_wl, Quantity)
+                # assert isinstance(self.prism2.max_wl, Quantity)
+                self.max_wl: ScalarQuantity = max(
+                    self.prism1.max_wl, self.prism2.max_wl
+                )
+
+            else:
+                self.max_wl = None
+
+    @cached_property
+    def mid_wavelength(self) -> ScalarQuantity:
+        """
+        Find the mid wavelength in angular terms.
+        """
+
+        assert isinstance(self.min_wl, Quantity) and self.min_wl.isscalar
+        assert isinstance(self.max_wl, Quantity) and self.max_wl.isscalar
+
+        wls: ArrayQuantity = (
+            np.linspace(
+                self.min_wl.to(u.um).value,
+                self.max_wl.to(u.um).value,
+                1000,
+            )
+            * u.um
+        )
+
+        deviations: ArrayQuantity = self.deviation_angle(wl=wls).to(u.deg)
+        target_deviation: float = (deviations[0].value + deviations[-1].value) / 2
+
+        sort_indices = np.argsort(deviations.value)
+
+        sorted_deviations = deviations.value[sort_indices]
+        sorted_wls = wls.to(u.um).value[sort_indices]
+
+        unique_deviations, unique_indices = np.unique(
+            sorted_deviations,
+            return_index=True,
+        )
+
+        return (
+            np.interp(target_deviation, unique_deviations, sorted_wls[unique_indices])
+            * u.um
+        )
+
+    def _second_prism_incidence_angle(
+        self,
+        wl: Quantity = 550 * u.nm,
+        field_angle: ScalarQuantity = 0 * u.deg,
+    ) -> Quantity:
+        """
+        Return the incidence angle onto the second prism after the first prism has
+        deviated the ray.
+        """
+
+        first_prism_deviation: Quantity = self.prism1.deviation_angle(
+            wl=wl,
+            field_angle=field_angle,
+        )
+
+        assert isinstance(self.prism2, Prism)
+        assert isinstance(self.prism2.incidence_angle, Quantity)
+
+        return self.prism2.incidence_angle + first_prism_deviation
 
     def dispersion_angle(
         self,
@@ -987,27 +1059,11 @@ class TwoPrisms(CrossDisperser):
         """
         Calculate the total dispersion angle from both prisms.
         """
+        zero_angle: Quantity = self.deviation_angle(wl=self.mid_wavelength)
 
-        first_prism_angle: Quantity = self.prism1.dispersion_angle(
-            wl=wl, field_angle=field_angle
+        return (self.deviation_angle(wl=wl, field_angle=field_angle) - zero_angle).to(
+            u.deg
         )
-
-        assert isinstance(self.prism2.incidence_angle, Quantity)
-        p2 = Prism(
-            glass=self.prism2.glass,
-            apex_angle=self.prism2.apex_angle,
-            incidence_angle=(
-                first_prism_angle.to(u.deg).value
-                + self.prism2.incidence_angle.to(u.deg).value
-            )
-            * u.deg,
-        )
-
-        second_prism_angle: Quantity = p2.dispersion_angle(
-            wl=wl, field_angle=field_angle
-        )
-
-        return second_prism_angle
 
     def deviation_angle(
         self,
@@ -1023,15 +1079,14 @@ class TwoPrisms(CrossDisperser):
             field_angle=field_angle,
         )
 
-        assert isinstance(self.prism2.incidence_angle, Quantity)
+        assert isinstance(self.prism2, Prism)
         p2 = Prism(
             glass=self.prism2.glass,
             apex_angle=self.prism2.apex_angle,
-            incidence_angle=(
-                first_prism_angle.to(u.deg).value
-                + self.prism2.incidence_angle.to(u.deg).value
-            )
-            * u.deg,
+            incidence_angle=self._second_prism_incidence_angle(
+                wl=wl,
+                field_angle=field_angle,
+            ),
         )
 
         second_prism_angle: Quantity = p2.deviation_angle(
@@ -1039,7 +1094,7 @@ class TwoPrisms(CrossDisperser):
             field_angle=field_angle,
         )
 
-        return second_prism_angle
+        return (first_prism_angle + second_prism_angle).to(u.deg)
 
 
 @dataclass

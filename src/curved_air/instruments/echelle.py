@@ -24,11 +24,13 @@ from curved_air.optics.dispersers import (
     CrossDisperser,
     EchelleGrating,
     Prism,
+    TwoPrisms,
 )
 
 if TYPE_CHECKING:
     from matplotlib import pyplot as plt
 
+    from curved_air.glass import Glass
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
@@ -75,6 +77,63 @@ class EchelleSpectrograph:
                 self.cross_disperser.find_incidence_angle()
             )
 
+        if isinstance(self.cross_disperser, TwoPrisms):
+            self.cross_disperser.prism1.min_wl: ScalarQuantity = self.min_wl
+            self.cross_disperser.prism1.max_wl: ScalarQuantity = self.max_wl
+
+            p1glass: Glass = self.cross_disperser.prism1.glass
+            p2glass: Glass = self.cross_disperser.prism2.glass
+            if self.min_wl < p1glass.wlmin * u.um or self.min_wl < p2glass.wlmin * u.um:
+                raise ValueError(
+                    f"Minimum wavelength {self.min_wl} is below one or more of the glass"
+                    f"transmission limits of {p1glass.wlmin * u.um} and {p2glass.wlmin * u.um}."
+                )
+            if self.max_wl > p1glass.wlmax * u.um or self.max_wl > p2glass.wlmax * u.um:
+                raise ValueError(
+                    f"Maximum wavelength {self.max_wl} is above one or more of the glass"
+                    f"transmission limits of {p1glass.wlmax * u.um} and {p2glass.wlmax * u.um}."
+                )
+
+            # Update incidence angles based on the wavelength range
+            self.cross_disperser.prism1.incidence_angle: ScalarQuantity = (
+                self.cross_disperser.prism1.find_incidence_angle()
+            )
+
+            self.cross_disperser.prism2.incidence_angle: ScalarQuantity = (
+                self.cross_disperser.prism2.find_incidence_angle()
+            )
+
+            self.cross_disperser.incidence_angle: ScalarQuantity = (
+                self.cross_disperser.prism1.incidence_angle
+            )
+
+    @property
+    def mid_wavelength(self) -> ScalarQuantity:
+        return (self.max_wl + self.min_wl) / 2
+
+    @property
+    def mid_wavelength_rounded(self) -> ScalarQuantity:
+        """
+        The mid wavelength rounded to the nearest 50nm, for use in plots and displays
+        where a clean number is preferable.
+        """
+        mid_wavelength: ScalarQuantity = (
+            round(self.mid_wavelength.to(u.nm).value / 50) * 50 * u.nm
+        )
+        return mid_wavelength
+
+    @property
+    def mid_blaze_wavelength(self) -> ScalarQuantity:
+        """
+        First, find the mid wavelength of the spectrograph's bandpass. Then find the
+        diffraction order in which that wavelength appears within the FSR. Finally,
+        find and return the blaze wavelength of that order.
+        """
+        mid_order: int = self.grating.order_number(
+            wl=self.mid_wavelength, quantised=True
+        )
+        return self.grating.blaze_wavelength(m=mid_order)
+
     def plot_detector_edge(self, ax: plt.Axes, name: bool = True) -> None:
         self.detector.plot_edge(ax=ax, name=name)
 
@@ -101,8 +160,7 @@ class EchelleSpectrograph:
         if slit_width is None:
             slit_width = self.slit_width
 
-        slit_image_width = slit_width * self.slit_magnification
-        return float((slit_image_width / self.detector.pixel_size).si.value)
+        return float((self.slit_image_width() / self.detector.pixel_size).si.value)
 
     @property
     def spectral_orders(self) -> list[int]:
@@ -227,9 +285,20 @@ class EchelleSpectrograph:
 
         return abs(x1[0] - x2[0])
 
-    @property
-    def slit_image_width(self) -> ScalarQuantity:
+    def slit_image_width(
+        self, m: int | None = None, wl: ScalarQuantity | None = None
+    ) -> ScalarQuantity:
         """Width of the slit image in the image plane"""
+
+        if wl is not None:
+            if m is None:
+                m: int = self.grating.order_number(wl=wl, quantised=True)
+            return (
+                self.slit_width
+                * self.slit_magnification
+                * self.anamorphic_magnification(wl=wl, m=m)
+            )
+
         return self.slit_width * self.slit_magnification
 
     @property
@@ -246,14 +315,20 @@ class EchelleSpectrograph:
     def resolution_element(self, wl: ArrayQuantity, m: int | None) -> ArrayQuantity: ...
 
     def resolution_element(self, wl: Quantity, m: int | None = None) -> Quantity:
+        """ """
+
         if m is None:
             # Find the diffraction order in which this wavelength is within the FSR
-            m = self.grating.order_number(wl=wl, quantised=True)
+            m: int = self.grating.order_number(wl=wl, quantised=True)
 
-        angular_dispersion = self.grating.angular_dispersion(m=m, wl=wl)
-        spatial_dispersion = angular_dispersion / self.camera_plate_scale
+        angular_dispersion: ScalarQuantity = self.grating.angular_dispersion(m=m, wl=wl)
+        spatial_dispersion: ScalarQuantity = (
+            angular_dispersion / self.camera_plate_scale
+        )
 
-        return (1 / (spatial_dispersion / self.slit_image_width)).to(wl.unit)
+        return (1 / (spatial_dispersion / self.slit_image_width(m=m, wl=wl))).to(
+            wl.unit
+        )
 
     @overload
     def spectral_resolution(
@@ -267,19 +342,63 @@ class EchelleSpectrograph:
 
     def spectral_resolution(
         self,
-        wl: Quantity,
+        wl: ScalarQuantity | ArrayQuantity,
         m: int | None = None,
     ) -> float | list[float]:
-        if wl.isscalar:
-            return float((wl / self.resolution_element(wl=wl, m=m)).si.value)
+        """
+        See also docstrings for resolution_element and slit_image_width.
 
-        return [(iwl / self.resolution_element(wl=iwl, m=m)).si.value for iwl in wl]
+        Currently this function will only return the spectral resolution at the blaze
+        wavelength of the relevant order
+        """
+
+        if wl.isscalar:
+            if m is None:
+                m: int = self.grating.order_number(wl=wl, quantised=True)
+
+            wl_blaze: ScalarQuantity = self.grating.blaze_wavelength(m=m)
+            return float((wl / self.resolution_element(wl=wl_blaze, m=m)).si.value)
+
+        if m is None:
+            m: list[int] = [
+                self.grating.order_number(wl=iwl, quantised=True) for iwl in wl
+            ]
+        assert isinstance(m, list)
+        assert len(m) == len(wl)
+
+        wls_blaze: list[ScalarQuantity] = [
+            self.grating.blaze_wavelength(m=im) for im in m
+        ]
+
+        return [
+            (iwl / self.resolution_element(wl=iwl, m=im)).si.value
+            for iwl, im in zip(wls_blaze, m, strict=True)
+        ]
+
+        # return [(iwl / self.resolution_element(wl=iwl, m=m)).si.value for iwl in wl]
+
+    @overload
+    def anamorphic_magnification(
+        self,
+        wl: None = None,
+        m: int | None = None,
+        FSR_fraction: float = 1.0,
+    ) -> tuple[float, float]: ...
+
+    @overload
+    def anamorphic_magnification(
+        self,
+        wl: ScalarQuantity,
+        m: int | None = None,
+        FSR_fraction: float = 1.0,
+    ) -> tuple[float, float]: ...
 
     def anamorphic_magnification(
         self,
+        wl: ScalarQuantity | None = None,
         m: int | None = None,
         FSR_fraction: float = 1.0,
-    ) -> tuple[float, float]:
+    ) -> float | tuple[float, float]:
         """
         Gives the effective magnification factor at each end of a given spectral order.
         If no order is specified, the order corresponding to the maximum wavelength is
@@ -289,6 +408,14 @@ class EchelleSpectrograph:
         size as a function of diffraction angle. For longer (larger opening angle)
         orders, this effect is larger.
         """
+        if wl is not None:
+            if m is None:
+                m: int = self.grating.order_number(wl=wl, quantised=True)
+            return self.grating.anamorphic_magnification(m=m, wl=wl)
+
+        # If no wavelength is specified, return the anamorphic magnification at each end
+        # of the given or the maximum order. This is useful for calculating the range of
+        # anamorphic magnification or the ratio from one end of the order to the other.
 
         if m is None:
             m: int = self.grating.order_number(self.max_wl, quantised=True)
@@ -336,8 +463,8 @@ class EchelleSpectrograph:
         print(f"{'Sampling of slit image:':<30}", end="")
         print(f"{self.slit_sampling:.3g} pixels")
 
-        print(f"{'Spectral resolution:':<30}", end="")
-        print(f"{self.spectral_resolution(wl=0.55 * u.um):,.0f}")
+        print(f"{f'Spectral resolution @{self.mid_blaze_wavelength:.0f}:':<30}", end="")
+        print(f"{self.spectral_resolution(wl=self.mid_blaze_wavelength):,.0f}")
 
         return self
 
