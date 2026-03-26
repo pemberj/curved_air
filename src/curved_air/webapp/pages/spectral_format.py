@@ -23,6 +23,7 @@ from curved_air.optics.dispersers import (
     EchelleGrating,
     Prism,
     SimpleGrating,
+    TwoPrisms,
 )
 from curved_air.other import _atomic_lines
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex
@@ -32,6 +33,13 @@ if TYPE_CHECKING:
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
+
+st.set_page_config(
+    page_title="Curved Air: Optical Design Calculators",
+    page_icon="🌈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 
 st.header("Spectral Format")
@@ -143,7 +151,7 @@ with st.sidebar:
                 "Prism",
                 "Grating",
                 # "Grism",  # TODO
-                # "Multiple prisms",  # TODO
+                "Multiple prisms",
             ],
             default="Prism",
         )  # ty:ignore[invalid-assignment]
@@ -209,6 +217,141 @@ with st.sidebar:
                 )
 
                 st.plotly_chart(fig)
+
+        elif cross_disperser_type == "Multiple prisms":
+            p1_catalogue: str = st.selectbox(
+                "Prism 1 glass catalogue",
+                GLASS_CATALOGUES.keys(),
+                index=list(GLASS_CATALOGUES.keys()).index("Schott")
+                if "Schott" in GLASS_CATALOGUES
+                else 0,
+            )
+
+            try:
+                p1_glasses = GlassCatalogue(p1_catalogue)
+                p1_glass_names: list[str] = sorted(p1_glasses.keys())
+            except Exception:
+                st.error(f"Could not load {p1_catalogue} glass catalogue.")
+
+            default_glass: str = "F2"
+
+            p1_glass_name: str = st.selectbox(
+                "Prism 1 Glass",
+                p1_glass_names,
+                index=p1_glass_names.index(default_glass)
+                if default_glass in p1_glass_names
+                else 0,
+            )
+
+            p1_apex_angle: ScalarQuantity = (
+                st.number_input(
+                    "Apex angle (°)",
+                    min_value=5.0,
+                    max_value=60.0,
+                    value=48.7,
+                    step=1.0,
+                    key="p1_apex_angle",
+                )
+                * u.deg
+            )
+
+            st.toggle(
+                "Plot glass refractive index",
+                value=False,
+                key="p1_ref_index_plot_toggle",
+            )
+
+            if st.session_state["p1_ref_index_plot_toggle"]:
+                wls: list[float] = p1_glasses[p1_glass_name].wl
+
+                fig = go.Figure()
+                fig.add_trace(
+                    trace=go.Scatter(
+                        x=wls,
+                        y=p1_glasses[p1_glass_name].refractive_index(wls),
+                        mode="lines",
+                    )
+                )
+                fig.update_layout(
+                    title=f"{p1_glass_name} Refractive Index",
+                    xaxis_title="Wavelength (nm)",
+                    yaxis_title="Refractive Index",
+                    template="plotly_dark",
+                )
+
+                st.plotly_chart(fig, key="p1_ref_index_plot")
+
+            st.toggle(
+                "Use two identical prisms",
+                value=True,
+                key="identical_prisms_toggle",
+            )
+
+            if st.session_state["identical_prisms_toggle"]:
+                # p2_catalogue = p1_catalogue
+                p2_glasses = p1_glasses
+                p2_glass_name = p1_glass_name
+                p2_apex_angle = p1_apex_angle
+            else:
+                p2_catalogue: str = st.selectbox(
+                    "Prism 2 glass catalogue",
+                    GLASS_CATALOGUES.keys(),
+                    index=list(GLASS_CATALOGUES.keys()).index("Schott")
+                    if "Schott" in GLASS_CATALOGUES
+                    else 0,
+                )
+
+                try:
+                    p2_glasses = GlassCatalogue(p2_catalogue)
+                    p2_glass_names: list[str] = sorted(p2_glasses.keys())
+                except Exception:
+                    st.error(f"Could not load {p2_catalogue} glass catalogue.")
+
+                p2_glass_name: str = st.selectbox(
+                    "Prism 2 Glass",
+                    p2_glass_names,
+                    index=p2_glass_names.index(default_glass)
+                    if default_glass in p2_glass_names
+                    else 0,
+                )
+
+                p2_apex_angle: ScalarQuantity = (
+                    st.number_input(
+                        "Apex angle (°)",
+                        min_value=5.0,
+                        max_value=60.0,
+                        value=48.7,
+                        step=1.0,
+                        key="p2_apex_angle",
+                    )
+                    * u.deg
+                )
+
+                st.toggle(
+                    "Plot glass refractive index",
+                    value=False,
+                    key="p2_ref_index_plot_toggle",
+                )
+
+                if st.session_state["p2_ref_index_plot_toggle"]:
+                    wls: list[float] = p2_glasses[p2_glass_name].wl
+
+                    fig = go.Figure()
+                    fig.add_trace(
+                        trace=go.Scatter(
+                            x=wls,
+                            y=p2_glasses[p2_glass_name].refractive_index(wls),
+                            mode="lines",
+                        )
+                    )
+                    fig.update_layout(
+                        title=f"{p2_glass_name} Refractive Index",
+                        xaxis_title="Wavelength (nm)",
+                        yaxis_title="Refractive Index",
+                        template="plotly_dark",
+                    )
+
+                    st.plotly_chart(fig, key="p2_ref_index_plot")
 
         elif cross_disperser_type == "Grating":
             cross_disperser_groove_frequency: ScalarQuantity = (
@@ -421,6 +564,12 @@ with st.sidebar:
             key="dispersion_direction",
         )
 
+        if st.session_state["dispersion_direction"] is None:
+            st.error(
+                "Please select a dispersion direction for the plot.",
+                icon=":material/error:",
+            )
+
         st.pills(
             "Coordinate transformations",
             options=["Flip x", "Flip y"],
@@ -451,7 +600,12 @@ with st.sidebar:
     st.space(10)
 
     with st.container(horizontal_alignment="center"):
-        st.button("Recompute", type="primary")
+        st.button(
+            "Plot spectral format",
+            type="primary",
+            key="recompute_plot",
+            help="Click to recompute the spectral format plot.",
+        )
 
 
 # Create Spectrograph
@@ -463,8 +617,6 @@ GRATING: EchelleGrating = EchelleGrating(
     groove_frequency=groove_freq,
     blaze_angle=blaze_angle,
     gamma_angle=0 * u.deg,
-    min_wl=MIN_WL,
-    max_wl=MAX_WL,
     ruled_width=ruled_width,
 )
 
@@ -473,14 +625,23 @@ if cross_disperser_type == "Prism":
     CROSS_DISPERSER: CrossDisperser = Prism(
         glass=glass,
         apex_angle=apex_angle,
-        min_wl=MIN_WL,
-        max_wl=MAX_WL,
     )
-else:
+
+elif cross_disperser_type == "Multiple prisms":
+    CROSS_DISPERSER = TwoPrisms(
+        prism1=Prism(
+            glass=p1_glasses[p1_glass_name],
+            apex_angle=p1_apex_angle,
+        ),
+        prism2=Prism(
+            glass=p2_glasses[p2_glass_name],
+            apex_angle=p2_apex_angle,
+        ),
+    )
+
+elif cross_disperser_type == "Grating":
     CROSS_DISPERSER: CrossDisperser = SimpleGrating(
         groove_frequency=cross_disperser_groove_frequency,
-        min_wl=MIN_WL,
-        max_wl=MAX_WL,
     )
 
 DETECTOR: Detector = Detector(
@@ -570,16 +731,9 @@ with c4:
         st.warning("Minimum order separation is smaller than the imaged slit length!")
 
 with c5:
-    mid_wavelength: ScalarQuantity = (MAX_WL + MIN_WL) / 2
-
-    # round to the nearest 50nm
-    mid_wavelength: ScalarQuantity = (
-        round(mid_wavelength.to(u.nm).value / 50) * 50 * u.nm
-    )
-
     st.metric(
-        f"R = λ/Δλ @ {mid_wavelength:.0f}",
-        f"{spectrograph.spectral_resolution(wl=mid_wavelength):,.0f}",
+        f"R = λ/Δλ @ {spectrograph.mid_wavelength_rounded:.0f}",
+        f"{spectrograph.spectral_resolution(wl=spectrograph.mid_blaze_wavelength):,.0f}",
         help="""The spectral resolution (R = λ/Δλ) of the spectrograph at the central
         wavelength. This should be considered an upper limit, as it does not account for
         any image quality effects, and assumes a perfectly illuminated slit and ideal
@@ -588,267 +742,115 @@ with c5:
         """,
     )
 
+
+# if not st.session_state.get("recompute_plot", True):
+#     st.stop()
+
+
 with st.container(horizontal_alignment="center"):
     if "Plotly (interactive)" in st.session_state["plot_type"]:
-        # Plot Echellogram
-        with st.spinner("Computing spectral format..."):
-            fig = go.Figure()
+        if st.session_state.get("recompute_plot", True):
+            # Plot Echellogram
+            with st.spinner("Computing spectral format..."):
+                fig = go.Figure()
 
-            # Detector outline
-            half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
-            half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
+                # Detector outline
+                half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
+                half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
 
-            b = max(half_x, half_y) * 1.125
+                b = max(half_x, half_y) * 1.125
 
-            fig.add_shape(
-                type="rect",
-                x0=-half_x,
-                y0=-half_y,
-                x1=half_x,
-                y1=half_y,
-                line={"color": "rgba(255,255,255,0.5)", "width": 3, "dash": "dash"},
-                fillcolor="rgba(0,0,0,0)",
-            )
-            if st.session_state["detector_name"] and detector_name:
-                fig.add_annotation(
-                    x=0,
-                    y=-half_y,
-                    text=detector_name,
-                    xanchor="center",
-                    yanchor="top",
-                    showarrow=False,
-                    font={"size": 20, "color": "rgba(255,255,255,0.5)"},
+                fig.add_shape(
+                    type="rect",
+                    x0=-half_x,
+                    y0=-half_y,
+                    x1=half_x,
+                    y1=half_y,
+                    line={"color": "rgba(255,255,255,0.5)", "width": 3, "dash": "dash"},
+                    fillcolor="rgba(0,0,0,0)",
                 )
+                if st.session_state["detector_name"] and detector_name:
+                    fig.add_annotation(
+                        x=0,
+                        y=-half_y,
+                        text=detector_name,
+                        xanchor="center",
+                        yanchor="top",
+                        showarrow=False,
+                        font={"size": 20, "color": "rgba(255,255,255,0.5)"},
+                    )
 
-            orders: list[int] = spectrograph.spectral_orders
-            for m in orders:
-                wls: ArrayQuantity = spectrograph.order_wavelengths(
-                    m=m, num=60, FSR_fraction=fsr_fraction
-                )
-                mean_wl: ScalarQuantity = np.mean(wls.to(u.nm).value)
-                color: str = wl_to_hex(mean_wl)
+                orders: list[int] = spectrograph.spectral_orders
+                for m in orders:
+                    wls: ArrayQuantity = spectrograph.order_wavelengths(
+                        m=m, num=60, FSR_fraction=fsr_fraction
+                    )
+                    mean_wl: ScalarQuantity = np.mean(wls.to(u.nm).value)
+                    color: str = wl_to_hex(mean_wl)
 
-                positions = np.array(
-                    spectrograph.image_plane_position(m=m, wavelength=wls)
-                )
-                xs = positions[:, 0]
-                ys = positions[:, 1]
+                    positions = np.array(
+                        spectrograph.image_plane_position(m=m, wavelength=wls)
+                    )
+                    xs = positions[:, 0]
+                    ys = positions[:, 1]
 
-                if st.session_state["dispersion_direction"] == "Horizontal (x)":
-                    xs, ys = -ys, -xs
-                    xshift: float = 20
-                    yshift: float = 0
-                    xlabel = "Dispersion direction (mm)"
-                    ylabel = "Cross-dispersion direction (mm)"
-
-                elif st.session_state["dispersion_direction"] == "Vertical (y)":
                     xshift: float = 5
                     yshift: float = 15
                     xlabel = "Cross-dispersion direction (mm)"
                     ylabel = "Dispersion direction (mm)"
 
-                hover_wls: float = wls.to(u.nm).value
+                    if st.session_state["dispersion_direction"] == "Horizontal (x)":
+                        xs, ys = -ys, -xs
+                        xshift: float = 20
+                        yshift: float = 0
+                        xlabel = "Dispersion direction (mm)"
+                        ylabel = "Cross-dispersion direction (mm)"
 
-                fig.add_trace(
-                    trace=go.Scatter(
-                        x=-xs,
-                        y=ys,
-                        mode="lines",
-                        line={"color": color, "width": 3},
-                        name=f"m={m}",
-                        hovertemplate=(
-                            f"m = {m}<br>"
-                            + "λ = %{customdata:.1f} nm<br>"
-                            + "x = %{x:.2f} mm<br>"
-                            + "y = %{y:.2f} mm<extra></extra>"
-                        ),
-                        customdata=hover_wls,
-                        showlegend=False,
+                    hover_wls: float = wls.to(u.nm).value
+
+                    fig.add_trace(
+                        trace=go.Scatter(
+                            x=-xs,
+                            y=ys,
+                            mode="lines",
+                            line={"color": color, "width": 3},
+                            name=f"m={m}",
+                            hovertemplate=(
+                                f"m = {m}<br>"
+                                + "λ = %{customdata:.1f} nm<br>"
+                                + "x = %{x:.2f} mm<br>"
+                                + "y = %{y:.2f} mm<extra></extra>"
+                            ),
+                            customdata=hover_wls,
+                            showlegend=False,
+                        )
                     )
-                )
 
-                # Label every 5th order
-                if m % 5 == 0:
-                    if st.session_state["label_orders"]:
-                        fig.add_annotation(
-                            x=-xs[0],
-                            y=ys[0],
-                            text=f"{m}",
-                            showarrow=False,
-                            font={"size": 10, "color": color},
-                            xshift=-xshift,
-                            yshift=-yshift,
-                            bgcolor="rgba(0,0,0,0.1)",
-                            borderpad=1,
-                        )
-                    if st.session_state["label_wavelengths"]:
-                        fig.add_annotation(
-                            x=-xs[-1],
-                            y=ys[-1],
-                            text=f"{mean_wl:.0f} nm",
-                            showarrow=False,
-                            font={"size": 10, "color": color},
-                            xshift=xshift,
-                            yshift=yshift,
-                            bgcolor="rgba(0,0,0,0.1)",
-                            borderpad=1,
-                        )
-
-                if st.session_state["label_atomic_lines"]:
-                    min_FSR_wl, max_FSR_wl = spectrograph.grating.order_FSR_bounds(m=m)
-                    for name, wl in _atomic_lines.items():
-                        if min_FSR_wl <= wl <= max_FSR_wl:
-                            x, y = spectrograph.image_plane_position(m=m, wavelength=wl)
-
-                            if (
-                                st.session_state["dispersion_direction"]
-                                == "Horizontal (x)"
-                            ):
-                                x, y = -y, -x
-
+                    # Label every 5th order
+                    if m % 5 == 0:
+                        if st.session_state["label_orders"]:
                             fig.add_annotation(
-                                x=-x.value,
-                                y=y.value,
-                                text=f"{name}",
+                                x=-xs[0],
+                                y=ys[0],
+                                text=f"{m}",
                                 showarrow=False,
-                                font={"size": 10},
+                                font={"size": 10, "color": color},
+                                xshift=-xshift,
+                                yshift=-yshift,
                                 bgcolor="rgba(0,0,0,0.1)",
                                 borderpad=1,
                             )
-
-            fig.update_layout(
-                xaxis_title=xlabel,
-                yaxis_title=ylabel,
-                template="plotly_dark",
-                height=1000,
-                yaxis_scaleanchor="x",
-                yaxis_scaleratio=1,
-                margin={"t": 30},
-            )
-
-            # # round b to the nearest 20 for nicer tick spacing
-            # b: int = 20 * np.ceil(b / 20)
-
-            # fig.update_xaxes(
-            #     tickvals=list(range(-int(b), int(b) + 1, 20)),
-            #     showgrid=False,
-            #     zeroline=False,
-            # )
-            # fig.update_yaxes(
-            #     tickvals=list(range(-int(b), int(b) + 1, 20)),
-            #     showgrid=False,
-            #     zeroline=False,
-            # )
-
-            if "Flip x" in st.session_state["coord_transforms"]:
-                fig.update_xaxes(autorange="reversed")
-
-            if "Flip y" in st.session_state["coord_transforms"]:
-                fig.update_yaxes(autorange="reversed")
-
-            st.plotly_chart(fig, width=800, config={"displayModeBar": True})
-
-    if "Matplotlib (static)" in st.session_state["plot_type"]:
-        with st.spinner("Computing spectral format..."):
-            fig: plt.Figure = plt.figure(figsize=(10, 10))
-            ax: plt.Axes = fig.gca()
-
-            # Detector outline
-            half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
-            half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
-
-            spectrograph.plot_detector_edge(
-                ax=ax,
-                name=st.session_state["detector_name"],
-            )
-
-            b: float = max(half_x, half_y) * 1.125
-
-            if "Flip x" in st.session_state["coord_transforms"]:
-                ax.set_xlim(left=b, right=-b)
-            else:
-                ax.set_xlim(left=-b, right=b)
-
-            if "Flip y" in st.session_state["coord_transforms"]:
-                ax.set_ylim(bottom=b, top=-b)
-            else:
-                ax.set_ylim(bottom=-b, top=b)
-
-            ax.set_aspect(aspect="equal")
-
-            for f in range(1):  # number of fibres
-                fiber_spacing = 130 * u.um  # Example!
-                offset: ScalarQuantity = (
-                    f * fiber_spacing * spectrograph.slit_magnification
-                )
-                for m in spectrograph.spectral_orders:
-                    wls: ArrayQuantity = spectrograph.order_wavelengths(
-                        m=m, num=60, FSR_fraction=fsr_fraction
-                    )
-                    mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
-
-                    xs, ys = np.transpose(
-                        spectrograph.image_plane_position(m=m, wavelength=wls)
-                    )
-
-                    if st.session_state["dispersion_direction"] == "Horizontal (x)":
-                        xs, ys = -ys, -xs
-
-                    ax.plot(
-                        xs + offset,
-                        ys,
-                        color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
-                        lw=3.5,
-                        # path_effects=stroke(thickness=3.5),
-                    )
-
-                    if m % 5 == 0:
-                        if m == 90:  # noqa: PLR2004
-                            mtext = f"{m = }"
-                            wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
-                        else:
-                            mtext = f"{m}"
-                            wltext = f"{wls[0].to(u.nm).value:.0f}"
-
-                        if abs(ys[0].value) + 5 > b or abs(ys[-1].value) + 5 > b:
-                            continue
-
-                        if st.session_state["dispersion_direction"] == "Vertical (y)":
-                            x_offset = 0
-                            y_offset = 1.5
-                            ha_m = "center"
-                            va_m = "top"
-                            ha_wl = "center"
-                            va_wl = "bottom"
-
-                        elif (
-                            st.session_state["dispersion_direction"] == "Horizontal (x)"
-                        ):
-                            x_offset = -1.5
-                            y_offset = 0
-                            ha_m = "right"
-                            va_m = "center"
-                            ha_wl = "left"
-                            va_wl = "center"
-
-                        if st.session_state["label_orders"]:
-                            ax.text(
-                                (xs[0] + offset).value - x_offset,
-                                ys[0].value - y_offset,
-                                mtext,
-                                fontsize=14,
-                                ha=ha_m,
-                                va=va_m,
-                            )
-
                         if st.session_state["label_wavelengths"]:
-                            ax.text(
-                                (xs[-1] + offset).value + x_offset,
-                                ys[-1].value + y_offset,
-                                wltext,
-                                fontsize=14,
-                                ha=ha_wl,
-                                va=va_wl,
+                            fig.add_annotation(
+                                x=-xs[-1],
+                                y=ys[-1],
+                                text=f"{mean_wl:.0f} nm",
+                                showarrow=False,
+                                font={"size": 10, "color": color},
+                                xshift=xshift,
+                                yshift=yshift,
+                                bgcolor="rgba(0,0,0,0.1)",
+                                borderpad=1,
                             )
 
                     if st.session_state["label_atomic_lines"]:
@@ -867,21 +869,197 @@ with st.container(horizontal_alignment="center"):
                                 ):
                                     x, y = -y, -x
 
-                                ax.text(
-                                    x.value,
-                                    y.value,
-                                    f"{name}",
-                                    fontsize=14,
-                                    ha="center",
-                                    va="center",
-                                    bbox={
-                                        "facecolor": "w",
-                                        "edgecolor": "k",
-                                        "alpha": 0.75,
-                                        "boxstyle": "round,pad=0.25",
-                                    },
+                                fig.add_annotation(
+                                    x=-x.value,
+                                    y=y.value,
+                                    text=f"{name}",
+                                    showarrow=False,
+                                    font={"size": 10},
+                                    bgcolor="rgba(0,0,0,0.1)",
+                                    borderpad=1,
                                 )
 
-            # ax.patch.set_facecolor("black")
-            ax.axis("off")
-            st.pyplot(fig, width=800)
+                fig.update_layout(
+                    xaxis_title=xlabel,
+                    yaxis_title=ylabel,
+                    template="plotly_dark",
+                    height=1000,
+                    yaxis_scaleanchor="x",
+                    yaxis_scaleratio=1,
+                    margin={"t": 30},
+                )
+
+                # # round b to the nearest 20 for nicer tick spacing
+                # b: int = 20 * np.ceil(b / 20)
+
+                # fig.update_xaxes(
+                #     tickvals=list(range(-int(b), int(b) + 1, 20)),
+                #     showgrid=False,
+                #     zeroline=False,
+                # )
+                # fig.update_yaxes(
+                #     tickvals=list(range(-int(b), int(b) + 1, 20)),
+                #     showgrid=False,
+                #     zeroline=False,
+                # )
+
+                if "Flip x" in st.session_state["coord_transforms"]:
+                    fig.update_xaxes(autorange="reversed")
+
+                if "Flip y" in st.session_state["coord_transforms"]:
+                    fig.update_yaxes(autorange="reversed")
+
+                st.session_state["plotly_fig"] = (
+                    fig  # Store the figure in session state to prevent re-computation on every interaction
+                )
+
+        if st.session_state.get("plotly_fig", False):
+            st.plotly_chart(
+                st.session_state["plotly_fig"],
+                width=800,
+                config={"displayModeBar": True},
+            )
+
+    if "Matplotlib (static)" in st.session_state["plot_type"]:
+        if st.session_state.get("recompute_plot", True):
+            with st.spinner("Computing spectral format..."):
+                fig: plt.Figure = plt.figure(figsize=(10, 10))
+                ax: plt.Axes = fig.gca()
+
+                # Detector outline
+                half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
+                half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
+
+                spectrograph.plot_detector_edge(
+                    ax=ax,
+                    name=st.session_state["detector_name"],
+                )
+
+                b: float = max(half_x, half_y) * 1.125
+
+                if "Flip x" in st.session_state["coord_transforms"]:
+                    ax.set_xlim(left=-b, right=b)
+                else:
+                    ax.set_xlim(left=b, right=-b)
+
+                if "Flip y" in st.session_state["coord_transforms"]:
+                    ax.set_ylim(bottom=b, top=-b)
+                else:
+                    ax.set_ylim(bottom=-b, top=b)
+
+                ax.set_aspect(aspect="equal")
+
+                for f in range(1):  # number of fibres
+                    fiber_spacing = 130 * u.um  # Example!
+                    offset: ScalarQuantity = (
+                        f * fiber_spacing * spectrograph.slit_magnification
+                    )
+                    for m in spectrograph.spectral_orders:
+                        wls: ArrayQuantity = spectrograph.order_wavelengths(
+                            m=m, num=60, FSR_fraction=fsr_fraction
+                        )
+                        mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
+
+                        xs, ys = np.transpose(
+                            spectrograph.image_plane_position(m=m, wavelength=wls)
+                        )
+
+                        if st.session_state["dispersion_direction"] == "Horizontal (x)":
+                            xs, ys = -ys, -xs
+
+                        ax.plot(
+                            xs + offset,
+                            ys,
+                            color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
+                            lw=3.5,
+                            # path_effects=stroke(thickness=3.5),
+                        )
+
+                        if m % 5 == 0:
+                            if m == 90:  # noqa: PLR2004
+                                mtext = f"{m = }"
+                                wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
+                            else:
+                                mtext = f"{m}"
+                                wltext = f"{wls[0].to(u.nm).value:.0f}"
+
+                            if abs(ys[0].value) + 5 > b or abs(ys[-1].value) + 5 > b:
+                                continue
+
+                            # if st.session_state["dispersion_direction"] == "Vertical (y)":
+                            x_offset = 0
+                            y_offset = 1.5
+                            ha_m = "center"
+                            va_m = "top"
+                            ha_wl = "center"
+                            va_wl = "bottom"
+
+                            if (
+                                st.session_state["dispersion_direction"]
+                                == "Horizontal (x)"
+                            ):
+                                x_offset = -1.5
+                                y_offset = 0
+                                ha_m = "right"
+                                va_m = "center"
+                                ha_wl = "left"
+                                va_wl = "center"
+
+                            if st.session_state["label_orders"]:
+                                ax.text(
+                                    (xs[0] + offset).value - x_offset,
+                                    ys[0].value - y_offset,
+                                    mtext,
+                                    fontsize=14,
+                                    ha=ha_m,
+                                    va=va_m,
+                                )
+
+                            if st.session_state["label_wavelengths"]:
+                                ax.text(
+                                    (xs[-1] + offset).value + x_offset,
+                                    ys[-1].value + y_offset,
+                                    wltext,
+                                    fontsize=14,
+                                    ha=ha_wl,
+                                    va=va_wl,
+                                )
+
+                        if st.session_state["label_atomic_lines"]:
+                            min_FSR_wl, max_FSR_wl = (
+                                spectrograph.grating.order_FSR_bounds(m=m)
+                            )
+                            for name, wl in _atomic_lines.items():
+                                if min_FSR_wl <= wl <= max_FSR_wl:
+                                    x, y = spectrograph.image_plane_position(
+                                        m=m, wavelength=wl
+                                    )
+
+                                    if (
+                                        st.session_state["dispersion_direction"]
+                                        == "Horizontal (x)"
+                                    ):
+                                        x, y = -y, -x
+
+                                    ax.text(
+                                        x.value,
+                                        y.value,
+                                        f"{name}",
+                                        fontsize=14,
+                                        ha="center",
+                                        va="center",
+                                        bbox={
+                                            "facecolor": "w",
+                                            "edgecolor": "k",
+                                            "alpha": 0.75,
+                                            "boxstyle": "round,pad=0.25",
+                                        },
+                                    )
+
+                # ax.patch.set_facecolor("black")
+                ax.axis("off")
+                st.session_state["pyplot_fig"] = (
+                    fig  # Store the figure in session state to prevent re-computation on every interaction
+                )
+        if st.session_state.get("pyplot_fig", False):
+            st.pyplot(st.session_state["pyplot_fig"], width=800)
