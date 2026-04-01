@@ -17,7 +17,10 @@ from matplotlib import pyplot as plt
 
 from curved_air.detectors import DETECTORS, Detector
 from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
-from curved_air.instruments.echelle import EchelleSpectrograph
+from curved_air.instruments.echelle import (
+    DoublePassEchelleSpectrograph,
+    EchelleSpectrograph,
+)
 from curved_air.optics.dispersers import (
     CrossDisperser,
     EchelleGrating,
@@ -144,7 +147,10 @@ with st.sidebar:
             blaze_angle: float = grating.blaze_angle.to(u.deg)
             ruled_width: float = grating.ruled_width.to(u.mm)
 
-    with st.expander(label="Cross-disperser", expanded=False):
+    with st.expander(
+        label="Cross-disperser",
+        expanded=False,
+    ):
         cross_disperser_type: str = st.segmented_control(
             "Type",
             [
@@ -152,11 +158,28 @@ with st.sidebar:
                 "Grating",
                 # "Grism",  # TODO
                 "Multiple prisms",
+                "Double-pass prism",
             ],
             default="Prism",
+            help="""Select the type of cross-disperser used in the spectrograph.
+            The choice of cross-disperser has a significant impact on the layout of the
+            spectral format, the achievable wavelength coverage and the order
+            separation.
+            The "double-pass prism" option refers to a configuration where the beam
+            passes through the same prism both before and after the echelle grating.""",
         )  # ty:ignore[invalid-assignment]
 
         if cross_disperser_type == "Prism":
+            default_apex_angle: ScalarQuantity = 60 * u.deg
+        elif cross_disperser_type == "Double-pass prism":
+            default_apex_angle: ScalarQuantity = 45 * u.deg
+
+        incidence_angle_help: str = """You may notice that there is no specification of
+        incidence angle for the cross-disperser. The code automatically calculates the
+        appropriate incidence angle such that the spectral format is symmetrically
+        centred on the detector."""
+
+        if cross_disperser_type in ["Prism", "Double-pass prism"]:
             catalogue: str = st.selectbox(
                 "Glass catalogue",
                 GLASS_CATALOGUES.keys(),
@@ -186,8 +209,9 @@ with st.sidebar:
                     "Apex angle (°)",
                     min_value=5.0,
                     max_value=60.0,
-                    value=60.0,
+                    value=default_apex_angle.to(u.deg).value,
                     step=1.0,
+                    help=incidence_angle_help,
                 )
                 * u.deg
             )
@@ -251,6 +275,7 @@ with st.sidebar:
                     value=48.7,
                     step=1.0,
                     key="p1_apex_angle",
+                    help=incidence_angle_help,
                 )
                 * u.deg
             )
@@ -323,6 +348,7 @@ with st.sidebar:
                         value=48.7,
                         step=1.0,
                         key="p2_apex_angle",
+                        help=incidence_angle_help,
                     )
                     * u.deg
                 )
@@ -378,6 +404,12 @@ with st.sidebar:
             st.info(
                 """Note: only the first diffraction order of the cross-disperser is
                 displayed in the spectral format plot.""",
+            )
+
+        elif cross_disperser_type == "Grism":
+            st.warning(
+                """The grism cross-disperser option is currently not implemented. Please
+                select a different cross-disperser type for now.""",
             )
 
     with st.expander(label="Wavelength range", expanded=False):
@@ -620,7 +652,7 @@ GRATING: EchelleGrating = EchelleGrating(
     ruled_width=ruled_width,
 )
 
-if cross_disperser_type == "Prism":
+if cross_disperser_type in ["Prism", "Double-pass prism"]:
     glass: Glass = glasses[glass_name]
     CROSS_DISPERSER: CrossDisperser = Prism(
         glass=glass,
@@ -651,19 +683,35 @@ DETECTOR: Detector = Detector(
     ny=int(n_y),
 )
 
-spectrograph: EchelleSpectrograph = EchelleSpectrograph(
-    grating=GRATING,
-    cross_disperser=CROSS_DISPERSER,
-    detector=DETECTOR,
-    min_wl=MIN_WL,
-    max_wl=MAX_WL,
-    beam_diameter=beam_diameter,
-    collimator_focal_length=f_col,
-    camera_focal_length=f_cam,
-    slit_width=slit_width,
-    slit_length=slit_length,
-    slit_native_focal_ratio=slit_focal_ratio,
-)
+if cross_disperser_type == "Double-pass prism":
+    spectrograph: DoublePassEchelleSpectrograph = DoublePassEchelleSpectrograph(
+        grating=GRATING,
+        cross_disperser=CROSS_DISPERSER,
+        detector=DETECTOR,
+        min_wl=MIN_WL,
+        max_wl=MAX_WL,
+        beam_diameter=beam_diameter,
+        collimator_focal_length=f_col,
+        camera_focal_length=f_cam,
+        slit_width=slit_width,
+        slit_length=slit_length,
+        slit_native_focal_ratio=slit_focal_ratio,
+    )
+
+else:
+    spectrograph: EchelleSpectrograph = EchelleSpectrograph(
+        grating=GRATING,
+        cross_disperser=CROSS_DISPERSER,
+        detector=DETECTOR,
+        min_wl=MIN_WL,
+        max_wl=MAX_WL,
+        beam_diameter=beam_diameter,
+        collimator_focal_length=f_col,
+        camera_focal_length=f_cam,
+        slit_width=slit_width,
+        slit_length=slit_length,
+        slit_native_focal_ratio=slit_focal_ratio,
+    )
 
 # Summary
 c1, c2, c3, c4, c5 = st.columns(
