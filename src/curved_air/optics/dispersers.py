@@ -116,7 +116,7 @@ class EchelleGrating(Disperser):
         if isinstance(m, list | tuple | np.ndarray):
             return [self.blaze_wavelength(im).to(u.um).value for im in m] * u.um
 
-        return (self.m_times_lambda / m).to(u.um)
+        return (self.m_times_lambda / m).to(self.min_wl.unit)
 
     @overload
     def order_number(
