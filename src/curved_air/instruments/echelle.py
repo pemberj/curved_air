@@ -429,41 +429,47 @@ class EchelleSpectrograph:
             self.grating.anamorphic_magnification(m=m, wl=wls[1]),
         )
 
-    def print_parameters(self) -> EchelleSpectrograph:
-        print(f"{'Collimated beam diameter:':<30}", end="")
+    def print_parameters(self, column_width: int = 35) -> EchelleSpectrograph:
+
+        w: int = column_width
+
+        print(f"{'Collimated beam diameter:':<{w}}", end="")
         print(f"{self.beam_diameter:.3g}")
 
-        print(f"{'Slit magnification factor:':<30}", end="")
+        print(f"{'Slit magnification factor:':<{w}}", end="")
         print(f"{self.slit_magnification:.3g}x")
 
-        print(f"{'Slit length at detector:':<30}", end="")
+        print(f"{'Slit length at detector:':<{w}}", end="")
         print(
             f"{(self.slit_length * self.slit_magnification / self.detector.pixel_size).si:.3g} pixels"  # noqa: E501
         )
 
-        print(f"{'Bluest orders separation:':<30}", end="")
+        print(f"{'Bluest orders separation:':<{w}}", end="")
         print(
             f"{(self.bluest_order_image_plane_separation / self.detector.pixel_size).si:.3g} pixels"  # noqa: E501
         )
 
-        print(f"{'Reddest orders separation:':<30}", end="")
+        print(f"{'Reddest orders separation:':<{w}}", end="")
         print(
             f"{(self.reddest_order_image_plane_separation / self.detector.pixel_size).si:.3g} pixels"  # noqa: E501
         )
 
-        print(f"{'Slit width (object plane):':<30}", end="")
+        print(f"{'Slit width (object plane):':<{w}}", end="")
         print(f"{self.slit_width:.3g}")
 
-        print(f"{'Slit length (object plane):':<30}", end="")
+        print(f"{'Slit length (object plane):':<{w}}", end="")
         print(f"{self.slit_length:.3g}")
 
-        print(f"{'Slit width (image plane):':<30}", end="")
+        print(f"{'Slit width (image plane):':<{w}}", end="")
         print(f"{(self.slit_width * self.slit_magnification):.3g}")
 
-        print(f"{'Sampling of slit image:':<30}", end="")
+        print(f"{'Sampling of slit image:':<{w}}", end="")
         print(f"{self.slit_sampling:.3g} pixels")
 
-        print(f"{f'Spectral resolution @{self.mid_blaze_wavelength:.0f}:':<30}", end="")
+        print(
+            f"{f'Spectral resolution @ {self.mid_wavelength_rounded:.0f}:':<{w}}",
+            end="",
+        )
         print(f"{self.spectral_resolution(wl=self.mid_blaze_wavelength):,.0f}")
 
         return self
