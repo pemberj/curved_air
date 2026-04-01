@@ -1049,7 +1049,10 @@ class TwoPrisms(CrossDisperser):
         assert isinstance(self.prism2, Prism)
         assert isinstance(self.prism2.incidence_angle, Quantity)
 
-        return self.prism2.incidence_angle + first_prism_deviation
+        return (
+            self.prism2.incidence_angle.to(u.deg).value
+            + first_prism_deviation.to(u.deg).value
+        ) * u.deg
 
     def dispersion_angle(
         self,
