@@ -82,3 +82,19 @@ ax.axis("off")
 
 plt.show()
 ```
+
+### Output:
+```
+Collimated beam diameter:          100 mm
+Slit magnification factor:         1x
+Slit length at detector:           22.2 pixels
+Bluest orders separation:          23.2 pixels
+Reddest orders separation:         92 pixels
+Slit width (object plane):         50 um
+Slit length (object plane):        200 um
+Slit width (image plane):          50 um
+Sampling of slit image:            5.56 pixels
+Spectral resolution @ 600 nm:      64,273
+```
+
+![](./example_scripts/spectrographs/simple_echelle.svg)
