@@ -1,7 +1,5 @@
 #! uv run streamlit run
 
-#! uv run streamlit run
-
 """
 Glass Explorer
 
