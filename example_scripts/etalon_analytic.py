@@ -11,17 +11,19 @@ This script uses the analytic description of a plane-wave-illuminated etalon and
 calculates its wavelength-dependent transmission.
 """
 
-import numpy as np
-import astropy.units as u
 from typing import TYPE_CHECKING
+
+import astropy.units as u
+import numpy as np
 from matplotlib import pyplot as plt
 
 from curved_air.instruments.etalon import Etalon
-from curved_air.utils import FWHM
 from curved_air.plotting import plot_style
+from curved_air.utils import FWHM
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
