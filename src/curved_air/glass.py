@@ -858,7 +858,28 @@ class GlassCatalogue(dict):
 
         return self
 
-    def write_AGF(self, filename: str = "./output.agf") -> GlassCatalogue:
+    def to_AGF_string(self, comment: str = "") -> str:
+        """
+        Maybe define an external function or even just a dictionary to generate
+        the required line-structure for the AGF file. I just want to do what
+        `catalogues.read_AGF` is doing, but in reverse.
+
+        Come to think of it, maybe `read_AGF` belongs in this class? Workflow
+        would be: create empty GlassCatalogue(), call GC.read_AGF() to populate,
+        OR: create GlassCatalogue(agf_files=["./schott.agf", "./ohara.agf"]) to
+        initialise the GC with these to begin with. That might be nice!
+        """
+
+        out_string: str = ""
+        for _, glass in self.items():
+            if comment:
+                out_string += f"CC {comment}\n"
+            out_string += glass.to_agf_format()
+        return out_string
+
+    def write_AGF(
+        self, comment: str = "", filename: str = "./output.agf"
+    ) -> GlassCatalogue:
         """
         Maybe define an external function or even just a dictionary to generate
         the required line-structure for the AGF file. I just want to do what
@@ -871,7 +892,9 @@ class GlassCatalogue(dict):
         """
 
         if not filename:
-            print("No target filename specified. Printing AGF output...")
+            print("No target filename specified. Printing raw output...")
+            if comment:
+                print(f"CC {comment}")
             for _, glass in self.items():
                 print(glass.to_agf_format(), end="")
             return self
@@ -879,6 +902,8 @@ class GlassCatalogue(dict):
         p = Path(filename)
         with p.open(mode="w") as f:
             print(f"Writing to {filename}...")
+            if comment:
+                f.write(f"CC {comment}\n")
             for _, glass in self.items():
                 f.write(glass.to_agf_format())
 
@@ -1443,7 +1468,7 @@ def _refractive_index(
 
     wavelengths: np.ndarray = np.array(wavelengths)
 
-    C: list[float] = [0] * 18
+    C: list[float] = [0] * 18  # ty:ignore[invalid-assignment]
     # C[0] = 0
     for i, c in enumerate(coefficients, start=1):
         C[i] = c
@@ -1490,7 +1515,8 @@ def _refractive_index(
             + C[16] * wavelengths ** C[17]
         )
 
-    raise ValueError(f"Invalid formula_number: {formula_number}")
+    print(f"Invalid formula_number: {formula_number}")
+    return np.array([np.nan] * len(wavelengths))
 
 
 def main() -> None: ...
