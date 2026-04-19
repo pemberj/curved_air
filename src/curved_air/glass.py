@@ -208,7 +208,15 @@ class Glass:
         """
         The internal transmission of the glass at the specified wavelength(s)
         """
-        assert isinstance(wl, Quantity)
+        if not isinstance(wl, Quantity):
+            print(wl)
+            assert isinstance(wl, int | float | list | tuple)
+
+            print(
+                f"Warning: no units provided for wavelength(s) {wl}. "
+                + "Assuming default unit of microns (um)."
+            )
+            wl: Quantity = wl * u.um
 
         if wl.isscalar:
             wl: float = wl.to(u.um).value
