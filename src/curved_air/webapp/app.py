@@ -38,5 +38,10 @@ st.navigation(
             title="Atmospheric Dispersion Corrector",
             icon="🌠",
         ),
+        st.Page(
+            page="pages/fibre_loss_converter.py",
+            title="Fibre Loss Converter",
+            icon="🧵",
+        ),
     ]
 ).run()
