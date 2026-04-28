@@ -40,7 +40,7 @@ def main() -> None:
     if not agf_files:
         raise FileNotFoundError("No AGF files found in the data directory.")
 
-    gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_file=agf_files)
 
     gc: GlassCatalogue = gc.filter(
         status_description=["standard", "preferred"],

@@ -47,7 +47,7 @@ def main() -> None:
 
     catalogue: GlassCatalogue = (
         GlassCatalogue()
-        .read_AGF(agf_filename=agf_files)
+        .read_AGF(agf_file=agf_files)
         .filter(
             # status_description=["standard | preferred"],
             min_wl=390 * u.nm,

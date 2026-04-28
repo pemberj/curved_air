@@ -36,7 +36,7 @@ def main() -> None:
         raise FileNotFoundError("No AGF files found in the data directory.")
 
     catalogue: GlassCatalogue = GlassCatalogue().read_AGF(
-        agf_filename=agf_files,
+        agf_file=agf_files,
         debug_level=1,
     )
 

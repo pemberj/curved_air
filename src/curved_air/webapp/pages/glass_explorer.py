@@ -26,6 +26,7 @@ in Zemax (and elsewhere?).
 
 from __future__ import annotations
 
+from io import StringIO
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -35,7 +36,7 @@ import streamlit as st
 from astropy import units as u
 from matplotlib import pyplot as plt
 
-from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
+from curved_air.glass import GLASS_CATALOGUES, AGFData, Glass, GlassCatalogue
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex  # noqa: F401
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ st.divider()
 
 # Interface
 with st.sidebar:
-    working_catalogue: None | GlassCatalogue = None
+    working_catalogue = GlassCatalogue()
 
     base_catalogues: list[str] = st.multiselect(
         "Select base catalogue(s)",
@@ -84,17 +85,28 @@ with st.sidebar:
     agf_paths: list[Path] = [GLASS_CATALOGUES[c] for c in base_catalogues]
 
     if base_catalogues:
-        working_catalogue = GlassCatalogue(agf=agf_paths)
+        working_catalogue += GlassCatalogue(agf=agf_paths)
 
-    uploaded: list[st.UploadedFile] = st.file_uploader(
+    uploaded_files: list[st.UploadedFile] = st.file_uploader(
         "Upload AGF file(s)",
         type="agf",
         accept_multiple_files=True,
         max_upload_size=10,  # Megabytes
     )
 
-    if uploaded:
-        ...
+    if uploaded_files:
+        working_catalogue += GlassCatalogue(
+            agf=[
+                AGFData(StringIO(f.getvalue().decode("utf-8")).read(), filename=f.name)
+                for f in uploaded_files
+            ]
+        )
+
+    if working_catalogue is not None:
+        st.metric(
+            "Glasses in working catalogue",
+            f"{len(working_catalogue)}",
+        )
 
     with st.expander("Filters", expanded=False):
         if not working_catalogue:
@@ -118,12 +130,12 @@ with st.sidebar:
             )
 
             T_min: float = (
-                st.slider(
-                    "Minimum transmission (%)",
+                st.number_input(
+                    "Minimum transmission",
                     min_value=0.0,
                     max_value=100.0,
-                    value=90.0,
-                    step=0.25,
+                    value=95.0,
+                    step=1.0,
                 )
                 / 100
             )
@@ -132,9 +144,18 @@ with st.sidebar:
                 min_wl=T_wls[0], max_wl=T_wls[1], min_transmission=T_min
             )
 
+            st.divider()
+
         st.toggle("Filter by glass status", key="filter_status")
         st.toggle("Filter by refractive index", key="filter_n")
         st.toggle("Filter by abbe number", key="filter_V")
+
+        st.divider()
+
+        assert working_catalogue is not None
+        st.metric("Glasses remaining after filtering", f"{len(working_catalogue)}")
+
+        st.divider()
 
         try:
             st.download_button(

@@ -41,7 +41,7 @@ def main() -> None:
 
     print(agf_files)
 
-    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_file=agf_files)
 
     catalogue: GlassCatalogue = catalogue.filter(
         min_wl=380 * u.nm,

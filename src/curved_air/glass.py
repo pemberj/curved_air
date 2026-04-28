@@ -512,6 +512,18 @@ class Glass:
     #            ""
 
 
+@dataclass
+class AGFData:
+    """
+    A simple wrapper class to indicate that a string is in AGF format, and should be
+    processed as such when passed to functions that can take multiple types of input
+    (e.g. GlassCatalogue.read_AGF)
+    """
+
+    agf_string: str
+    filename: str = ""
+
+
 class GlassCatalogue(dict):
     """
     * generate plots:
@@ -525,7 +537,13 @@ class GlassCatalogue(dict):
 
     def __init__(
         self,
-        agf: str | Path | list[str] | list[Path] | None = None,
+        agf: str
+        | Path
+        | list[str]
+        | list[Path]
+        | AGFData
+        | list[AGFData]
+        | None = None,
         *args,  # noqa: ANN002
         **kwargs,  # noqa: ANN003
     ) -> None:
@@ -559,7 +577,7 @@ class GlassCatalogue(dict):
 
     def read_AGF(
         self,
-        agf_filename: Path | str | list[Path] | list[str],
+        agf_file: Path | str | list[Path] | list[str] | AGFData | list[AGFData],
         debug_level: int = 0,
     ) -> GlassCatalogue:
         """
@@ -570,32 +588,37 @@ class GlassCatalogue(dict):
         term instead.
         """
 
-        if isinstance(agf_filename, str):
-            if "." not in agf_filename:
-                agf_filename: Path = GLASS_CATALOGUES[agf_filename]
-            else:
-                agf_filename: Path = Path(agf_filename)
+        if isinstance(agf_file, AGFData):
+            original_file: str = agf_file.filename
+            agf: list[str] = agf_file.agf_string.splitlines()
 
-        if isinstance(agf_filename, list):
-            for f in agf_filename:
-                self.read_AGF(f)
-            return self
+        else:
+            if isinstance(agf_file, str):
+                if "." not in agf_file:
+                    agf_file: Path = GLASS_CATALOGUES[agf_file]
+                else:
+                    agf_file: Path = Path(agf_file)
 
-        assert isinstance(agf_filename, Path)
+            if isinstance(agf_file, list):
+                for f in agf_file:
+                    self.read_AGF(f)
+                return self
 
-        original_file: str = agf_filename.name
+            assert isinstance(agf_file, Path)
 
-        # print(f"Reading file: {original_file:<20}")
+            original_file: str = agf_file.name
 
-        p: Path = agf_filename
+            # print(f"Reading file: {original_file:<20}")
 
-        # TODO: First find the text encoding (with chardet), and then use `with p.open(.....) as agf:`
-        try:
-            agf = p.open(encoding="utf-8", newline="\r\n")
-            for _, _line in enumerate(agf):
-                break  # Causes UnicodeDecodeError
-        except UnicodeDecodeError:
-            agf = p.open(encoding="utf-16", newline="\r\n")
+            p: Path = agf_file
+
+            # TODO: First find the text encoding (with chardet), and then use `with p.open(.....) as agf:`
+            try:
+                agf = p.open(encoding="utf-8", newline="\r\n")
+                for _, _line in enumerate(agf):
+                    break  # Causes UnicodeDecodeError
+            except UnicodeDecodeError:
+                agf = p.open(encoding="utf-16", newline="\r\n")
 
         def _add_glass(g: Glass) -> None:
             if g.name not in self:
@@ -840,6 +863,9 @@ class GlassCatalogue(dict):
                                 print(f"PR: {g.PR}")
                         except ValueError:
                             ...
+                        except IndexError:
+                            # Missing data?
+                            continue
 
                     continue
 
@@ -1354,6 +1380,26 @@ class GlassCatalogue(dict):
         print(print_output)
 
         return ADCs, results
+
+    def __add__(self, other: GlassCatalogue) -> GlassCatalogue:
+        if not isinstance(other, GlassCatalogue):
+            raise TypeError(f"Cannot add GlassCatalogue with {type(other)}")
+
+        new_catalogue = GlassCatalogue()
+
+        # Merge catalogues, keeping all unique glasses (by name) from both
+        for _, glass in self.items():
+            new_catalogue[glass.name] = glass
+
+        for _, glass in other.items():
+            if glass.name not in new_catalogue:
+                new_catalogue[glass.name] = glass
+            else:
+                print(
+                    f"Glass {glass.name} already exists in the new catalogue. Skipping..."
+                )
+
+        return new_catalogue
 
     def __str__(self) -> str:
         return "\n".join([f.summary for f in self.values()])

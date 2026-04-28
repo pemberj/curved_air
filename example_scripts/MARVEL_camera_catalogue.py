@@ -36,7 +36,7 @@ def main() -> None:
             if re.search(pattern="ohara|schott|nikon", string=f.name)
         ]
     )
-    MARVEL_gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    MARVEL_gc: GlassCatalogue = GlassCatalogue().read_AGF(agf_file=agf_files)
 
     colours: list[str] = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
