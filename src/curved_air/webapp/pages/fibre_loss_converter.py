@@ -48,14 +48,15 @@ def dBkm_to_percent(attenuation: Quantity, length: Quantity) -> float:
 
 
 st.set_page_config(
-    page_title="Fibre Loss Converter",
-    page_icon="📉",
-    layout="centered",
+    page_title="Curved Air: Optical Design Tools",
+    page_icon="🌈",
+    layout="centered",  # This app doesn't want to be wide
+    # initial_sidebar_state="expanded",
 )
 
 st.header("Fibre Loss Converter")
 
-with st.expander("About this calculator", expanded=True):
+with st.expander("About this tool", expanded=True):
     st.markdown(
         """
         A simple calculator to convert between fibre attenuation (typically specified in
@@ -64,6 +65,10 @@ with st.expander("About this calculator", expanded=True):
         The conversion uses the following relationships:
         - Total loss in dB: $L_{dB} = \\alpha_{dB/km} \\cdot \\ell_{km}$
         - Throughput fraction: $T = 10^{-L_{dB}/10}$
+
+        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+
+        Please get in contact if you have any questions, suggestions, or find any bugs!
         """
     )
 
@@ -255,6 +260,7 @@ with tab2:
             attenuation: ArrayQuantity = attenuation * u.dB / u.km
             y_axis = dBkm_to_relative(attenuation, length=length)
             y_label = "Relative Transmission"
+            y_label_csv = "relative_transmission"
 
             if wavelength is None:
                 x_axis = range(len(df))
@@ -267,6 +273,7 @@ with tab2:
             assert mode == "Relative Transmission -> dB/km"
             y_axis = relative_to_dBkm(attenuation, length=length)
             y_label = "Attenuation (dB/km)"
+            y_label_csv = "attenutation"
 
             if wavelength is None:
                 x_axis = range(len(df))
@@ -296,7 +303,7 @@ with tab2:
             result_df = pd.DataFrame(
                 {
                     "wavelength": wavelength,
-                    y_label: y_axis,
+                    y_label_csv: y_axis,
                 }
             )
         else:

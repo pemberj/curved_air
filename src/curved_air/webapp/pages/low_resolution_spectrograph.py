@@ -14,18 +14,31 @@ from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 plt.style.use(plot_style)
 
 st.set_page_config(
-    # page_title="Curved Air: Optical Design Calculators",
-    # page_icon="🌈",
+    page_title="Curved Air: Optical Design Tools",
+    page_icon="🌈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("Low Resolution Spectrograph")
+st.header("Low Resolution Spectrograph")
 
-# Sidebar controls
-st.sidebar.header("Spectrograph Configuration")
+with st.expander("About this tool", expanded=False):
+    st.markdown(
+        """
+        This tool allows for the basic design of a low-resolution spectrograph with a
+        single disperser. Given the disperser choice and other input parameters, the
+        spectral format on the detector is computed and visualised, and a basic report
+        is generated on the slit sampling and spectral resolution.
+
+        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+
+        Please get in contact if you have any questions, suggestions, or find any bugs!
+        """
+    )
 
 with st.sidebar:
+    st.header("Spectrograph Configuration")
+
     with st.expander(label="Disperser", expanded=False):
         # Disperser parameters
         st.segmented_control(

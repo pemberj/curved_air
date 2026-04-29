@@ -38,28 +38,26 @@ if TYPE_CHECKING:
 plt.style.use(plot_style)
 
 st.set_page_config(
-    page_title="Curved Air: Optical Design Calculators",
+    page_title="Curved Air: Optical Design Tools",
     page_icon="🌈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+st.header("Echelle Spectrograph")
 
-st.header("Spectral Format")
-
-with st.expander("About this calculator", expanded=False):
+with st.expander("About this tool", expanded=False):
     st.markdown(
         """
-        This calculator generates a spectral format plot (echellogram) for a given
-        echelle spectrograph design. Use the sidebar to adjust the spectrograph
-        parameters, and the format plot will update automatically.
-        You can hover over the plot to see the wavelength and position of each point on
-        the detector.
+        This tool generates a spectral format plot (echellogram) for a given echelle
+        spectrograph design. Use the sidebar to adjust the spectrograph parameters, and
+        the format plot will update automatically. You can hover over the plot to see
+        the wavelength and position of each point on the detector.
 
         This is meant for quick exploration of the top-level spectrograph design space.
         The results shown here may differ from a more detailed ray-tracing analysis.
 
-        All code is written by [Jake Pember](https://github.com/pemberj/)
+        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
         Please get in contact if you have any questions, suggestions, or find any bugs!
         """

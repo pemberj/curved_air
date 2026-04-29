@@ -21,18 +21,24 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
+st.set_page_config(
+    page_title="Curved Air: Optical Design Tools",
+    page_icon="🌈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 st.header("Atmospheric Dispersion Corrector")
 
-with st.expander("About this calculator", expanded=False):
+with st.expander("About this tool", expanded=False):
     st.markdown(
         """
-        This calculator allows for the basic design of a rotational atmospheric
-        dispersion corrector (ADC) with two different glasses. Given the glass choice
-        and other input parameters, an ADC system is optimised and a report is generated
-        on its performance.
+        This tool allows for the basic design of a rotational atmospheric dispersion
+        corrector (ADC) with two different glasses. Given the glass choice and other
+        input parameters, an ADC system is optimised and a report is generated on its
+        expected performance.
 
-        All code is written by [Jake Pember](https://github.com/pemberj/)
+        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
         Please get in contact if you have any questions, suggestions, or find any bugs!
         """

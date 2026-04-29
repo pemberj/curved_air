@@ -57,12 +57,11 @@ wavelength_options: dict[str, ScalarQuantity | None] = {
 }
 
 st.set_page_config(
-    page_title="Curved Air: Optical Design Calculators",
+    page_title="Curved Air: Optical Design Tools",
     page_icon="🌈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
 
 st.header("Glass Explorer")
 
@@ -72,7 +71,14 @@ with st.expander("About this tool", expanded=False):
         This tool allows querying, inspection, and filtering of glass catalogues for the
         purpose of creating custom catalogues for use in Zemax projects or similar.
 
-        All code is written by [Jake Pember](https://github.com/pemberj/)
+        You can start from one or more of the catalogues included in the curved_air
+        repo, and/or upload your own AGF files.
+
+        The catalogue can then be filtered by various parameters, and the filtered
+        catalogue can be downloaded as an AGF file for use in your optical design
+        projects.
+
+        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
         Please get in contact if you have any questions, suggestions, or find any bugs!
         """
@@ -87,6 +93,7 @@ with st.sidebar:
     base_catalogues: list[str] = st.multiselect(
         "Select base catalogue(s)",
         options=list(GLASS_CATALOGUES.keys()),
+        default=["Schott", "Ohara"],
         help="""Optionally choose one or more glass catalogues from which to start...""",
     )
 

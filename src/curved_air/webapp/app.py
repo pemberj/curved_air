@@ -10,10 +10,10 @@ Run with:  uv run streamlit run src/curved_air/webapp/app.py
 import streamlit as st
 
 st.set_page_config(
-    page_title="Curved Air: Optical Design Calculators",
+    page_title="Curved Air: Optical Design Tools",
     page_icon="🌈",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.navigation(
@@ -24,8 +24,8 @@ st.navigation(
             icon="🏠",
         ),
         st.Page(
-            page="pages/spectral_format.py",
-            title="Spectral Format",
+            page="pages/echelle_spectrograph.py",
+            title="Echelle Spectrograph",
             icon="🌈",
         ),
         st.Page(
@@ -42,6 +42,11 @@ st.navigation(
             page="pages/fibre_loss_converter.py",
             title="Fibre Loss Converter",
             icon="🧵",
+        ),
+        st.Page(
+            page="pages/glass_explorer.py",
+            title="Glass Explorer",
+            icon="🔍",
         ),
     ]
 ).run()
