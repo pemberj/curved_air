@@ -46,7 +46,7 @@ agf_files: list[Path] = [
 if not agf_files:
     raise FileNotFoundError("No AGF files found in the data directory.")
 
-schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_file=agf_files)
 
 
 def main(grating: EchelleGrating, plot: bool = False) -> None:

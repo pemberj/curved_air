@@ -38,7 +38,7 @@ def main(save_plots: bool = False) -> None:
     if not agf_files:
         raise FileNotFoundError("No AGF files found in the data directory.")
 
-    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+    catalogue: GlassCatalogue = GlassCatalogue().read_AGF(agf_file=agf_files)
 
     MARVEL_ADC = ADC(
         prism_stack=PrismStack([catalogue["K10"], catalogue["S-FPL51"]]),

@@ -208,7 +208,15 @@ class Glass:
         """
         The internal transmission of the glass at the specified wavelength(s)
         """
-        assert isinstance(wl, Quantity)
+        if not isinstance(wl, Quantity):
+            print(wl)
+            assert isinstance(wl, int | float | list | tuple)
+
+            print(
+                f"Warning: no units provided for wavelength(s) {wl}. "
+                + "Assuming default unit of microns (um)."
+            )
+            wl: Quantity = wl * u.um
 
         if wl.isscalar:
             wl: float = wl.to(u.um).value
@@ -228,38 +236,51 @@ class Glass:
             return np.array([np.nan] * len(wl))
 
     @overload
-    def refractive_index(
-        self, wls: ScalarQuantity | float | str | list[str]
-    ) -> float: ...
+    def refractive_index(self, wls: ScalarQuantity | float | str) -> float: ...
 
     @overload
-    def refractive_index(self, wls: ArrayQuantity) -> np.ndarray: ...
+    def refractive_index(
+        self,
+        wls: ArrayQuantity | list[float] | list[str],
+    ) -> NDArray[np.floating]: ...
 
     def refractive_index(
-        self, wls: Quantity | float | str | list[str] | ArrayLike = "d"
-    ) -> float | np.ndarray:
+        self,
+        wls: ScalarQuantity
+        | ArrayQuantity
+        | float
+        | list[float]
+        | str
+        | list[str] = "d",
+    ) -> float | NDArray[np.floating]:
+
         if wls is None:
-            return self.nd
+            wls: str = "d"
 
         if isinstance(wls, str):
             try:
-                wls: Quantity = (dCF | _fraunhofer_lines)[wls]
+                wls: ScalarQuantity = (dCF | _fraunhofer_lines)[wls]
             except KeyError:
                 print(
                     f"Unknown wavelength string {wls}. Valid options are"
                     + f"{', '.join((dCF | _fraunhofer_lines).keys())}"
                 )
                 print("Using default wavelength of 588 nm")
-                return self.nd
+                wls: ScalarQuantity = dCF["d"]
 
         if isinstance(wls, list) and all(isinstance(wl, str) for wl in wls):
-            return np.ndarray([self.refractive_index(wl) for wl in wls])  # type: ignore
+            return np.ndarray([self.refractive_index(wls=wl) for wl in wls])  # type: ignore
 
-        return _refractive_index(
-            wavelengths=wls,
-            coefficients=self.rii_dispersion_coefficients,
-            formula_number=self.formula,
-        )
+        try:
+            return _refractive_index(
+                wavelengths=wls,
+                coefficients=self.rii_dispersion_coefficients,
+                formula_number=self.rii_formula_number,
+            )
+        except ValueError as e:
+            print(e)
+            print(f"Could not compute refractive index for {self.name}")
+            return np.nan
 
     @overload
     def n(self, wls: ScalarQuantity | float | str | list[str]) -> float: ...
@@ -267,20 +288,23 @@ class Glass:
     @overload
     def n(self, wls: ArrayQuantity) -> np.ndarray: ...
 
-    def n(self, wls: Quantity | float | str | list[str] = "d") -> float | ArrayLike:
-        return self.refractive_index(wls)
+    def n(
+        self,
+        wls: ScalarQuantity | ArrayQuantity | float | str | list[str] = "d",
+    ) -> float | ArrayLike:
+        return self.refractive_index(wls=wls)
 
     @property
     def n_d(self) -> float:
-        return self.n("d")
+        return self.refractive_index(wls="d")
 
     @property
     def n_F(self) -> float:
-        return self.n("F")
+        return self.refractive_index(wls="F")
 
     @property
     def n_C(self) -> float:
-        return self.n("C")
+        return self.refractive_index(wls="C")
 
     @overload
     def dn(self, wls: ScalarQuantity | float) -> float: ...
@@ -504,6 +528,18 @@ class Glass:
     #            ""
 
 
+@dataclass
+class AGFData:
+    """
+    A simple wrapper class to indicate that a string is in AGF format, and should be
+    processed as such when passed to functions that can take multiple types of input
+    (e.g. GlassCatalogue.read_AGF)
+    """
+
+    agf_string: str
+    filename: str = ""
+
+
 class GlassCatalogue(dict):
     """
     * generate plots:
@@ -517,7 +553,13 @@ class GlassCatalogue(dict):
 
     def __init__(
         self,
-        agf: str | Path | list[str] | list[Path] | None = None,
+        agf: str
+        | Path
+        | list[str]
+        | list[Path]
+        | AGFData
+        | list[AGFData]
+        | None = None,
         *args,  # noqa: ANN002
         **kwargs,  # noqa: ANN003
     ) -> None:
@@ -526,6 +568,13 @@ class GlassCatalogue(dict):
 
         if agf:
             self.read_AGF(agf)
+
+    @property
+    def comment(self) -> str:
+        return getattr(self, "_comment", "")
+
+    def set_comment(self, value: str) -> None:
+        self._comment = value
 
     def __setitem__(self, key: str, value: Glass) -> None:
         self.glass_list.append(key)
@@ -551,7 +600,7 @@ class GlassCatalogue(dict):
 
     def read_AGF(
         self,
-        agf_filename: Path | str | list[Path] | list[str],
+        agf_file: Path | str | list[Path] | list[str] | AGFData | list[AGFData],
         debug_level: int = 0,
     ) -> GlassCatalogue:
         """
@@ -562,32 +611,37 @@ class GlassCatalogue(dict):
         term instead.
         """
 
-        if isinstance(agf_filename, str):
-            if "." not in agf_filename:
-                agf_filename: Path = GLASS_CATALOGUES[agf_filename]
-            else:
-                agf_filename: Path = Path(agf_filename)
+        if isinstance(agf_file, AGFData):
+            original_file: str = agf_file.filename
+            agf: list[str] = agf_file.agf_string.splitlines()
 
-        if isinstance(agf_filename, list):
-            for f in agf_filename:
-                self.read_AGF(f)
-            return self
+        else:
+            if isinstance(agf_file, str):
+                if "." not in agf_file:
+                    agf_file: Path = GLASS_CATALOGUES[agf_file]
+                else:
+                    agf_file: Path = Path(agf_file)
 
-        assert isinstance(agf_filename, Path)
+            if isinstance(agf_file, list):
+                for f in agf_file:
+                    self.read_AGF(f)
+                return self
 
-        original_file: str = agf_filename.name
+            assert isinstance(agf_file, Path)
 
-        # print(f"Reading file: {original_file:<20}")
+            original_file: str = agf_file.name
 
-        p: Path = agf_filename
+            # print(f"Reading file: {original_file:<20}")
 
-        # TODO: First find the text encoding (with chardet), and then use `with p.open(.....) as agf:`
-        try:
-            agf = p.open(encoding="utf-8", newline="\r\n")
-            for _, _line in enumerate(agf):
-                break  # Causes UnicodeDecodeError
-        except UnicodeDecodeError:
-            agf = p.open(encoding="utf-16", newline="\r\n")
+            p: Path = agf_file
+
+            # TODO: First find the text encoding (with chardet), and then use `with p.open(.....) as agf:`
+            try:
+                agf = p.open(encoding="utf-8", newline="\r\n")
+                for _, _line in enumerate(agf):
+                    break  # Causes UnicodeDecodeError
+            except UnicodeDecodeError:
+                agf = p.open(encoding="utf-16", newline="\r\n")
 
         def _add_glass(g: Glass) -> None:
             if g.name not in self:
@@ -631,7 +685,9 @@ class GlassCatalogue(dict):
             if data:
                 if data[0] == "CC":
                     # Comment at the start of a catalogue file
-                    print(" ".join(data[1:]))
+                    self.set_comment(" ".join(data[1:]))
+                    if debug_level >= 1:
+                        print(self.comment)
 
                 elif data[0] == "NM":
                     # Found a new "Name" line or reached the end of the file!
@@ -832,6 +888,9 @@ class GlassCatalogue(dict):
                                 print(f"PR: {g.PR}")
                         except ValueError:
                             ...
+                        except IndexError:
+                            # Missing data?
+                            continue
 
                     continue
 
@@ -1007,6 +1066,7 @@ class GlassCatalogue(dict):
         # CTE
         min_CTE: float | None = None,
         max_CTE: float | None = None,
+        debug_level: int = 0,
     ) -> GlassCatalogue:
         """
         For now, a very simple filtering method, providing a way to return
@@ -1021,6 +1081,35 @@ class GlassCatalogue(dict):
         * Filter by more sophisticated glass properties (partial dispersions,
         dRPD, etc.)
         """
+
+        if debug_level >= 1:
+            print("Filtering catalogue with criteria:")
+            if min_n is not None:
+                print(f"  Minimum n at {n_wavelength}: {min_n}")
+            if max_n is not None:
+                print(f"  Maximum n at {n_wavelength}: {max_n}")
+            if min_V_d is not None:
+                print(f"  Minimum V_d: {min_V_d}")
+            if max_V_d is not None:
+                print(f"  Maximum V_d: {max_V_d}")
+            if status_code is not None:
+                print(f"  Status code: {status_code}")
+            if status_description is not None:
+                print(f"  Status description: {status_description}")
+
+            if min_transmission is not None or max_transmission is not None:
+                print(f"  Wavelength range: {min_wl} - {max_wl}")
+            if min_transmission is not None:
+                print(f"  Minimum transmission: {min_transmission}")
+            if max_transmission is not None:
+                print(f"  Maximum transmission: {max_transmission}")
+            if min_average_transmission is not None:
+                print(f"  Minimum average transmission: {min_average_transmission}")
+
+            if min_CTE is not None:
+                print(f"  Minimum CTE: {min_CTE}")
+            if max_CTE is not None:
+                print(f"  Maximum CTE: {max_CTE}")
 
         if not (
             min_n
@@ -1111,6 +1200,13 @@ class GlassCatalogue(dict):
                 except TypeError:
                     ...
 
+            if min_V_d and max_V_d:
+                try:
+                    if glass.V_d < min_V_d or glass.V_d > max_V_d:
+                        continue
+                except TypeError:
+                    ...
+
             if min_transmission or max_transmission or min_average_transmission:
                 try:
                     assert (min_wl is not None) and (max_wl is not None)
@@ -1146,7 +1242,8 @@ class GlassCatalogue(dict):
             # If it hasn't violated any of the conditions yet...
             results[glass.name] = glass
 
-        print(f"Filter returned {len(results)} / {len(self.glass_list)}")
+        if debug_level >= 1:
+            print(f"Filter returned {len(results)} / {len(self.glass_list)}")
         return results
 
     def plot_Abbe_diagram(
@@ -1347,6 +1444,26 @@ class GlassCatalogue(dict):
 
         return ADCs, results
 
+    def __add__(self, other: GlassCatalogue) -> GlassCatalogue:
+        if not isinstance(other, GlassCatalogue):
+            raise TypeError(f"Cannot add GlassCatalogue with {type(other)}")
+
+        new_catalogue = GlassCatalogue()
+
+        # Merge catalogues, keeping all unique glasses (by name) from both
+        for _, glass in self.items():
+            new_catalogue[glass.name] = glass
+
+        for _, glass in other.items():
+            if glass.name not in new_catalogue:
+                new_catalogue[glass.name] = glass
+            else:
+                print(
+                    f"Glass {glass.name} already exists in the new catalogue. Skipping..."
+                )
+
+        return new_catalogue
+
     def __str__(self) -> str:
         return "\n".join([f.summary for f in self.values()])
 
@@ -1516,7 +1633,7 @@ def _refractive_index(
         )
 
     print(f"Invalid formula_number: {formula_number}")
-    return np.array([np.nan] * len(wavelengths))
+    return np.nan
 
 
 def main() -> None: ...

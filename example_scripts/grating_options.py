@@ -39,7 +39,7 @@ agf_files = [
 if not agf_files:
     raise FileNotFoundError("No AGF files found in the data directory.")
 
-schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_filename=agf_files)
+schott: GlassCatalogue = GlassCatalogue().read_AGF(agf_file=agf_files)
 
 
 markers: list[str] = [
