@@ -48,6 +48,14 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
+wavelength_options: dict[str, ScalarQuantity | None] = {
+    "G": 380.0 * u.nm,
+    "F": 486.1 * u.nm,
+    "d": 589.3 * u.nm,
+    "C": 656.3 * u.nm,
+    "Custom": None,
+}
+
 st.set_page_config(
     page_title="Curved Air: Optical Design Calculators",
     page_icon="🌈",
@@ -147,8 +155,90 @@ with st.sidebar:
             st.divider()
 
         st.toggle("Filter by glass status", key="filter_status")
+
+        if st.session_state.get("filter_status", False):
+            status_options = {g.status_description for g in working_catalogue}
+            selected_statuses: list[str] = st.multiselect(
+                "Select glass status descriptions to include",
+                options=status_options,
+                default=list(status_options),
+            )
+
+            working_catalogue = working_catalogue.filter(
+                status_description=selected_statuses
+            )
+
+            st.divider()
+
         st.toggle("Filter by refractive index", key="filter_n")
-        st.toggle("Filter by abbe number", key="filter_V")
+
+        if st.session_state.get("filter_n", False):
+            cols = st.columns(2)
+
+            with cols[0]:
+                n_wavelength: str | None = st.pills(
+                    "Refractive index wavelength",
+                    options=wavelength_options,
+                    format_func=lambda x: f"{x}",
+                    key="n_wavelength_pills",
+                )
+
+                if n_wavelength is None:
+                    n_wavelength = "d"
+
+                if n_wavelength != "Custom":
+                    n_wavelength: ScalarQuantity = wavelength_options[n_wavelength]  # ty:ignore[invalid-assignment]
+                    st.session_state["n_wavelength"] = n_wavelength.to(u.nm).value
+
+            with cols[1]:
+                if n_wavelength == "Custom":
+                    n_wavelength: ScalarQuantity = (
+                        st.number_input(
+                            "Refractive index wavelength (nm)",
+                            min_value=200.0,
+                            max_value=2000.0,
+                            value=st.session_state.get("n_wavelength", 589.3),
+                            step=1.0,
+                            key="n_wavelength_input",
+                        )
+                        * u.nm
+                    )
+
+            st.metric(
+                "Selected wavelength",
+                f"{n_wavelength:.1f}",
+            )
+
+            n_range: tuple[float, float] = st.slider(
+                "Allowed refractive index range",
+                min_value=1.0,
+                max_value=2.5,
+                value=(1.4, 1.8),
+                step=0.01,
+            )
+
+            working_catalogue = working_catalogue.filter(
+                min_n=n_range[0], max_n=n_range[1], n_wavelength=n_wavelength
+            )
+
+            st.divider()
+
+        st.toggle("Filter by Abbe number", key="filter_V")
+
+        if st.session_state.get("filter_V", False):
+            V_range: tuple[float, float] = st.slider(
+                "Allowed Abbe number range",
+                min_value=10.0,
+                max_value=100.0,
+                value=(10.0, 100.0),
+                step=1.0,
+            )
+
+            st.text(V_range)
+
+            working_catalogue: GlassCatalogue = working_catalogue.filter(
+                min_V_d=V_range[0], max_V_d=V_range[1]
+            )
 
         st.divider()
 
@@ -174,9 +264,11 @@ with st.sidebar:
 if working_catalogue:
     df: pd.DataFrame = pd.DataFrame(
         data={
+            "Catalogue": [g.manufacturer for g in working_catalogue],
             "Glass Name": working_catalogue.glass_list,
             "n_d": [g.n_d for g in working_catalogue],
             "V_d": [g.V_d for g in working_catalogue],
+            "Status": [g.status_description for g in working_catalogue],
         },
     )
 else:
@@ -184,6 +276,8 @@ else:
 
 
 if working_catalogue:
+    # st.text(working_catalogue.comment)
+
     selected = st.dataframe(
         df,
         hide_index=True,
@@ -205,58 +299,82 @@ if working_catalogue:
         with col3:
             st.metric("Glass status", f"{selected_glass.status_description}")
 
-        min_wl, max_wl = st.slider(
-            "Plot wavelengths (nm)",
-            min_value=200.0,
-            max_value=2000.0,
-            value=(
-                min(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
-                max(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
-            ),
-            step=5.0,
-            key="min_max_wls",
-        )
+        with st.container(horizontal_alignment="center"):
+            min_wl, max_wl = st.slider(
+                "Plot wavelengths (nm)",
+                min_value=200.0,
+                max_value=2000.0,
+                value=(
+                    min(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
+                    max(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
+                ),
+                step=5.0,
+                width=500,
+                key="min_max_wls",
+            )
 
         plot_wls: NDArray = np.linspace(min_wl, max_wl, 100) * u.nm
+        ref_index: NDArray = selected_glass.refractive_index(plot_wls)
+        transmission: NDArray = selected_glass.transmission(plot_wls)
 
         cols = st.columns(2)
 
         with cols[0]:
             # Refractive index plot
             fig: go.Figure = go.Figure()
-            fig.add_trace(
-                trace=go.Scatter(
-                    x=plot_wls,
-                    y=selected_glass.refractive_index(plot_wls),
-                    mode="lines",
+            try:
+                fig.add_trace(
+                    trace=go.Scatter(
+                        x=plot_wls,
+                        y=ref_index,
+                        mode="lines",
+                    )
                 )
-            )
-            fig.update_layout(
-                title=f"{glass_name} Refractive Index",
-                xaxis_title="Wavelength (nm)",
-                yaxis_title="Refractive Index",
-                template="plotly_dark",
-            )
 
-            st.plotly_chart(fig)
+                fig.update_layout(
+                    title=f"{glass_name} Refractive Index",
+                    xaxis_title="Wavelength (nm)",
+                    yaxis_title="Refractive Index",
+                    template="plotly_dark",
+                )
+
+                st.plotly_chart(fig)
+            except Exception:
+                st.error(
+                    """An error occurred while trying to compute the refractive index
+                    for the selected glass. This may be due to missing or invalid
+                    dispersion coefficients, or an unsupported dispersion formula."""
+                )
+                # st.exception(e)
 
         with cols[1]:
             # Transmission plot
             fig: go.Figure = go.Figure()
-            fig.add_trace(
-                trace=go.Scatter(
-                    x=plot_wls,
-                    y=selected_glass.transmission(plot_wls),
-                    mode="lines",
-                )
-            )
-            fig.update_layout(
-                title=f"{glass_name} Transmission",
-                xaxis_title="Wavelength (nm)",
-                yaxis_title="Transmission",
-                template="plotly_dark",
-            )
 
-            st.plotly_chart(fig)
+            try:
+                fig.add_trace(
+                    trace=go.Scatter(
+                        x=plot_wls,
+                        y=transmission,
+                        mode="lines",
+                    )
+                )
+
+                fig.update_layout(
+                    title=f"{glass_name} Transmission",
+                    xaxis_title="Wavelength (nm)",
+                    yaxis_title="Transmission",
+                    template="plotly_dark",
+                )
+
+                st.plotly_chart(fig)
+
+            except Exception as e:
+                st.error(
+                    """An error occurred while trying to compute the transmission
+                    for the selected glass. This may be due to missing or invalid
+                    transmission data."""
+                )
+                st.exception(e)
 
         st.session_state["plot_wls"] = plot_wls.to(u.um).value
