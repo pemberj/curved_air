@@ -81,6 +81,8 @@ with st.expander("About this tool", expanded=False):
         All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
         Please get in contact if you have any questions, suggestions, or find any bugs!
+
+        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool useful and want to support its development!
         """
     )
 
