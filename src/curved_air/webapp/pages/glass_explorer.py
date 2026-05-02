@@ -3,26 +3,13 @@
 """
 Glass Explorer
 
-Create a frontend for loading one or more existing catalogues (with the option to upload
-your own), viewing the glasses on an Abbe diagram and others, filtering glasses by
-various parameters, and saving (downloading) the filtered catalogue as an AGF for use
-in Zemax (and elsewhere?).
+A frontend for loading one or more existing glass catalogues in AGF format (with the
+option to upload your own), viewing the glasses on an Abbe diagram and others, filtering
+glasses by various parameters, and saving (downloading) the filtered catalogue as an AGF
+for use in Zemax (and elsewhere?).
 """
 
-
-# TODO: Multi-select glass catalogues from those included in curved_air
-# TODO: Upload custom glass catalogue in AGF format (just one is sufficient I guess)
-# TODO: Plot glasses on interactive Abbe diagram
-# TODO: Plot glasses for differential relative partial dispersion (dRPD) diagra
-# TODO: Allow filtering glasses by:
-#   - Transmission properties (e.g. cutoff wavelength)
-#   - Abbe number
-#   - Refractive index
-#   - Relative partial dispersion
-#   - Cost (if available)
-#   - Availability (if available)
-#   - Glass 'status' eg. preferred, not recommended, etc. (if available)
-# TODO: Save the filtered catalogue as an AGF file, download from the interface
+# TODO: Plot differential relative partial dispersion (dRPD) diagram
 
 from __future__ import annotations
 
@@ -31,10 +18,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from astropy import units as u
-from matplotlib import pyplot as plt
 from streamlit.components.v1 import html
 
 from curved_air.glass import GLASS_CATALOGUES, AGFData, Glass, GlassCatalogue
@@ -46,8 +33,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity  # noqa: F401
-
-plt.style.use(plot_style)
 
 wavelength_options: dict[str, ScalarQuantity | None] = {
     "G": 380.0 * u.nm,
@@ -93,8 +78,6 @@ with st.expander("About this tool", expanded=False):
         """,
         height=70,
     )
-
-st.divider()
 
 # Interface
 with st.sidebar:
@@ -295,103 +278,207 @@ else:
 if working_catalogue:
     # st.text(working_catalogue.comment)
 
-    selected = st.dataframe(
-        df,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-cell",
-    )
+    selected_glass_name: str | None = st.session_state.get("selected_glass_name")
 
-    if selected.selection and selected.selection.cells:
-        glass_index = selected.selection.cells[0][0]
-        glass_name = df.iloc[glass_index]["Glass Name"]
-        selected_glass: Glass = working_catalogue[glass_name]
+    cols = st.columns(2)
 
-        st.subheader(f"Glass: {selected_glass.name}")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Refractive Index (n$_\\textup{d}$)", f"{selected_glass.n_d:.6f}")
-        with col2:
-            st.metric("Abbe Number (V$_\\textup{d}$)", f"{selected_glass.V_d:.2f}")
-        with col3:
-            st.metric("Glass status", f"{selected_glass.status_description}")
-
-        with st.container(horizontal_alignment="center"):
-            min_wl, max_wl = st.slider(
-                "Plot wavelengths (nm)",
-                min_value=200.0,
-                max_value=2000.0,
-                value=(
-                    min(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
-                    max(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
-                ),
-                step=5.0,
-                width=500,
-                key="min_max_wls",
+    with cols[0]:
+        st.toggle("Glass table", value=True, key="display_table")
+        if st.session_state.get("display_table", False):
+            selected = st.dataframe(
+                df,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-cell",
+                # height=750,
             )
 
-        plot_wls: NDArray = np.linspace(min_wl, max_wl, 100) * u.nm
-        ref_index: NDArray = selected_glass.refractive_index(plot_wls)
-        transmission: NDArray = selected_glass.transmission(plot_wls)
+            if selected.selection and selected.selection.cells:
+                glass_index = selected.selection.cells[0][0]
+                st.session_state["table_selection"] = str(
+                    df.iloc[glass_index]["Glass Name"]
+                )
+                st.session_state["abbe_selection"] = None
 
-        cols = st.columns(2)
+    with cols[1]:
+        st.toggle("Abbe diagram", value=True, key="display_abbe")
 
-        with cols[0]:
-            # Refractive index plot
-            fig: go.Figure = go.Figure()
-            try:
+        if st.session_state.get("display_abbe", False):
+            # Abbe diagram
+            fig = go.Figure()
+
+            unique_catalogues: set[str] = {g.manufacturer for g in working_catalogue}
+            # Define default colours for each catalogue, so they don't change depending on what is selected
+            # Use a default colour palette cycler
+            catalogue_colors: dict[str, str] = {
+                catalogue: px.colors.qualitative.Plotly[i]
+                for i, catalogue in enumerate(list(GLASS_CATALOGUES.keys()))
+            }
+
+            # add selected point if applicable
+            if selected_glass_name:
+                selected_glass = working_catalogue[f"{selected_glass_name}"]
                 fig.add_trace(
                     trace=go.Scatter(
-                        x=plot_wls,
-                        y=ref_index,
-                        mode="lines",
+                        x=[selected_glass.V_d],
+                        y=[selected_glass.n_d],
+                        mode="markers",
+                        marker={
+                            "size": 16,
+                            "symbol": "cross-thin",
+                            "line": {"width": 1.5, "color": "white"},
+                        },
+                        text=[f"{selected_glass.manufacturer} {selected_glass.name}"],
+                        hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
+                        showlegend=False,
                     )
                 )
 
-                fig.update_layout(
-                    title=f"{glass_name} Refractive Index",
-                    xaxis_title="Wavelength (nm)",
-                    yaxis_title="Refractive Index",
-                    template="plotly_dark",
-                )
-
-                st.plotly_chart(fig)
-            except Exception:
-                st.error(
-                    """An error occurred while trying to compute the refractive index
-                    for the selected glass. This may be due to missing or invalid
-                    dispersion coefficients, or an unsupported dispersion formula."""
-                )
-                # st.exception(e)
-
-        with cols[1]:
-            # Transmission plot
-            fig: go.Figure = go.Figure()
-
-            try:
+            for catalogue in unique_catalogues:
+                catalogue_glasses = [
+                    g for g in working_catalogue if g.manufacturer == catalogue
+                ]
                 fig.add_trace(
                     trace=go.Scatter(
-                        x=plot_wls,
-                        y=transmission,
-                        mode="lines",
+                        x=[g.V_d for g in catalogue_glasses],
+                        y=[g.n_d for g in catalogue_glasses],
+                        mode="markers",
+                        text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
+                        customdata=[g.name for g in catalogue_glasses],
+                        hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
+                        name=catalogue,
+                        marker={"color": catalogue_colors[catalogue]},
                     )
                 )
 
-                fig.update_layout(
-                    title=f"{glass_name} Transmission",
-                    xaxis_title="Wavelength (nm)",
-                    yaxis_title="Transmission",
-                    template="plotly_dark",
+            fig.update_layout(
+                title="Abbe Diagram of Glasses in Working Catalogue",
+                xaxis_title="Abbe Number (V_d)",
+                yaxis_title="Refractive Index (n_d)",
+                template="plotly_dark",
+                # height=750,
+                clickmode="event+select",
+            )
+
+            fig.update_xaxes(autorange="reversed")
+
+            abbe_selected = st.plotly_chart(
+                fig,
+                width="stretch",
+                on_select="rerun",
+                selection_mode="points",
+                key="abbe_diagram",
+            )
+
+            if abbe_selected.selection and abbe_selected.selection.points:
+                st.session_state["abbe_selection"] = str(
+                    df.iloc[glass_index]["Glass Name"]
                 )
+                st.session_state["table_selection"] = None
 
-                st.plotly_chart(fig)
+    st.divider()
 
-            except Exception as e:
-                st.error(
-                    """An error occurred while trying to compute the transmission
-                    for the selected glass. This may be due to missing or invalid
-                    transmission data."""
+    st.session_state["selected_glass_name"] = st.session_state.get(
+        "table_selection"
+    ) or st.session_state.get("abbe_selection")
+
+    if st.session_state.get("selected_glass_name") is None:
+        st.info(
+            """You can select a glass from the table above to view its properties and
+            dispersion/transmission curves."""
+        )
+        st.stop()
+
+    selected_glass: Glass = working_catalogue[
+        f"{st.session_state.get('selected_glass_name')}"
+    ]
+
+    st.subheader(f"Glass: {selected_glass.name}")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Refractive Index (n$_\\textup{d}$)", f"{selected_glass.n_d:.6f}")
+    with col2:
+        st.metric("Abbe Number (V$_\\textup{d}$)", f"{selected_glass.V_d:.2f}")
+    with col3:
+        st.metric("Glass status", f"{selected_glass.status_description}")
+
+    with st.container(horizontal_alignment="center"):
+        min_wl, max_wl = st.slider(
+            "Plot wavelengths (nm)",
+            min_value=200.0,
+            max_value=2000.0,
+            value=(
+                min(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
+                max(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
+            ),
+            step=5.0,
+            width=500,
+            key="min_max_wls",
+        )
+
+    plot_wls: NDArray = np.linspace(min_wl, max_wl, 100) * u.nm
+    ref_index: NDArray = selected_glass.refractive_index(plot_wls)
+    transmission: NDArray = selected_glass.transmission(plot_wls)
+
+    cols = st.columns(2)
+
+    with cols[0]:
+        # Refractive index plot
+        fig: go.Figure = go.Figure()
+        try:
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=plot_wls,
+                    y=ref_index,
+                    mode="lines",
                 )
-                st.exception(e)
+            )
 
-        st.session_state["plot_wls"] = plot_wls.to(u.um).value
+            fig.update_layout(
+                title=f"{st.session_state['selected_glass_name']} Refractive Index",
+                xaxis_title="Wavelength (nm)",
+                yaxis_title="Refractive Index",
+                template="plotly_dark",
+            )
+
+            st.plotly_chart(fig)
+        except Exception:
+            st.error(
+                """An error occurred while trying to compute the refractive index
+                for the selected glass. This may be due to missing or invalid
+                dispersion coefficients, or an unsupported dispersion formula."""
+            )
+            # st.exception(e)
+
+    with cols[1]:
+        # Transmission plot
+        fig: go.Figure = go.Figure()
+
+        try:
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=plot_wls,
+                    y=transmission,
+                    mode="lines",
+                )
+            )
+
+            fig.update_layout(
+                title=f"{st.session_state['selected_glass_name']} Transmission",
+                xaxis_title="Wavelength (nm)",
+                yaxis_title="Transmission",
+                template="plotly_dark",
+            )
+
+            st.plotly_chart(fig)
+
+        except Exception as e:
+            st.error(
+                """An error occurred while trying to compute the transmission for
+                the selected glass. This may be due to missing or invalid
+                transmission data."""
+            )
+            st.exception(e)
+
+    st.session_state["plot_wls"] = plot_wls.to(u.um).value
