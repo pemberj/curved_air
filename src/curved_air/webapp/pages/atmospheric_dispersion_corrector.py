@@ -218,7 +218,7 @@ with st.sidebar:
         optimisation_criterion: str = st.segmented_control(
             "ADC optimisation criterion",
             ["PTV", "RMS", "RSS", "Max. Abs."],
-            default="PTV",
+            default="Max. Abs.",
         )  # ty:ignore[invalid-assignment]
         if optimisation_criterion == "Max. Abs.":
             optimisation_criterion = "max_abs"
