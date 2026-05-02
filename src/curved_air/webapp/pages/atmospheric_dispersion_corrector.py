@@ -279,7 +279,7 @@ with next(cols):
 
 with next(cols):
     st.metric(
-        "RMS Residuals",
+        "RMS",
         f"{adc.residuals_RMS:.3f}",
         help="""The RMS (Root Mean Square) residuals of the ADC. This is the root-mean-
         square deviation from the ideal dispersion correction across all wavelengths in
