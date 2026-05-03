@@ -4,7 +4,7 @@ from streamlit.components.v1 import html
 st.title("Curved Air: Optical Design Tools")
 
 st.markdown(
-    "Welcome to the **Curved Air**. Use the sidebar to navigate between the available tools."
+    "Welcome to [**Curved Air**](https://curvedair.jakepember.com/). Use the sidebar to navigate between the available tools."
 )
 
 st.markdown(
