@@ -105,16 +105,18 @@ with st.sidebar:
     if uploaded_files:
         working_catalogue += GlassCatalogue(
             agf=[
-                AGFData(StringIO(f.getvalue().decode("utf-8")).read(), filename=f.name)
+                AGFData(
+                    agf_string=StringIO(f.getvalue().decode("utf-8")).read(),
+                    filename=f.name,
+                )
                 for f in uploaded_files
             ]
         )
 
-    if working_catalogue is not None:
-        st.metric(
-            "Glasses in working catalogue",
-            f"{len(working_catalogue)}",
-        )
+    st.metric(
+        "Glasses in working catalogue",
+        f"{len(working_catalogue)}",
+    )
 
     with st.expander("Filters", expanded=False):
         if not working_catalogue:
@@ -122,327 +124,316 @@ with st.sidebar:
                 """Please select or upload one or more base catalogues to enable
                 filtering options."""
             )
-            st.stop()
-        st.toggle("Filter by transmission", key="filter_transmission")
 
-        if st.session_state.get("filter_transmission", False):
-            T_wls: ArrayQuantity = (
-                st.slider(
-                    "Transmission wavelengths (nm)",
-                    min_value=200.0,
-                    max_value=2000.0,
-                    value=(380.0, 950.0),
-                    step=5.0,
+        else:
+            st.toggle("Filter by transmission", key="filter_transmission")
+
+            if st.session_state.get("filter_transmission", False):
+                T_wls: ArrayQuantity = (
+                    st.slider(
+                        "Transmission wavelengths (nm)",
+                        min_value=200.0,
+                        max_value=2000.0,
+                        value=(380.0, 950.0),
+                        step=5.0,
+                    )
+                    * u.nm
                 )
-                * u.nm
-            )
 
-            T_min: float = (
-                st.number_input(
-                    "Minimum transmission",
-                    min_value=0.0,
+                T_min: float = (
+                    st.number_input(
+                        "Minimum transmission",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=95.0,
+                        step=1.0,
+                    )
+                    / 100
+                )
+
+                working_catalogue = working_catalogue.filter(
+                    min_wl=T_wls[0], max_wl=T_wls[1], min_transmission=T_min
+                )
+
+                st.divider()
+
+            st.toggle("Filter by glass status", key="filter_status")
+
+            if st.session_state.get("filter_status", False):
+                status_options: set[str] = {
+                    g.status_description for g in working_catalogue
+                }
+                selected_statuses: list[str] = st.multiselect(
+                    "Select glass status descriptions to include",
+                    options=status_options,
+                    default=list(status_options),
+                )
+
+                working_catalogue: GlassCatalogue = working_catalogue.filter(
+                    status_description=selected_statuses
+                )
+
+                st.divider()
+
+            st.toggle("Filter by refractive index", key="filter_n")
+
+            if st.session_state.get("filter_n", False):
+                cols = st.columns(2)
+
+                with cols[0]:
+                    n_wavelength: str | None = st.pills(
+                        "Refractive index wavelength",
+                        options=wavelength_options,
+                        format_func=lambda x: f"{x}",
+                        key="n_wavelength_pills",
+                    )
+
+                    if n_wavelength is None:
+                        n_wavelength = "d"
+
+                    if n_wavelength != "Custom":
+                        n_wavelength: ScalarQuantity = wavelength_options[n_wavelength]  # ty:ignore[invalid-assignment]
+                        st.session_state["n_wavelength"] = n_wavelength.to(u.nm).value
+
+                with cols[1]:
+                    if n_wavelength == "Custom":
+                        n_wavelength: ScalarQuantity = (
+                            st.number_input(
+                                "Refractive index wavelength (nm)",
+                                min_value=200.0,
+                                max_value=2000.0,
+                                value=st.session_state.get("n_wavelength", 589.3),
+                                step=1.0,
+                                key="n_wavelength_input",
+                            )
+                            * u.nm
+                        )
+
+                st.metric(
+                    "Selected wavelength",
+                    f"{n_wavelength:.1f}",
+                )
+
+                n_range: tuple[float, float] = st.slider(
+                    "Allowed refractive index range",
+                    min_value=1.0,
+                    max_value=2.5,
+                    value=(1.4, 1.8),
+                    step=0.01,
+                )
+
+                working_catalogue = working_catalogue.filter(
+                    min_n=n_range[0], max_n=n_range[1], n_wavelength=n_wavelength
+                )
+
+                st.divider()
+
+            st.toggle("Filter by Abbe number", key="filter_V")
+
+            if st.session_state.get("filter_V", False):
+                V_range: tuple[float, float] = st.slider(
+                    "Allowed Abbe number range",
+                    min_value=10.0,
                     max_value=100.0,
-                    value=95.0,
+                    value=(10.0, 100.0),
                     step=1.0,
                 )
-                / 100
-            )
 
-            working_catalogue = working_catalogue.filter(
-                min_wl=T_wls[0], max_wl=T_wls[1], min_transmission=T_min
-            )
+                st.text(V_range)
+
+                working_catalogue: GlassCatalogue = working_catalogue.filter(
+                    min_V_d=V_range[0], max_V_d=V_range[1]
+                )
 
             st.divider()
 
-        st.toggle("Filter by glass status", key="filter_status")
-
-        if st.session_state.get("filter_status", False):
-            status_options = {g.status_description for g in working_catalogue}
-            selected_statuses: list[str] = st.multiselect(
-                "Select glass status descriptions to include",
-                options=status_options,
-                default=list(status_options),
-            )
-
-            working_catalogue = working_catalogue.filter(
-                status_description=selected_statuses
-            )
+            assert working_catalogue is not None
+            st.metric("Glasses remaining after filtering", f"{len(working_catalogue)}")
 
             st.divider()
 
-        st.toggle("Filter by refractive index", key="filter_n")
-
-        if st.session_state.get("filter_n", False):
-            cols = st.columns(2)
-
-            with cols[0]:
-                n_wavelength: str | None = st.pills(
-                    "Refractive index wavelength",
-                    options=wavelength_options,
-                    format_func=lambda x: f"{x}",
-                    key="n_wavelength_pills",
+            try:
+                st.download_button(
+                    "Download filtered catalogue as AGF",
+                    data=working_catalogue.to_AGF_string(),
+                    file_name="filtered_catalogue.agf",
+                    mime="text/plain",
                 )
-
-                if n_wavelength is None:
-                    n_wavelength = "d"
-
-                if n_wavelength != "Custom":
-                    n_wavelength: ScalarQuantity = wavelength_options[n_wavelength]  # ty:ignore[invalid-assignment]
-                    st.session_state["n_wavelength"] = n_wavelength.to(u.nm).value
-
-            with cols[1]:
-                if n_wavelength == "Custom":
-                    n_wavelength: ScalarQuantity = (
-                        st.number_input(
-                            "Refractive index wavelength (nm)",
-                            min_value=200.0,
-                            max_value=2000.0,
-                            value=st.session_state.get("n_wavelength", 589.3),
-                            step=1.0,
-                            key="n_wavelength_input",
-                        )
-                        * u.nm
-                    )
-
-            st.metric(
-                "Selected wavelength",
-                f"{n_wavelength:.1f}",
-            )
-
-            n_range: tuple[float, float] = st.slider(
-                "Allowed refractive index range",
-                min_value=1.0,
-                max_value=2.5,
-                value=(1.4, 1.8),
-                step=0.01,
-            )
-
-            working_catalogue = working_catalogue.filter(
-                min_n=n_range[0], max_n=n_range[1], n_wavelength=n_wavelength
-            )
-
-            st.divider()
-
-        st.toggle("Filter by Abbe number", key="filter_V")
-
-        if st.session_state.get("filter_V", False):
-            V_range: tuple[float, float] = st.slider(
-                "Allowed Abbe number range",
-                min_value=10.0,
-                max_value=100.0,
-                value=(10.0, 100.0),
-                step=1.0,
-            )
-
-            st.text(V_range)
-
-            working_catalogue: GlassCatalogue = working_catalogue.filter(
-                min_V_d=V_range[0], max_V_d=V_range[1]
-            )
-
-        st.divider()
-
-        assert working_catalogue is not None
-        st.metric("Glasses remaining after filtering", f"{len(working_catalogue)}")
-
-        st.divider()
-
-        try:
-            st.download_button(
-                "Download filtered catalogue as AGF",
-                data=working_catalogue.to_AGF_string(),
-                file_name="filtered_catalogue.agf",
-                mime="text/plain",
-            )
-        except Exception as e:
-            st.error(
-                """An error occurred while trying to generate the AGF file. Please
-                check the filters and try again."""
-            )
-            st.exception(e)
-
-if working_catalogue:
-    df: pd.DataFrame = pd.DataFrame(
-        data={
-            "Catalogue": [g.manufacturer for g in working_catalogue],
-            "Glass Name": working_catalogue.glass_list,
-            "n_d": [g.n_d for g in working_catalogue],
-            "V_d": [g.V_d for g in working_catalogue],
-            "Status": [g.status_description for g in working_catalogue],
-        },
-    )
-else:
-    df = None
-
-
-if working_catalogue:
-    # st.text(working_catalogue.comment)
-
-    selected_glass_name: str | None = st.session_state.get("selected_glass_name")
-
-    cols = st.columns(2)
-
-    with cols[0]:
-        st.toggle("Glass table", value=True, key="display_table")
-        if st.session_state.get("display_table", False):
-            selected = st.dataframe(
-                df,
-                hide_index=True,
-                on_select="rerun",
-                selection_mode="single-cell",
-                # height=750,
-            )
-
-            if selected.selection and selected.selection.cells:
-                glass_index = selected.selection.cells[0][0]
-                st.session_state["table_selection"] = str(
-                    df.iloc[glass_index]["Glass Name"]
+            except Exception as e:
+                st.error(
+                    """An error occurred while trying to generate the AGF file. Please
+                    check the filters and try again."""
                 )
-                st.session_state["abbe_selection"] = None
+                st.exception(e)
 
-    with cols[1]:
-        st.toggle("Abbe diagram", value=True, key="display_abbe")
+if not working_catalogue:
+    with st.container(horizontal_alignment="center"):
+        st.info(
+            """Please select or upload one or more base catalogues to view and filter
+            the catalogue contents."""
+        )
+    st.stop()
 
-        if st.session_state.get("display_abbe", False):
-            # Abbe diagram
-            fig = go.Figure()
+df: pd.DataFrame = pd.DataFrame(
+    data={
+        "Catalogue": [g.manufacturer for g in working_catalogue],
+        "Glass Name": working_catalogue.glass_list,
+        "n_d": [g.n_d for g in working_catalogue],
+        "V_d": [g.V_d for g in working_catalogue],
+        "Status": [g.status_description for g in working_catalogue],
+    },
+)
 
-            unique_catalogues: set[str] = {g.manufacturer for g in working_catalogue}
-            # Define default colours for each catalogue, so they don't change depending on what is selected
-            # Use a default colour palette cycler
-            catalogue_colors: dict[str, str] = {
-                catalogue: px.colors.qualitative.Plotly[i]
-                for i, catalogue in enumerate(list(GLASS_CATALOGUES.keys()))
-            }
+# st.text(working_catalogue.comment)
 
-            # add selected point if applicable
-            if selected_glass_name:
-                selected_glass = working_catalogue[f"{selected_glass_name}"]
-                fig.add_trace(
-                    trace=go.Scatter(
-                        x=[selected_glass.V_d],
-                        y=[selected_glass.n_d],
-                        mode="markers",
-                        marker={
-                            "size": 16,
-                            "symbol": "cross-thin",
-                            "line": {"width": 1.5, "color": "white"},
-                        },
-                        text=[f"{selected_glass.manufacturer} {selected_glass.name}"],
-                        hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
-                        showlegend=False,
-                    )
+selected_glass_name: str | None = st.session_state.get("selected_glass_name")
+
+cols = st.columns(2)
+
+with cols[0]:
+    st.toggle("Glass table", value=True, key="display_table")
+    if st.session_state.get("display_table", False):
+        event = st.dataframe(
+            df,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="multi-row",
+            height=600,
+        )
+
+        selected: list = event.selection.rows if event.selection else []
+        selected_glasses: list[Glass] = [
+            working_catalogue[f"{df.iloc[i]['Glass Name']}"] for i in selected
+        ]
+    else:
+        selected_glasses: list[Glass] = []
+
+with cols[1]:
+    st.toggle("Abbe diagram", value=True, key="display_abbe")
+
+    if st.session_state.get("display_abbe", False):
+        # Abbe diagram
+        fig = go.Figure()
+
+        unique_catalogues: set[str] = {g.manufacturer for g in working_catalogue}
+        # Define default colours for each catalogue, so they don't change depending on what is selected
+        # Use a default colour palette cycler
+        catalogue_colors: dict[str, str] = {
+            catalogue: px.colors.qualitative.Plotly[i]
+            for i, catalogue in enumerate(list(GLASS_CATALOGUES.keys()))
+        }
+
+        # add selected point(s) if applicable
+        for selected_glass in selected_glasses:
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=[selected_glass.V_d],
+                    y=[selected_glass.n_d],
+                    mode="markers",
+                    marker={
+                        "size": 16,
+                        "symbol": "cross-thin",
+                        "line": {"width": 1.5, "color": "white"},
+                    },
+                    text=[f"{selected_glass.manufacturer} {selected_glass.name}"],
+                    hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
+                    showlegend=False,
                 )
-
-            for catalogue in unique_catalogues:
-                catalogue_glasses = [
-                    g for g in working_catalogue if g.manufacturer == catalogue
-                ]
-                fig.add_trace(
-                    trace=go.Scatter(
-                        x=[g.V_d for g in catalogue_glasses],
-                        y=[g.n_d for g in catalogue_glasses],
-                        mode="markers",
-                        text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
-                        customdata=[g.name for g in catalogue_glasses],
-                        hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
-                        name=catalogue,
-                        marker={"color": catalogue_colors[catalogue]},
-                    )
-                )
-
-            fig.update_layout(
-                title="Abbe Diagram of Glasses in Working Catalogue",
-                xaxis_title="Abbe Number (V_d)",
-                yaxis_title="Refractive Index (n_d)",
-                template="plotly_dark",
-                # height=750,
-                clickmode="event+select",
             )
 
-            fig.update_xaxes(autorange="reversed")
-
-            abbe_selected = st.plotly_chart(
-                fig,
-                width="stretch",
-                on_select="rerun",
-                selection_mode="points",
-                key="abbe_diagram",
+        for catalogue in unique_catalogues:
+            catalogue_glasses = [
+                g for g in working_catalogue if g.manufacturer == catalogue
+            ]
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=[g.V_d for g in catalogue_glasses],
+                    y=[g.n_d for g in catalogue_glasses],
+                    mode="markers",
+                    text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
+                    customdata=[g.name for g in catalogue_glasses],
+                    hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
+                    name=catalogue,
+                    marker={"color": catalogue_colors[catalogue]},
+                )
             )
 
-            if abbe_selected.selection and abbe_selected.selection.points:
-                st.session_state["abbe_selection"] = str(
-                    df.iloc[glass_index]["Glass Name"]
-                )
-                st.session_state["table_selection"] = None
+        fig.update_layout(
+            title="Abbe Diagram of Glasses in Working Catalogue",
+            xaxis_title="Abbe Number (V_d)",
+            yaxis_title="Refractive Index (n_d)",
+            template="plotly_dark",
+            height=600,
+            clickmode="event+select",
+        )
 
-    st.divider()
+        fig.update_xaxes(autorange="reversed")
 
-    st.session_state["selected_glass_name"] = st.session_state.get(
-        "table_selection"
-    ) or st.session_state.get("abbe_selection")
+        abbe_selected = st.plotly_chart(
+            fig,
+            width="stretch",
+            on_select="rerun",
+            selection_mode="points",
+            key="abbe_diagram",
+        )
 
-    if st.session_state.get("selected_glass_name") is None:
+st.divider()
+
+if not selected_glasses:
+    with st.container(horizontal_alignment="center"):
         st.info(
             """You can select a glass from the table above to view its properties and
-            dispersion/transmission curves."""
+            dispersion/transmission curves.""",
+            width=600,
         )
-        st.stop()
+    st.stop()
 
-    selected_glass: Glass = working_catalogue[
-        f"{st.session_state.get('selected_glass_name')}"
-    ]
+cols = st.columns(2, gap="large")
 
-    st.subheader(f"Glass: {selected_glass.name}")
+with cols[0], st.container(horizontal_alignment="right"):
+    min_wl: float = st.number_input(
+        "Minimum wavelength (nm)",
+        min_value=200.0,
+        max_value=2000.0,
+        value=st.session_state.get("min_max_wls", (370.0, 500.0))[0],
+        step=5.0,
+        key="min_wl_input",
+        width=200,
+    )
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Refractive Index (n$_\\textup{d}$)", f"{selected_glass.n_d:.6f}")
-    with col2:
-        st.metric("Abbe Number (V$_\\textup{d}$)", f"{selected_glass.V_d:.2f}")
-    with col3:
-        st.metric("Glass status", f"{selected_glass.status_description}")
+with cols[1], st.container(horizontal_alignment="left"):
+    max_wl: float = st.number_input(
+        "Maximum wavelength (nm)",
+        min_value=200.0,
+        max_value=2000.0,
+        value=st.session_state.get("min_max_wls", (370.0, 500.0))[1],
+        step=5.0,
+        key="max_wl_input",
+        width=200,
+    )
 
-    with st.container(horizontal_alignment="center"):
-        min_wl, max_wl = st.slider(
-            "Plot wavelengths (nm)",
-            min_value=200.0,
-            max_value=2000.0,
-            value=(
-                min(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
-                max(st.session_state.get("plot_wls", selected_glass.wl)) * 1000,
-            ),
-            step=5.0,
-            width=500,
-            key="min_max_wls",
-        )
+st.session_state["min_max_wls"] = (min_wl, max_wl)
 
-    plot_wls: NDArray = np.linspace(min_wl, max_wl, 100) * u.nm
-    ref_index: NDArray = selected_glass.refractive_index(plot_wls)
-    transmission: NDArray = selected_glass.transmission(plot_wls)
+plot_wls: ArrayQuantity = np.linspace(min_wl, max_wl, 100) * u.nm
 
-    cols = st.columns(2)
 
-    with cols[0]:
-        # Refractive index plot
-        fig: go.Figure = go.Figure()
+cols = st.columns(2)
+
+with cols[0]:
+    # Refractive index plot
+    fig: go.Figure = go.Figure()
+
+    for selected_glass in selected_glasses:
+        ref_index: NDArray = selected_glass.refractive_index(plot_wls)
         try:
             fig.add_trace(
                 trace=go.Scatter(
                     x=plot_wls,
                     y=ref_index,
                     mode="lines",
+                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
                 )
             )
-
-            fig.update_layout(
-                title=f"{st.session_state['selected_glass_name']} Refractive Index",
-                xaxis_title="Wavelength (nm)",
-                yaxis_title="Refractive Index",
-                template="plotly_dark",
-            )
-
-            st.plotly_chart(fig)
         except Exception:
             st.error(
                 """An error occurred while trying to compute the refractive index
@@ -451,28 +442,31 @@ if working_catalogue:
             )
             # st.exception(e)
 
-    with cols[1]:
-        # Transmission plot
-        fig: go.Figure = go.Figure()
+    fig.update_layout(
+        title="Refractive Indices",
+        xaxis_title="Wavelength (nm)",
+        yaxis_title="Refractive Index",
+        template="plotly_dark",
+        height=600,
+    )
 
+    st.plotly_chart(fig)
+
+with cols[1]:
+    # Transmission plot
+    fig: go.Figure = go.Figure()
+
+    for selected_glass in selected_glasses:
+        transmission: NDArray = selected_glass.transmission(plot_wls)  # ty:ignore[invalid-assignment]
         try:
             fig.add_trace(
                 trace=go.Scatter(
                     x=plot_wls,
                     y=transmission,
                     mode="lines",
+                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
                 )
             )
-
-            fig.update_layout(
-                title=f"{st.session_state['selected_glass_name']} Transmission",
-                xaxis_title="Wavelength (nm)",
-                yaxis_title="Transmission",
-                template="plotly_dark",
-            )
-
-            st.plotly_chart(fig)
-
         except Exception as e:
             st.error(
                 """An error occurred while trying to compute the transmission for
@@ -481,4 +475,15 @@ if working_catalogue:
             )
             st.exception(e)
 
-    st.session_state["plot_wls"] = plot_wls.to(u.um).value
+    fig.update_layout(
+        title="Transmission",
+        xaxis_title="Wavelength (nm)",
+        yaxis_title="Transmission",
+        template="plotly_dark",
+        height=600,
+    )
+
+    st.plotly_chart(fig)
+
+
+st.session_state["plot_wls"] = plot_wls.to(u.um).value
