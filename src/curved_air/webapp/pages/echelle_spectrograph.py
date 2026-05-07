@@ -77,6 +77,41 @@ st.divider()
 
 # Interface
 with st.sidebar:
+    with st.expander(label="Wavelength range", expanded=False):
+        cols = st.columns(2)
+        with cols[0]:
+            min_wl_value: float = st.number_input(
+                "Min λ",
+                min_value=1.0,
+                max_value=2000.0,
+                value=380.0,
+                step=1.0,
+                key="min_wl_value",
+            )
+        with cols[1]:
+            min_wl_unit: str | None = st.segmented_control(
+                "Unit", ["nm", "um"], default="nm", key="min_wl_unit"
+            )
+        min_wl: ScalarQuantity = min_wl_value * u.Unit(min_wl_unit)
+        st.session_state["min_wl"] = min_wl
+
+        cols = st.columns(2)
+        with cols[0]:
+            max_wl_value: float = st.number_input(
+                "Max λ",
+                min_value=1.0,
+                max_value=2000.0,
+                value=950.0,
+                step=1.0,
+                key="max_wl_value",
+            )
+        with cols[1]:
+            max_wl_unit: str | None = st.segmented_control(
+                "Unit", ["nm", "um"], default="nm", key="max_wl_unit"
+            )
+        max_wl: ScalarQuantity = max_wl_value * u.Unit(max_wl_unit)
+        st.session_state["max_wl"] = max_wl
+
     with st.expander(label="Echelle Grating", expanded=False):
         ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
             f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
@@ -419,31 +454,6 @@ with st.sidebar:
                 """The grism cross-disperser option is currently not implemented. Please
                 select a different cross-disperser type for now.""",
             )
-
-    with st.expander(label="Wavelength range", expanded=False):
-        min_wl: float = (
-            st.number_input(
-                "Min λ (nm)",
-                min_value=100.0,
-                max_value=5000.0,
-                value=380.0,
-                step=5.0,
-                key="min_wl",
-            )
-            * u.nm
-        )
-
-        max_wl: float = (
-            st.number_input(
-                "Max λ (nm)",
-                min_value=100.0,
-                max_value=5000.0,
-                value=950.0,
-                step=5.0,
-                key="max_wl",
-            )
-            * u.nm
-        )
 
     with st.expander(label="Slit", expanded=False):
         slit_width: ScalarQuantity = (
