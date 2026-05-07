@@ -217,11 +217,6 @@ with st.sidebar:
         elif cross_disperser_type == "Double-pass prism":
             default_apex_angle: ScalarQuantity = 45 * u.deg
 
-        incidence_angle_help: str = """You may notice that there is no specification of
-        incidence angle for the cross-disperser. The code automatically calculates the
-        appropriate incidence angle such that the spectral format is symmetrically
-        centred on the detector."""
-
         if cross_disperser_type in ["Prism", "Double-pass prism"]:
             catalogue: str = st.selectbox(
                 "Glass catalogue",
@@ -254,7 +249,6 @@ with st.sidebar:
                     max_value=60.0,
                     value=default_apex_angle.to(u.deg).value,
                     step=1.0,
-                    help=incidence_angle_help,
                 )
                 * u.deg
             )
@@ -266,7 +260,9 @@ with st.sidebar:
             )
 
             if st.session_state["ref_index_plot_toggle"]:
-                wls: list[float] = glasses[glass_name].wl
+                wls: list[float] = np.linspace(
+                    min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
+                )
 
                 fig: go.Figure = go.Figure()  # go figure!
                 fig.add_trace(
@@ -284,6 +280,21 @@ with st.sidebar:
                 )
 
                 st.plotly_chart(fig)
+
+            _cross_disperser: CrossDisperser = Prism(
+                glass=glasses[glass_name],
+                apex_angle=apex_angle,
+                min_wl=min_wl,
+                max_wl=max_wl,
+            )
+
+            st.metric(
+                "Calculated incidence angle",
+                f"{_cross_disperser.incidence_angle.value:.2f} degrees",
+                help="""This tool automatically calculates the
+                appropriate incidence angle such that the spectral format is symmetrically
+                centred on the detector.""",
+            )
 
         elif cross_disperser_type == "Multiple prisms":
             p1_catalogue: str = st.selectbox(
@@ -318,7 +329,6 @@ with st.sidebar:
                     value=48.7,
                     step=1.0,
                     key="p1_apex_angle",
-                    help=incidence_angle_help,
                 )
                 * u.deg
             )
@@ -330,7 +340,9 @@ with st.sidebar:
             )
 
             if st.session_state["p1_ref_index_plot_toggle"]:
-                wls: list[float] = p1_glasses[p1_glass_name].wl
+                wls: list[float] = np.linspace(
+                    min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
+                )
 
                 fig = go.Figure()
                 fig.add_trace(
@@ -391,7 +403,6 @@ with st.sidebar:
                         value=48.7,
                         step=1.0,
                         key="p2_apex_angle",
-                        help=incidence_angle_help,
                     )
                     * u.deg
                 )
@@ -403,7 +414,9 @@ with st.sidebar:
                 )
 
                 if st.session_state["p2_ref_index_plot_toggle"]:
-                    wls: list[float] = p2_glasses[p2_glass_name].wl
+                    wls: list[float] = np.linspace(
+                        min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
+                    )
 
                     fig = go.Figure()
                     fig.add_trace(
@@ -421,6 +434,25 @@ with st.sidebar:
                     )
 
                     st.plotly_chart(fig, key="p2_ref_index_plot")
+
+            _cross_disperser = TwoPrisms(
+                prism1=Prism(
+                    glass=p1_glasses[p1_glass_name],
+                    apex_angle=p1_apex_angle,
+                ),
+                prism2=Prism(
+                    glass=p2_glasses[p2_glass_name],
+                    apex_angle=p2_apex_angle,
+                ),
+            )
+
+            st.metric(
+                "Calculated incidence angle",
+                f"{_cross_disperser.incidence_angle.value:.2f} degrees",
+                help="""This tool automatically calculates the
+                appropriate incidence angle such that the spectral format is symmetrically
+                centred on the detector.""",
+            )
 
         elif cross_disperser_type == "Grating":
             cross_disperser_groove_frequency: ScalarQuantity = (
