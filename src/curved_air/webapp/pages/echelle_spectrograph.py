@@ -78,7 +78,7 @@ st.divider()
 # Interface
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=False):
-        cols = st.columns(2)
+        cols = st.columns(2, gap="xsmall")
         with cols[0]:
             min_wl_value: float = st.number_input(
                 "Min λ",
@@ -89,13 +89,15 @@ with st.sidebar:
                 key="min_wl_value",
             )
         with cols[1]:
-            min_wl_unit: str | None = st.segmented_control(
-                "Unit", ["nm", "um"], default="nm", key="min_wl_unit"
+            min_wl_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit", ["nm", "um"], default="nm", key="min_wl_unit"
+                )
             )
-        min_wl: ScalarQuantity = min_wl_value * u.Unit(min_wl_unit)
+        min_wl: ScalarQuantity = min_wl_value * min_wl_unit
         st.session_state["min_wl"] = min_wl
 
-        cols = st.columns(2)
+        cols = st.columns(2, gap="xsmall")
         with cols[0]:
             max_wl_value: float = st.number_input(
                 "Max λ",
@@ -106,10 +108,12 @@ with st.sidebar:
                 key="max_wl_value",
             )
         with cols[1]:
-            max_wl_unit: str | None = st.segmented_control(
-                "Unit", ["nm", "um"], default="nm", key="max_wl_unit"
+            max_wl_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit", ["nm", "um"], default="nm", key="max_wl_unit"
+                )
             )
-        max_wl: ScalarQuantity = max_wl_value * u.Unit(max_wl_unit)
+        max_wl: ScalarQuantity = max_wl_value * max_wl_unit
         st.session_state["max_wl"] = max_wl
 
     with st.expander(label="Echelle Grating", expanded=False):
@@ -488,35 +492,49 @@ with st.sidebar:
             )
 
     with st.expander(label="Slit", expanded=False):
-        slit_width: ScalarQuantity = (
-            st.number_input(
-                "Slit width (µm)",
-                min_value=5.0,
-                max_value=2000.0,
+        cols = st.columns(2, gap="xsmall")
+        with cols[0]:
+            slit_width_value: float = st.number_input(
+                "Slit width",
+                min_value=1.0,
+                max_value=1200.0,
                 value=40.0,
                 step=5.0,
-                help="""The dispersion-direction width of the spectrograph input (slit
-                or fibre).""",
+                help="""The dispersion-direction width of the spectrograph input
+                    (slit or fibre).""",
             )
-            * u.um
-        )
+        with cols[1]:
+            slit_width_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit", options=["um", "mm"], default="um", key="slit_width_unit"
+                )
+            )
+        slit_width: ScalarQuantity = slit_width_value * slit_width_unit
 
-        slit_length: ScalarQuantity = (
-            st.number_input(
-                "Slit length (µm)",
-                min_value=10.0,
-                max_value=5000.0,
+        cols = st.columns(2, gap="xsmall")
+        with cols[0]:
+            slit_length_value: float = st.number_input(
+                "Slit length",
+                min_value=1.0,
+                max_value=1200.0,
                 value=360.0,
                 step=10.0,
                 help="""The cross-dispersion-direction length of the spectrograph input.
-                For an instrument with multiple fibre inputs, this refers to the total
-                length of the input geometry.""",
+                    For an instrument with multiple fibre inputs, this refers to the
+                    total length of the input geometry.""",
             )
-            * u.um
-        )
+
+        with cols[1]:
+            slit_length_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit", options=["um", "mm"], default="um", key="slit_length_unit"
+                )
+            )
+
+        slit_length: ScalarQuantity = slit_length_value * slit_length_unit
 
         slit_focal_ratio: float = st.number_input(
-            "Slit native F/#",
+            "Slit native f/#",
             min_value=1.0,
             max_value=20.0,
             value=3.85,
@@ -553,7 +571,7 @@ with st.sidebar:
             st.number_input(
                 "Camera focal length (mm)",
                 min_value=50.0,
-                max_value=3000.0,
+                max_value=5000.0,
                 value=730.0,
                 step=10.0,
             )

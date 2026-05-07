@@ -1,4 +1,5 @@
 #! uv run streamlit run
+import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 from astropy import units as u
@@ -48,6 +49,45 @@ with st.expander("About this tool", expanded=False):
 
 with st.sidebar:
     st.header("Spectrograph Configuration")
+
+    with st.expander(label="Wavelength range", expanded=False):
+        cols = st.columns(2, gap="xsmall")
+        with cols[0]:
+            min_wl_value: float = st.number_input(
+                "Min λ",
+                min_value=1.0,
+                max_value=2000.0,
+                value=380.0,
+                step=1.0,
+                key="min_wl_value",
+            )
+        with cols[1]:
+            min_wl_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit", ["nm", "um"], default="nm", key="min_wl_unit"
+                )
+            )
+        min_wl: ScalarQuantity = min_wl_value * min_wl_unit
+        st.session_state["min_wl"] = min_wl
+
+        cols = st.columns(2, gap="xsmall")
+        with cols[0]:
+            max_wl_value: float = st.number_input(
+                "Max λ",
+                min_value=1.0,
+                max_value=2000.0,
+                value=950.0,
+                step=1.0,
+                key="max_wl_value",
+            )
+        with cols[1]:
+            max_wl_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit", ["nm", "um"], default="nm", key="max_wl_unit"
+                )
+            )
+        max_wl: ScalarQuantity = max_wl_value * max_wl_unit
+        st.session_state["max_wl"] = max_wl
 
     with st.expander(label="Disperser", expanded=False):
         # Disperser parameters
@@ -104,7 +144,9 @@ with st.sidebar:
             )
 
             if st.session_state["ref_index_plot_toggle"]:
-                wls: list[float] = glasses[glass_name].wl
+                wls: list[float] = np.linspace(
+                    min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
+                )
 
                 fig: go.Figure = go.Figure()  # go figure!
                 fig.add_trace(
@@ -122,6 +164,21 @@ with st.sidebar:
                 )
 
                 st.plotly_chart(fig)
+
+                _prism: Prism = Prism(
+                    glass=glasses[glass_name],
+                    apex_angle=apex_angle,
+                    min_wl=min_wl,
+                    max_wl=max_wl,
+                )
+
+                st.metric(
+                    "Calculated incidence angle",
+                    f"{_prism.incidence_angle.value:.2f} degrees",
+                    help="""This tool automatically calculates the
+                    appropriate incidence angle such that the spectral format is symmetrically
+                    centred on the detector.""",
+                )
 
         elif st.session_state["disperser_type"] == "Grating":
             groove_frequency: ScalarQuantity = (
@@ -150,33 +207,8 @@ with st.sidebar:
                 spectral format plot.""",
             )
 
-    with st.expander(label="Wavelength range", expanded=False):
-        min_wl: float = (
-            st.number_input(
-                "Min λ (nm)",
-                min_value=100.0,
-                max_value=5000.0,
-                value=380.0,
-                step=5.0,
-                key="min_wl",
-            )
-            * u.nm
-        )
-
-        max_wl: float = (
-            st.number_input(
-                "Max λ (nm)",
-                min_value=100.0,
-                max_value=5000.0,
-                value=950.0,
-                step=5.0,
-                key="max_wl",
-            )
-            * u.nm
-        )
-
     with st.expander(label="Slit", expanded=False):
-        cols = st.columns([1.5, 1], gap="xsmall")
+        cols = st.columns(2, gap="xsmall")
         with cols[0]:
             slit_width_value: float = st.number_input(
                 "Slit width",
@@ -198,7 +230,7 @@ with st.sidebar:
 
         slit_width: ScalarQuantity = slit_width_value * slit_width_unit
 
-        cols = st.columns([1.5, 1], gap="xsmall")
+        cols = st.columns(2, gap="xsmall")
         with cols[0]:
             slit_length_value: float = st.number_input(
                 "Slit length",
