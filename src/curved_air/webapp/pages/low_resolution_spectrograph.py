@@ -222,9 +222,7 @@ with st.sidebar:
         with cols[1]:
             slit_width_unit: u.Unit = u.Unit(
                 st.segmented_control(
-                    "Unit",
-                    options=["um", "mm"],
-                    default="um",
+                    "Unit", options=["um", "mm"], default="um", key="slit_width_unit"
                 )
             )
 
@@ -244,9 +242,7 @@ with st.sidebar:
         with cols[1]:
             slit_length_unit: u.Unit = u.Unit(
                 st.segmented_control(
-                    "Unit",
-                    options=["um", "mm"],
-                    default="mm",
+                    "Unit", options=["um", "mm"], default="mm", key="slit_length_unit"
                 )
             )
 
