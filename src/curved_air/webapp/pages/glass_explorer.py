@@ -319,7 +319,7 @@ with cols[1]:
         # Define default colours for each catalogue, so they don't change depending on what is selected
         # Use a default colour palette cycler
         catalogue_colors: dict[str, str] = {
-            catalogue: px.colors.qualitative.Plotly[i]
+            catalogue: px.colors.qualitative.Dark24[i]
             for i, catalogue in enumerate(list(GLASS_CATALOGUES.keys()))
         }
 
