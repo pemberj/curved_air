@@ -1361,6 +1361,7 @@ class GlassCatalogue(dict):
         D_ADC: Quantity = 15 * u.mm,
         z_max: Quantity = 65 * u.degree,
         air_model: Model | None = None,
+        criterion: str = "max_abs",
         num_samples: int = 20,
         max_residuals: Quantity = 100 * u.mas,
     ) -> tuple[list, list]:
@@ -1414,7 +1415,7 @@ class GlassCatalogue(dict):
                 D_ADC=D_ADC,
                 z_max=z_max,
                 air_model=air_model,
-                criterion="PTV",
+                criterion=criterion,
             )
 
             adc.optimise(num_samples=num_samples)
