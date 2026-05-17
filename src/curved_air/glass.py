@@ -175,7 +175,7 @@ class Glass:
         try:
             return status_dictionary[self.status]
         except KeyError:
-            return "unknown"
+            return "Unknown"
 
     @property
     def rii_formula_number(self) -> int:
