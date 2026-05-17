@@ -22,6 +22,8 @@ from curved_air.plotting import plot_style
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from curved_air.type_hinting import ScalarQuantity
+
 plt.style.use(plot_style)
 
 st.set_page_config(
@@ -61,7 +63,7 @@ st.divider()
 # Interface
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=True):
-        min_wl: float = (
+        min_wl: ScalarQuantity = (
             st.number_input(
                 "Min λ (nm)",
                 min_value=100.0,
@@ -73,7 +75,7 @@ with st.sidebar:
             * u.nm
         )
 
-        max_wl: float = (
+        max_wl: ScalarQuantity = (
             st.number_input(
                 "Max λ (nm)",
                 min_value=100.0,
