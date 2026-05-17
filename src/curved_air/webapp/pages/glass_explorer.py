@@ -403,6 +403,22 @@ if not selected_glasses:
         )
     st.stop()
 
+if len(selected_glasses) == 1:
+    st.subheader(f"{selected_glasses[0].manufacturer} {selected_glasses[0].name}")
+
+    cols = st.columns(3)
+
+    with cols[0]:
+        st.metric("$n_d$", f"{selected_glasses[0].n_d:.6f}")
+    with cols[1]:
+        st.metric("$V_d$", f"{selected_glasses[0].V_d:.2f}")
+    with cols[2]:
+        st.metric("Status", f"{selected_glasses[0].status_description}")
+
+    st.text(
+        f"Possible equivalents: {working_catalogue.list_equivalents(selected_glasses[0])}"
+    )
+
 cols = st.columns(2, gap="large")
 
 with cols[0], st.container(horizontal_alignment="right"):
