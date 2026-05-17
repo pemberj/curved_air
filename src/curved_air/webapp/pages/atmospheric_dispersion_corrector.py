@@ -1,3 +1,5 @@
+#! uv run streamlit run
+
 """
 This calculator allows for calculating and generating a report on the performance of a
 rotational atmospheric dispersion corrector (ADC) design with two glass types.
