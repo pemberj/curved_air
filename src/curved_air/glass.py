@@ -1637,6 +1637,169 @@ def _refractive_index(
     return np.nan
 
 
+def AGF_refractive_index(
+    wavelengths: ScalarQuantity | ArrayQuantity | float | list[float] | NDArray,
+    coefficients: list[float],
+    formula_number: int,
+) -> float | np.ndarray:
+    """
+    These formulae are defined by Zemax, and indexed in the AGF files with an integer.
+
+    From AGF file documentation:
+
+    NM: Glass name and other data. The dispersion formula number is:
+    1 for Schott
+    2 for Sellmeier 1
+    3 for Herzberger
+    4 for Sellmeier 2
+    5 for Conrady
+    6 for Sellmeier 3
+    7 for Handbook of Optics 1
+    8 for Handbook of Optics 2
+    9 for Sellmeier 4
+    10 for Extended
+    11 for Sellmeier 5
+    12 for Extended 2
+    """
+
+    if isinstance(wavelengths, Quantity):
+        try:
+            wavelengths: float | list[float] = wavelengths.to(u.um).value
+        except UnitConversionError as e:
+            raise e  # Wrong units, not compatible with units of wavelength
+        except AttributeError as e:
+            # Not an astropy.units.Quantity after all
+            raise e
+
+    if isinstance(wavelengths, list):
+        wavelengths: NDArray = np.array(wavelengths)
+
+    # Pad the coefficients with zeroes at index zero and to the maximum length required
+    # by the longest formula
+    C: list[float] = [0] * 11  # ty:ignore[invalid-assignment]
+    # C[0] = 0
+    for i, c in enumerate(coefficients, start=1):
+        C[i] = c
+
+    if formula_number == 1:  # Schott formula
+        assert len(C) >= 6, "Schott formula requires at least 6 coefficients"  # noqa: PLR2004
+        return np.sqrt(
+            C[1]
+            + C[2] * wavelengths**2
+            + C[3] * wavelengths ** (-2)
+            + C[4] * wavelengths ** (-4)
+            + C[5] * wavelengths ** (-6)
+            + C[6] * wavelengths ** (-8)
+        )
+
+    if formula_number == 2:  # Sellmeier 1  # noqa: PLR2004
+        return np.sqrt(
+            1
+            + (C[1] * wavelengths**2) / (wavelengths**2 - C[2])
+            + (C[3] * wavelengths**2) / (wavelengths**2 - C[4])
+            + (C[5] * wavelengths**2) / (wavelengths**2 - C[6])
+        )
+
+    if formula_number == 3:  # Herzberger  # noqa: PLR2004
+        L: float | NDArray = wavelengths**2 - 0.0281
+
+        return (
+            C[1]
+            + C[2] * L
+            + C[3] * L**2
+            + C[4] * wavelengths**2
+            + C[5] * wavelengths**4
+            + C[6] * wavelengths**6
+        )
+
+    if formula_number == 4:  # Sellmeier 2  # noqa: PLR2004
+        # Only four coefficients
+        return np.sqrt(
+            1
+            + (C[1] * wavelengths**2) / (wavelengths**2 - C[2] ** 2)
+            + (C[3] * wavelengths**2) / (wavelengths**2 - C[4] ** 2)
+        )
+
+    if formula_number == 5:  # Conrady  # noqa: PLR2004
+        # Only 3 coefficients
+        return C[1] + C[2] / wavelengths + C[3] / wavelengths**3.5
+
+    if formula_number == 6:  # Sellmeier 3  # noqa: PLR2004
+        # 6 Coefficients
+        return np.sqrt(
+            1
+            + (C[1] * wavelengths**2) / (wavelengths**2 - C[2])
+            + (C[3] * wavelengths**2) / (wavelengths**2 - C[4])
+            + (C[5] * wavelengths**2) / (wavelengths**2 - C[6])
+        )
+
+    if formula_number == 7:  # Handbook of Optics 1  # noqa: PLR2004
+        return np.sqrt(C[1] + C[2] / (wavelengths**2 - C[3]) + C[4] * wavelengths**2)
+
+    if formula_number == 8:  # Handbook of Optics 2  # noqa: PLR2004
+        return np.sqrt(
+            C[1]
+            + (C[2] * wavelengths**2) / (wavelengths**2 - C[3])
+            - C[4] * wavelengths**2
+        )
+
+    if formula_number == 9:  # Sellmeier 4  # noqa: PLR2004
+        return np.sqrt(
+            C[1]
+            + (C[2] * wavelengths**2) / (wavelengths**2 - C[3])
+            + (C[4] * wavelengths**2) / (wavelengths**2 - C[5])
+        )
+
+    if formula_number == 10:  # Extended #noqa: PLR2004
+        return (
+            C[1]
+            + C[2] * wavelengths**2
+            + C[3] * wavelengths ** (-2)
+            + C[4] * wavelengths ** (-4)
+            + C[5] * wavelengths ** (-6)
+            + C[6] * wavelengths ** (-8)
+            + C[7] * wavelengths ** (-10)
+            + C[8] * wavelengths ** (-12)
+        )
+
+    if formula_number == 11:  # Sellmeier 5  # noqa: PLR2004
+        return np.sqrt(
+            1
+            + (C[1] * wavelengths**2) / (wavelengths**2 - C[2])
+            + (C[3] * wavelengths**2) / (wavelengths**2 - C[4])
+            + (C[5] * wavelengths**2) / (wavelengths**2 - C[6])
+            + (C[7] * wavelengths**2) / (wavelengths**2 - C[8])
+            + (C[9] * wavelengths**2) / (wavelengths**2 - C[10])
+        )
+
+    if formula_number == 12:  # Extended 2  # noqa: PLR2004
+        return np.sqrt(
+            C[1]
+            + C[2] * wavelengths**2
+            + C[3] * wavelengths ** (-2)
+            + C[4] * wavelengths ** (-4)
+            + C[5] * wavelengths ** (-6)
+            + C[6] * wavelengths ** (-8)
+            + C[7] * wavelengths ** (4)
+            + C[8] * wavelengths ** (6)
+        )
+
+    if formula_number == 13:  # Extended 3  # noqa: PLR2004
+        return np.sqrt(
+            C[1]
+            + C[2] * wavelengths**2
+            + C[3] * wavelengths**4
+            + C[4] * wavelengths ** (-2)
+            + C[5] * wavelengths ** (-4)
+            + C[6] * wavelengths ** (-6)
+            + C[7] * wavelengths ** (-8)
+            + C[8] * wavelengths ** (-10)
+            + C[9] * wavelengths ** (-12)
+        )
+
+    return 0
+
+
 def main() -> None: ...
 
 
