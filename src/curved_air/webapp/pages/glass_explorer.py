@@ -474,7 +474,7 @@ with cols[0]:
             # st.exception(e)
 
     fig.update_layout(
-        title="Refractive Indices",
+        title="Refractive Index",
         xaxis_title="Wavelength (nm)",
         yaxis_title="Refractive Index",
         template="plotly_dark",
