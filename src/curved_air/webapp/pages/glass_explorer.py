@@ -424,8 +424,8 @@ cols = st.columns(2, gap="large")
 with cols[0], st.container(horizontal_alignment="right"):
     min_wl: float = st.number_input(
         "Minimum wavelength (nm)",
-        min_value=200.0,
-        max_value=2000.0,
+        min_value=100.0,
+        max_value=4000.0,
         value=st.session_state.get("min_max_wls", (370.0, 500.0))[0],
         step=5.0,
         key="min_wl_input",
@@ -435,8 +435,8 @@ with cols[0], st.container(horizontal_alignment="right"):
 with cols[1], st.container(horizontal_alignment="left"):
     max_wl: float = st.number_input(
         "Maximum wavelength (nm)",
-        min_value=200.0,
-        max_value=2000.0,
+        min_value=100.0,
+        max_value=4000.0,
         value=st.session_state.get("min_max_wls", (370.0, 500.0))[1],
         step=5.0,
         key="max_wl_input",
