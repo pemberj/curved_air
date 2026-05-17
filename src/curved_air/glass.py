@@ -1449,6 +1449,37 @@ class GlassCatalogue(dict):
 
         return ADCs, results
 
+    def find_equivalents(
+        self,
+        glass: Glass,
+        delta_n: float = 0.001,
+        delta_V: float = 1,
+    ) -> list[Glass]:
+        """
+        A simple method to find glasses in the catalogue that are roughly equivalent to
+        a given glass.
+        """
+
+        equivalents: list[Glass] = []
+        for _, g in self.items():
+            if abs(g.n_d - glass.n_d) < delta_n and abs(g.V_d - glass.V_d) < delta_V:
+                equivalents.append(g)
+
+        return equivalents
+
+    def list_equivalents(
+        self,
+        glass: Glass,
+        delta_n: float = 0.001,
+        delta_V: float = 1,
+    ) -> str:
+        out = ""
+
+        for g in self.find_equivalents(glass, delta_n=delta_n, delta_V=delta_V):
+            out += f"{g.name}, "
+
+        return out[:-2]  # Remove trailing comma and space
+
     def __add__(self, other: GlassCatalogue) -> GlassCatalogue:
         if not isinstance(other, GlassCatalogue):
             raise TypeError(f"Cannot add GlassCatalogue with {type(other)}")
