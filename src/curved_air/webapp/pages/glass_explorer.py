@@ -409,7 +409,7 @@ if len(selected_glasses) == 1:
     cols = st.columns(3)
 
     with cols[0]:
-        st.metric("$n_d$", f"{selected_glasses[0].n_d:.6f}")
+        st.metric("$n_d$", f"{selected_glasses[0].n_d:.4g}")
     with cols[1]:
         st.metric("$V_d$", f"{selected_glasses[0].V_d:.2f}")
     with cols[2]:
