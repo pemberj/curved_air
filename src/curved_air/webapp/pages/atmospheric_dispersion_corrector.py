@@ -70,7 +70,7 @@ with st.sidebar:
                 max_value=5000.0,
                 value=380.0,
                 step=5.0,
-                key="min_wl",
+                key="adc_min_wl",
             )
             * u.nm
         )
@@ -82,7 +82,7 @@ with st.sidebar:
                 max_value=5000.0,
                 value=950.0,
                 step=5.0,
-                key="max_wl",
+                key="adc_max_wl",
             )
             * u.nm
         )
