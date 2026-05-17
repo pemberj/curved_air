@@ -1049,8 +1049,8 @@ class GlassCatalogue(dict):
     def filter(
         self,
         # Allowable wavelengths (tied to transmission)
-        min_wl: Quantity = 380 * u.nm,
-        max_wl: Quantity = 950 * u.nm,
+        min_wl: Quantity | None = 380 * u.nm,
+        max_wl: Quantity | None = 950 * u.nm,
         # Refractive index
         min_n: float | None = None,
         max_n: float | None = None,
@@ -1158,20 +1158,21 @@ class GlassCatalogue(dict):
                 try:
                     if isinstance(status_description, str):
                         if (
-                            status_description.lower()
-                            not in glass.status_description.lower()
+                            glass.status_description.lower()
+                            != status_description.lower()
                         ):
                             continue
-                    else:  # It is list or ArrayLike
-                        status_description = [sd.lower() for sd in status_description]
+                    else:  # It is a list or ArrayLike
+                        status_description: list[str] = [
+                            sd.lower() for sd in status_description
+                        ]
                         keep = False
-                        for sd in status_description:
-                            if sd in glass.status_description.lower():
-                                keep = True
+                        if glass.status_description.lower() in status_description:
+                            keep = True
                         if not keep:
                             continue
-                except TypeError:
-                    ...
+                except TypeError as e:
+                    raise e
 
             if min_n:
                 try:

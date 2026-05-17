@@ -170,7 +170,10 @@ with st.sidebar:
                 )
 
                 working_catalogue: GlassCatalogue = working_catalogue.filter(
-                    status_description=selected_statuses
+                    min_wl=None,
+                    max_wl=None,
+                    status_description=selected_statuses,
+                    debug_level=1,
                 )
 
                 st.divider()
