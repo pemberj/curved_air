@@ -57,7 +57,7 @@ st.set_page_config(
 
 st.header("Fibre Loss Converter")
 
-with st.expander("About this tool", expanded=True):
+with st.expander("About this tool", expanded=False):
     st.markdown(
         """
         A simple calculator to convert between fibre attenuation (typically specified in
