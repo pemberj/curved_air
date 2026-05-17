@@ -310,12 +310,24 @@ class Glass:
         return self.refractive_index(wls="C")
 
     @overload
-    def dn(self, wls: ScalarQuantity | float) -> float: ...
+    def dn(
+        self,
+        wls: ScalarQuantity | float,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> float: ...
 
     @overload
-    def dn(self, wls: ArrayQuantity | float) -> np.ndarray: ...
+    def dn(
+        self,
+        wls: ArrayQuantity | float,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> np.ndarray: ...
 
-    def dn(self, wls: float | Quantity) -> float | np.ndarray:
+    def dn(
+        self,
+        wls: float | ScalarQuantity | ArrayQuantity,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> float | np.ndarray:
         """
         Differential refractive index, a similar metric to Abbe number/dispersion
 
@@ -333,22 +345,43 @@ class Glass:
             wls: float = wls[0]  # ty:ignore[invalid-argument-type]
 
         elif isinstance(wls, int | float):
-            wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
+            if not isinstance(d_lambda, Quantity):
+                print(
+                    f"Warning: no units provided for d_lambda {d_lambda}. "
+                    + "Assuming default unit of nanometers (nm)."
+                )
+                d_lambda: Quantity = d_lambda * u.nm
+
+            d_lambda: float = d_lambda.to(u.um).value
+
+            wls: np.ndarray = np.array([wls - d_lambda, wls, wls + d_lambda])
             return (np.gradient(self.refractive_index(wls * u.um)) / np.gradient(wls))[
                 1
             ]
 
-        assert isinstance(wls, np.ndarray) | isinstance(wls, list)
-        # Otherwise, return the gradient over the array
+        assert isinstance(wls, np.ndarray | list)
+        # Otherwise, return the gradient over the array, ignoring d_lambda entirely
         return np.gradient(self.refractive_index(wls)) / np.gradient(wls)
 
     @overload
-    def dV(self, wls: ScalarQuantity | float) -> float: ...
+    def dV(
+        self,
+        wls: ScalarQuantity | float,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> float: ...
 
     @overload
-    def dV(self, wls: ArrayQuantity) -> NDArray[np.floating]: ...
+    def dV(
+        self,
+        wls: ArrayQuantity,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> NDArray[np.floating]: ...
 
-    def dV(self, wls: Quantity) -> float | NDArray[np.floating]:
+    def dV(
+        self,
+        wls: Quantity,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> float | NDArray[np.floating]:
         """
         Differential Abbe number
 
@@ -362,21 +395,39 @@ class Glass:
             wls: float = wls[0]
 
         elif isinstance(wls, int | float):
-            wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
+            d_lambda: float = d_lambda.to(u.um).value
+
+            wls: np.ndarray = np.array([wls - d_lambda, wls, wls + d_lambda])
 
             return float(
-                np.mean((self.refractive_index(wls[1]) - 1) / (-self.dn(wls * u.um)))
+                np.mean(
+                    (self.refractive_index(wls[1]) - 1)
+                    / (-self.dn(wls * u.um, d_lambda=d_lambda))
+                )
             )
 
+        # Otherwise return the ratio over the existing wavelengths, ignoring d_lambda
         return (self.refractive_index(wls) - 1) / (-self.dn(wls))
 
     @overload
-    def dRPD(self, wls: ScalarQuantity | float) -> float: ...
+    def dRPD(
+        self,
+        wls: ScalarQuantity | float,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> float: ...
 
     @overload
-    def dRPD(self, wls: ArrayQuantity) -> NDArray[np.floating]: ...
+    def dRPD(
+        self,
+        wls: ArrayQuantity,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> NDArray[np.floating]: ...
 
-    def dRPD(self, wls: float | Quantity | None = None) -> float | NDArray[np.floating]:
+    def dRPD(
+        self,
+        wls: float | ScalarQuantity | ArrayQuantity | None = None,
+        d_lambda: ScalarQuantity = 5 * u.nm,
+    ) -> float | NDArray[np.floating]:
         """[summary]
 
         Parameters
@@ -397,12 +448,14 @@ class Glass:
         elif isinstance(wls, Quantity):
             if wls.isscalar:
                 wls: float = wls.to(u.um).value
-            wls: np.ndarray = wls.to(u.um).value
+            wls: NDArray = wls.to(u.um).value
 
         if isinstance(wls, int | float):
-            wls: np.ndarray = np.array([wls - 1e-10, wls, wls + 1e-10])
+            d_lambda: float = d_lambda.to(u.um).value
 
-        return self.dV(wls - np.gradient(wls)) / self.dV(wls * u.um)
+            wls: NDArray = np.array([wls - d_lambda, wls, wls + d_lambda])
+
+        return self.dV(wls - np.gradient(wls)) / self.dV(wls * u.um, d_lambda=d_lambda)
 
     def plot(
         self,

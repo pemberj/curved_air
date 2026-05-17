@@ -517,4 +517,97 @@ with cols[1]:
     st.plotly_chart(fig)
 
 
+cols = st.columns(2)
+
+with cols[0]:
+    d_lambda: ScalarQuantity = (
+        st.number_input(
+            "Wavelength step for dV/dRPD calculation (nm)",
+            min_value=0.1,
+            max_value=100.0,
+            value=10.0,
+            step=0.1,
+            key="d_lambda",
+            help="""The wavelength step (in nm) used for calculating the numerical derivatives
+    for dV and dRPD calculations. A smaller step will give a more accurate result
+    but may be noisier, while a larger step will be smoother but perhaps less accurate.""",
+        )
+        * u.nm
+    )
+
+    differential_plot_wls: NDArray = (
+        np.arange(
+            min(plot_wls.to(u.nm).value),
+            max(plot_wls.to(u.nm).value),
+            d_lambda.to(u.nm).value,
+        )
+        * u.nm
+    )
+
+    fig: go.Figure = go.Figure()
+
+    for selected_glass in selected_glasses:
+        try:
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=plot_wls,
+                    y=selected_glass.dV(differential_plot_wls),
+                    mode="lines",
+                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
+                )
+            )
+        except Exception as e:
+            st.exception(e)
+
+    fig.update_layout(
+        title="Differential Abbe Number (dV)",
+        xaxis_title="Wavelength (nm)",
+        yaxis_title="dV",
+        template="plotly_dark",
+        height=600,
+    )
+
+    st.plotly_chart(fig)
+
+with cols[1]:
+    reference_glass: Glass = st.selectbox(
+        "Reference glass for dRPD calculation",
+        options=selected_glasses,
+        index=0,
+        format_func=lambda g: f"{g.manufacturer} {g.name}",
+        key="dRPD_reference_glass",
+    )
+
+    fig: go.Figure = go.Figure()
+
+    dRPD_ref: NDArray = reference_glass.dRPD(differential_plot_wls)
+
+    for selected_glass in selected_glasses:
+        try:
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=plot_wls,
+                    y=selected_glass.dRPD(differential_plot_wls) - dRPD_ref,
+                    mode="lines",
+                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
+                )
+            )
+        except Exception as e:
+            st.exception(e)
+
+    fig.update_layout(
+        title="Differential Relative Partial Dispersion (dRPD)",
+        xaxis_title="Wavelength (nm)",
+        yaxis_title="dRPD - dRPD_ref",
+        template="plotly_dark",
+        height=600,
+    )
+
+    st.plotly_chart(fig)
+
+st.html("""For more information on the dV and dRPD parameters, how they are calculated,
+and how to use them, see this article by Damien Jones of Prime Optics:
+<a href=https://www.primeoptics.com.au/Reference/dRPD_description.pdf>https://www.primeoptics.com.au/Reference/dRPD_description.pdf</a>""")
+
+
 st.session_state["plot_wls"] = plot_wls.to(u.um).value
