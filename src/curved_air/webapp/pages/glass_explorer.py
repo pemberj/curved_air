@@ -500,9 +500,9 @@ with cols[1]:
             )
         except Exception as e:
             st.error(
-                """An error occurred while trying to compute the transmission for
-                the selected glass. This may be due to missing or invalid
-                transmission data."""
+                """An error occurred while trying to compute the transmission for the
+                selected glass. This may be due to missing or invalid transmission
+                data."""
             )
             st.exception(e)
 
