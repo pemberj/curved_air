@@ -131,8 +131,14 @@ class Glass:
         return self.vd
 
     @property
-    def Abbe_number(self) -> float:
-        return self.vd
+    def Abbe_number(self, wl: ScalarQuantity | float | str = "d") -> float:
+        """The Abbe number of the glass, calculated from the refractive index at three different points.
+        TODO: Allow for a generalised Abbe number calculation around any given wavelength
+        """
+        if wl == "d":
+            return self.V_d
+
+        return self.V_d
 
     @property
     def WL(self) -> list[float]:
@@ -391,10 +397,13 @@ class Glass:
         if isinstance(wls, Quantity):
             wls: np.ndarray = wls.to(u.um).value
 
-        if len(wls) == 1:
-            wls: float = wls[0]
+        try:
+            if len(wls) == 1:
+                wls: float = wls[0]
+        except TypeError:  # wls is already a float
+            pass
 
-        elif isinstance(wls, int | float):
+        if isinstance(wls, int | float):
             d_lambda: float = d_lambda.to(u.um).value
 
             wls: np.ndarray = np.array([wls - d_lambda, wls, wls + d_lambda])

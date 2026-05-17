@@ -26,19 +26,30 @@ from streamlit.components.v1 import html
 
 from curved_air.glass import GLASS_CATALOGUES, AGFData, Glass, GlassCatalogue
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex  # noqa: F401
+from curved_air.type_hinting import ScalarQuantity
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from numpy.typing import NDArray
 
-    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity  # noqa: F401
+    from curved_air.type_hinting import ArrayQuantity
 
 wavelength_options: dict[str, ScalarQuantity | None] = {
-    "G": 380.0 * u.nm,
-    "F": 486.1 * u.nm,
-    "d": 589.3 * u.nm,
-    "C": 656.3 * u.nm,
+    "i": 365.01 * u.nm,
+    "h": 404.66 * u.nm,
+    "g": 435.84 * u.nm,
+    "F'": 479.99 * u.nm,
+    "F": 486.13 * u.nm,
+    "e": 546.07 * u.nm,
+    "D": 587.56 * u.nm,
+    "d": 589.30 * u.nm,
+    "C'": 643.85 * u.nm,
+    "C": 656.27 * u.nm,
+    "r": 706.52 * u.nm,
+    "A'": 768.20 * u.nm,
+    "s": 852.11 * u.nm,
+    "t": 1013.98 * u.nm,
     "Custom": None,
 }
 
@@ -184,9 +195,9 @@ with st.sidebar:
             st.toggle("Filter by refractive index", key="filter_n")
 
             if st.session_state.get("filter_n", False):
-                cols = st.columns(2)
+                st.toggle("Select wavelength)", key="select_n_filter_wavelength")
 
-                with cols[0]:
+                if st.session_state.get("select_n_filter_wavelength", False):
                     n_wavelength: str | None = st.pills(
                         "Refractive index wavelength",
                         options=wavelength_options,
@@ -201,7 +212,6 @@ with st.sidebar:
                         n_wavelength: ScalarQuantity = wavelength_options[n_wavelength]  # ty:ignore[invalid-assignment]
                         st.session_state["n_wavelength"] = n_wavelength.to(u.nm).value
 
-                with cols[1]:
                     if n_wavelength == "Custom":
                         n_wavelength: ScalarQuantity = (
                             st.number_input(
@@ -215,16 +225,21 @@ with st.sidebar:
                             * u.nm
                         )
 
-                st.metric(
-                    "Selected wavelength",
-                    f"{n_wavelength:.1f}",
-                )
+                    st.metric(
+                        "Selected wavelength",
+                        f"{n_wavelength:.1f}",
+                    )
+                else:
+                    n_wavelength = "d"
+
+                min_n = float(min([g.n(n_wavelength) for g in working_catalogue]))
+                max_n = float(max([g.n(n_wavelength) for g in working_catalogue]))
 
                 n_range: tuple[float, float] = st.slider(
                     "Allowed refractive index range",
-                    min_value=1.0,
-                    max_value=2.5,
-                    value=(1.4, 1.8),
+                    min_value=min_n,
+                    max_value=max_n,
+                    value=(min_n, max_n),
                     step=0.01,
                 )
 
@@ -289,12 +304,100 @@ if not working_catalogue:
         )
     st.stop()
 
+cols = st.columns(2)
+
+with cols[0]:
+    st.toggle("Select wavelength", key="select_nV_wavelength")
+
+if st.session_state.get("select_nV_wavelength", False):
+    with cols[1]:
+        st.toggle(
+            "Use differential Abbe number (dV)", key="use_differential_Abbe_number"
+        )
+
+if st.session_state.get("select_nV_wavelength", False):
+    cols = st.columns(4, gap="xsmall")
+
+    with cols[0]:
+        nV_plot_wavelength: str | None = st.pills(
+            "Refractive index / Abbe number wavelength",
+            options=wavelength_options,
+            format_func=lambda x: f"{x}",
+            key="nV_plot_wavelength_pills",
+        )
+
+        if nV_plot_wavelength is None:
+            nV_plot_wavelength = "d"
+
+        if nV_plot_wavelength != "Custom":
+            nV_plot_wavelength: ScalarQuantity = wavelength_options[nV_plot_wavelength]  # ty:ignore[invalid-assignment]
+            st.session_state["nV_plot_wavelength"] = nV_plot_wavelength.to(u.nm).value
+
+    if nV_plot_wavelength == "Custom":
+        with cols[1]:
+            nV_plot_wavelength_value: float = st.number_input(
+                "Custom wavelength",
+                min_value=0.1,
+                max_value=2_000.0,
+                value=st.session_state.get("nV_plot_wavelength", 589.3),
+                step=1.0,
+                key="nV_plot_wavelength_input",
+            )
+
+        with cols[2]:
+            nV_plot_wavelength_unit: u.Unit = u.Unit(
+                st.segmented_control(
+                    "Unit",
+                    options=["nm", "um"],
+                    default="nm",
+                    key="nV_plot_wavelength_unit",
+                )
+            )
+
+        nV_plot_wavelength: ScalarQuantity = (
+            nV_plot_wavelength_value * nV_plot_wavelength_unit
+        )
+
+    with cols[3]:
+        st.metric(
+            "Selected wavelength",
+            f"{nV_plot_wavelength:.1f}",
+        )
+
+    if not st.session_state.get("use_differential_Abbe_number", False):
+        V_string = "V_d"
+
+    if st.session_state.get("nV_plot_wavelength_pills") == "Custom":
+        n_string = "n"
+        if st.session_state.get("use_differential_Abbe_number", False):
+            V_string = "dV"
+    elif st.session_state.get("nV_plot_wavelength_pills") is None:
+        n_string = "n_d"
+        if st.session_state.get("use_differential_Abbe_number", False):
+            V_string = "dV_d"
+    else:
+        n_string = f"n_{st.session_state.get('nV_plot_wavelength_pills', 'd')}"
+        if st.session_state.get("use_differential_Abbe_number", False):
+            V_string = f"dV_{st.session_state.get('nV_plot_wavelength_pills', 'd')}"
+
+else:
+    n_string = "n_d"
+    V_string = "V_d"
+    nV_plot_wavelength: ScalarQuantity = wavelength_options["d"]
+
+assert isinstance(nV_plot_wavelength, ScalarQuantity)
+
 df: pd.DataFrame = pd.DataFrame(
     data={
         "Catalogue": [g.manufacturer for g in working_catalogue],
         "Glass Name": working_catalogue.glass_list,
-        "n_d": [g.n_d for g in working_catalogue],
-        "V_d": [g.V_d for g in working_catalogue],
+        n_string: [g.n(nV_plot_wavelength) for g in working_catalogue],
+        V_string: [
+            g.dV(nV_plot_wavelength)
+            if st.session_state.get("use_differential_Abbe_number", False)
+            else g.V_d
+            for g in working_catalogue
+        ],
         "Status": [g.status_description for g in working_catalogue],
     },
 )
@@ -338,45 +441,55 @@ with cols[1]:
             for i, catalogue in enumerate(list(GLASS_CATALOGUES.keys()))
         }
 
-        # add selected point(s) if applicable
-        for selected_glass in selected_glasses:
-            fig.add_trace(
-                trace=go.Scatter(
-                    x=[selected_glass.V_d],
-                    y=[selected_glass.n_d],
-                    mode="markers",
-                    marker={
-                        "size": 16,
-                        "symbol": "cross-thin",
-                        "line": {"width": 1.5, "color": "white"},
-                    },
-                    text=[f"{selected_glass.manufacturer} {selected_glass.name}"],
-                    hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
-                    showlegend=False,
-                )
-            )
-
         for catalogue in unique_catalogues:
             catalogue_glasses: list[Glass] = [
                 g for g in working_catalogue if g.manufacturer == catalogue
             ]
             fig.add_trace(
                 trace=go.Scatter(
-                    x=[g.V_d for g in catalogue_glasses],
-                    y=[g.n_d for g in catalogue_glasses],
+                    x=[
+                        g.dV(nV_plot_wavelength)
+                        if st.session_state.get("use_differential_Abbe_number", False)
+                        else g.V_d
+                        for g in catalogue_glasses
+                    ],
+                    y=[g.n(nV_plot_wavelength) for g in catalogue_glasses],
                     mode="markers",
                     text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
                     customdata=[g.name for g in catalogue_glasses],
-                    hovertemplate="%{text}<br>V_d: %{x:.2f}<br>n_d: %{y:.6f}<extra></extra>",
+                    hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
                     name=catalogue,
                     marker={"color": catalogue_colors[catalogue]},
                 )
             )
 
+        # add selected point(s) if applicable
+        for selected_glass in selected_glasses:
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=[
+                        selected_glass.dV(nV_plot_wavelength)
+                        if st.session_state.get("use_differential_Abbe_number", False)
+                        else selected_glass.V_d
+                    ],
+                    y=[selected_glass.n(nV_plot_wavelength)],
+                    mode="markers",
+                    text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
+                    customdata=[g.name for g in catalogue_glasses],
+                    hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
+                    marker={
+                        "size": 16,
+                        "symbol": "cross-thin",
+                        "line": {"width": 1.5, "color": "white"},
+                    },
+                    showlegend=False,
+                )
+            )
+
         fig.update_layout(
             title="Abbe Diagram of Glasses in Working Catalogue",
-            xaxis_title="Abbe Number (V_d)",
-            yaxis_title="Refractive Index (n_d)",
+            xaxis_title=f"Abbe Number ({V_string})",
+            yaxis_title=f"Refractive Index ({n_string})",
             template="plotly_dark",
             height=600,
             clickmode="event+select",
@@ -418,6 +531,7 @@ if len(selected_glasses) == 1:
     st.text(
         f"Possible equivalents: {working_catalogue.list_equivalents(selected_glasses[0])}"
     )
+
 
 cols = st.columns(2, gap="large")
 
