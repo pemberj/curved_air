@@ -151,8 +151,11 @@ with st.sidebar:
                     / 100
                 )
 
-                working_catalogue = working_catalogue.filter(
-                    min_wl=T_wls[0], max_wl=T_wls[1], min_transmission=T_min
+                working_catalogue: GlassCatalogue = working_catalogue.filter(
+                    min_wl=T_wls[0],
+                    max_wl=T_wls[1],
+                    min_transmission=T_min,
+                    debug_level=1,
                 )
 
                 st.divider()
@@ -226,7 +229,12 @@ with st.sidebar:
                 )
 
                 working_catalogue = working_catalogue.filter(
-                    min_n=n_range[0], max_n=n_range[1], n_wavelength=n_wavelength
+                    min_wl=None,
+                    max_wl=None,
+                    min_n=n_range[0],
+                    max_n=n_range[1],
+                    n_wavelength=n_wavelength,
+                    debug_level=1,
                 )
 
                 st.divider()
@@ -245,7 +253,11 @@ with st.sidebar:
                 st.text(V_range)
 
                 working_catalogue: GlassCatalogue = working_catalogue.filter(
-                    min_V_d=V_range[0], max_V_d=V_range[1]
+                    min_wl=None,
+                    max_wl=None,
+                    min_V_d=V_range[0],
+                    max_V_d=V_range[1],
+                    debug_level=1,
                 )
 
             st.divider()
@@ -345,7 +357,7 @@ with cols[1]:
             )
 
         for catalogue in unique_catalogues:
-            catalogue_glasses = [
+            catalogue_glasses: list[Glass] = [
                 g for g in working_catalogue if g.manufacturer == catalogue
             ]
             fig.add_trace(
