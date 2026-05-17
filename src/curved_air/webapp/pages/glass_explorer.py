@@ -257,11 +257,14 @@ with st.sidebar:
             st.toggle("Filter by Abbe number", key="filter_V")
 
             if st.session_state.get("filter_V", False):
+                min_V = float(min([g.V_d for g in working_catalogue]))
+                max_V = float(max([g.V_d for g in working_catalogue]))
+
                 V_range: tuple[float, float] = st.slider(
                     "Allowed Abbe number range",
-                    min_value=10.0,
-                    max_value=100.0,
-                    value=(10.0, 100.0),
+                    min_value=min_V,
+                    max_value=max_V,
+                    value=(min_V, max_V),
                     step=1.0,
                 )
 
