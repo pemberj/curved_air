@@ -36,7 +36,6 @@ from tqdm import tqdm
 
 from curved_air.other import Air, Model, _fraunhofer_lines
 from curved_air.plotting import plot_style
-from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -44,6 +43,8 @@ if TYPE_CHECKING:
 
     from matplotlib.backend_bases import MouseEvent
     from numpy.typing import ArrayLike, NDArray
+
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 
 plt.style.use(plot_style)
@@ -271,11 +272,11 @@ class Glass:
         if isinstance(wls, list) and all(isinstance(wl, str) for wl in wls):
             return np.ndarray([self.refractive_index(wls=wl) for wl in wls])  # type: ignore
 
-        assert isinstance(wls, (ScalarQuantity, ArrayQuantity, float))
+        # By now, wls should be a ScalarQuantity, ArrayQuantity, float, or list[float]
 
         try:
             return AGF_refractive_index(
-                wavelengths=wls,
+                wavelengths=wls,  # ty:ignore[invalid-argument-type]
                 coefficients=self.disp_formula_coefficients,
                 formula_number=self.formula,
             )
