@@ -7,6 +7,7 @@ This module contains utility functions that are used throughout the curved_air p
 """
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,139 @@ from numpy.typing import NDArray
 
 from curved_air.optics.dispersers import EchelleGrating
 from curved_air.type_hinting import ScalarQuantity
+
+DEFAULT_WAVELENGTH: ScalarQuantity = 632.8 * u.nm
+
+
+@dataclass
+class SurfaceTolerance:
+    name: str = ""
+    nominal_radius: ScalarQuantity = 1000 * u.mm
+    diameter: ScalarQuantity = 100 * u.mm
+    wavelength: ScalarQuantity = DEFAULT_WAVELENGTH
+    fringes: float | None = None
+    positive_tolerance: ScalarQuantity | None = None
+    negative_tolerance: ScalarQuantity | None = None
+
+    def __post_init__(self) -> None:
+
+        if (
+            self.fringes is None
+            and self.negative_tolerance is None
+            and self.positive_tolerance is None
+        ):
+            raise ValueError("You must specify either fringes or tolerances.")
+
+        if self.fringes is not None:
+            assert (
+                self.positive_tolerance is None and self.negative_tolerance is None
+            ), "You cannot specify both fringes and tolerances."
+
+            self.positive_tolerance: ScalarQuantity = abs(
+                sagitta2radius(
+                    radius2sagitta(self.nominal_radius, self.diameter)
+                    + self.fringes * self.wavelength / 2,
+                    self.diameter,
+                )
+                - 1 * self.nominal_radius
+            )
+            self.negative_tolerance: ScalarQuantity = abs(
+                sagitta2radius(
+                    radius2sagitta(self.nominal_radius, self.diameter)
+                    - self.fringes * self.wavelength / 2,
+                    self.diameter,
+                )
+                - 1 * self.nominal_radius
+            )
+
+        else:
+            # If only one of the tolerances is specified, assume the tolerances are symmetrical
+            if self.positive_tolerance is not None and self.negative_tolerance is None:
+                self.negative_tolerance: ScalarQuantity = self.positive_tolerance
+
+            elif (
+                self.negative_tolerance is not None and self.positive_tolerance is None
+            ):
+                self.positive_tolerance: ScalarQuantity = self.negative_tolerance
+
+            self.fringes: float = (self.sagitta_delta / (self.wavelength / 2)).si.value
+
+    @property
+    def steeper_radius(self) -> ScalarQuantity:
+        assert self.positive_tolerance is not None
+        return self.nominal_radius + 1 * self.positive_tolerance
+
+    @property
+    def flatter_radius(self) -> ScalarQuantity:
+        assert self.negative_tolerance is not None
+        return self.nominal_radius - 1 * self.negative_tolerance
+
+    @property
+    def nominal_sagitta(self) -> ScalarQuantity:
+        return radius2sagitta(self.nominal_radius, self.diameter)
+
+    @property
+    def flatter_sagitta(self) -> ScalarQuantity:
+        return radius2sagitta(self.flatter_radius, self.diameter)
+
+    @property
+    def steeper_sagitta(self) -> ScalarQuantity:
+        return radius2sagitta(self.steeper_radius, self.diameter)
+
+    @property
+    def sagitta_delta(self) -> ScalarQuantity:
+        if self.fringes is not None:
+            return abs(self.fringes) * self.wavelength / 2
+        if self.positive_tolerance is not None and self.negative_tolerance is not None:
+            return max(
+                abs(self.nominal_sagitta - self.steeper_sagitta),
+                abs(self.nominal_sagitta - self.flatter_sagitta),
+            )
+        raise ValueError("Unable to calculate sagitta delta. Please check your inputs.")
+
+    def __dict__(self) -> dict[str, ScalarQuantity | float | None]:
+        return {
+            "nominal_radius": self.nominal_radius,
+            "diameter": self.diameter,
+            "wavelength": self.wavelength,
+            "fringes": self.fringes,
+            "positive_tolerance": self.positive_tolerance,
+            "negative_tolerance": self.negative_tolerance,
+            "semi_diameter": self.semi_diameter,
+            "nominal_sagitta": self.nominal_sagitta,
+            "sagitta_delta": self.sagitta_delta,
+            "flatter_sagitta": self.flatter_sagitta,
+            "steeper_sagitta": self.steeper_sagitta,
+            "steeper_radius": self.steeper_radius,
+            "flatter_radius": self.flatter_radius,
+        }
+
+    def __repr__(self) -> str:
+        return f"SurfaceTolerance(nominal_radius={self.nominal_radius}, diameter={self.diameter}, wavelength={self.wavelength}, fringes={self.fringes}, positive_tolerance={self.positive_tolerance}, negative_tolerance={self.negative_tolerance})"
+
+    def __str__(self) -> str:
+        return f"""Surface Tolerance for {f"{self.name}" or "Unnamed Surface"}:
+        Ø {self.diameter:.6g}
+        {self.fringes:.2g} Fringes at λ = {self.wavelength:.4g}
+        R {self.nominal_radius:.7g} {self.positive_tolerance:+.4g} / {-self.negative_tolerance:+.4g}
+        Nominal sag: {self.nominal_sagitta:.5g}
+        """  # ty:ignore[unsupported-operator]
+
+
+def radius2sagitta(
+    radius: ScalarQuantity,
+    diameter: ScalarQuantity,
+) -> ScalarQuantity:
+
+    return np.abs(radius) - np.sqrt(radius**2 - (diameter / 2) ** 2)
+
+
+def sagitta2radius(
+    sagitta: ScalarQuantity,
+    diameter: ScalarQuantity,
+) -> ScalarQuantity:
+
+    return ((diameter / 2) ** 2 + sagitta**2) / (2 * sagitta)
 
 
 def agf_files(search: str = "") -> list[Path]:
