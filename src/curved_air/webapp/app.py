@@ -48,5 +48,10 @@ st.navigation(
             title="Glass Explorer",
             icon="🔍",
         ),
+        st.Page(
+            page="pages/surface_tolerances.py",
+            title="Surface Tolerances",
+            icon="🎯",
+        ),
     ]
 ).run()
