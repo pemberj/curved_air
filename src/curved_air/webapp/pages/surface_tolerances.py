@@ -179,7 +179,7 @@ with cols[0]:
 
 with cols[1]:
     if not df.empty:
-        st.dataframe(df, hide_index=True, use_container_width=True, height=600)
+        st.dataframe(df, hide_index=True, width="stretch", height=600)
 
         subcols = st.columns(2)
 
