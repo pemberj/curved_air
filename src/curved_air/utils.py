@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import streamlit as st
 from astropy import units as u
 from astropy.units import Quantity
 from matplotlib import pyplot as plt
@@ -441,6 +442,62 @@ def out_of_bounds(
             return True
 
     return False
+
+
+def st_quantity_input(
+    name: str,
+    possible_units: list[str],
+    min_value: float | None = None,
+    max_value: float | None = None,
+    value: float = 0.0,
+    step: float = 1.0,
+    default_unit: str | None = None,
+    disabled: bool = False,
+    help: str | None = None,  # noqa: A002
+    key: str = "",
+) -> ScalarQuantity:
+    """
+    A custom Streamlit input widget for entering a numeric quantity with a value and
+    unit.
+
+    This uses AstroPy Units to parse the unit
+    """
+
+    for unit in possible_units:
+        try:
+            u.Unit(unit)
+        except ValueError as e:
+            raise ValueError(f"Invalid unit: '{unit}'") from e
+
+    if default_unit is not None and default_unit not in possible_units:
+        raise ValueError("Default unit must be one of the possible units.")
+
+    cols = st.columns([1, 1.5])
+    with cols[0]:
+        value: float = st.number_input(
+            f"{name or 'Value'}",
+            min_value=min_value,
+            max_value=max_value,
+            value=value,
+            step=step,
+            width=200,
+            disabled=disabled,
+            help=help,
+            key=f"{key}_value",
+        )
+    with cols[1]:
+        unit: str | None = st.segmented_control(
+            "Unit",
+            possible_units,
+            default=possible_units[0],
+            disabled=disabled,
+            key=f"{key}_unit",
+        )
+    if unit is None:
+        st.warning("Please select a unit.")
+        st.stop()
+
+    return value * u.Unit(unit)
 
 
 def main() -> None: ...
