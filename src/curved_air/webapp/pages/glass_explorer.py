@@ -166,7 +166,6 @@ with st.sidebar:
                     min_wl=T_wls[0],
                     max_wl=T_wls[1],
                     min_transmission=T_min,
-                    debug_level=1,
                 )
 
                 st.divider()
