@@ -55,7 +55,7 @@ with cols[0]:
 
     wavelength: ScalarQuantity = st_quantity_input(
         name="Test wavelength",
-        possible_units=["nm", "um", "mm"],
+        possible_units=["nm", "um"],
         min_value=0.0,
         max_value=None,
         value=632.8,
