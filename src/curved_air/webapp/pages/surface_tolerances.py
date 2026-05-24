@@ -21,6 +21,8 @@ with st.expander("About this tool", expanded=False):
         """
         A simple calculator to convert between optical fringes and radius-of-curvature tolerance, via calculation of the nominal, flatter, and steeper sagitta of the surface.
 
+        After entering the surface parameters and tolerances, click "Add surface" to add the surface to the table. You can add as many surfaces as you like, and the table can be downloaded as a CSV file.
+
         All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
         Please get in contact if you have any questions, suggestions, or find any bugs!
