@@ -588,26 +588,31 @@ with st.sidebar:
         )
 
     with st.expander(label="Detector", expanded=False):
-        detector: str = st.selectbox(
-            "Common detectors",
-            [*list(DETECTORS.keys())],
-            index=0,
+        detector_choices: list[str] = st.multiselect(
+            "Select one or more common detectors",
+            [*list(DETECTORS.keys()), "Custom 1", "Custom 2"],
+            default="STA1600",
             help="""Select from a list of commercially available detectors.""",
-            disabled=st.session_state.get("customise_detector", False),
+            key="detectors",
         )
 
-        st.toggle(
-            "Custom detector parameters",
-            value=False,
-            help="""Input your own values for the detector parameters.""",
-            key="customise_detector",
-        )
+        detectors: list[Detector] = [
+            Detector(
+                name=DETECTORS[d].name,
+                pixel_size=DETECTORS[d].pixel_size.to(u.um),
+                nx=DETECTORS[d].nx,
+                ny=DETECTORS[d].ny,
+            )
+            for d in detector_choices
+            if "Custom" not in d
+        ]
 
-        if st.session_state["customise_detector"]:
+        if "Custom 1" in detector_choices:
             detector_name: str = st.text_input(
-                "Detector name",
-                value=DETECTORS[detector].name,
+                "Custom detector name",
+                value="Custom Detector 1",
                 help="""The name of the detector, for plot labelling only.""",
+                key="custom_detector_1_name",
             )
 
             px_size: ScalarQuantity = (
@@ -615,9 +620,56 @@ with st.sidebar:
                     "Pixel size (µm)",
                     min_value=1.0,
                     max_value=50.0,
-                    value=DETECTORS[detector].pixel_size.to(u.um).value,
+                    value=10.0,
                     step=0.5,
-                    key="sf_px",
+                    key="custom_detector_1_pixel_size",
+                )
+                * u.um
+            )
+
+            n_x: int = st.number_input(
+                "Pixels (x)",
+                min_value=0,
+                max_value=20_000,
+                value=9_000,
+                step=256,
+                key="custom_detector_1_nx",
+            )
+
+            n_y: int = st.number_input(
+                "Pixels (y)",
+                min_value=0,
+                max_value=20_000,
+                value=9_000,
+                step=256,
+                key="custom_detector_1_ny",
+            )
+
+            detectors.append(
+                Detector(
+                    name=detector_name,
+                    pixel_size=px_size,
+                    nx=int(n_x),
+                    ny=int(n_y),
+                )
+            )
+
+        if "Custom 2" in detector_choices:
+            detector_name: str = st.text_input(
+                "Custom detector name",
+                value="Custom Detector 2",
+                help="""The name of the detector, for plot labelling only.""",
+                key="custom_detector_2_name",
+            )
+
+            px_size: ScalarQuantity = (
+                st.number_input(
+                    "Pixel size (µm)",
+                    min_value=1.0,
+                    max_value=50.0,
+                    value=10 * u.um,
+                    step=0.5,
+                    key="custom_detector_2_pixel_size",
                 )
                 * u.um
             )
@@ -626,25 +678,28 @@ with st.sidebar:
                 "Pixels (x)",
                 min_value=256,
                 max_value=20000,
-                value=DETECTORS[detector].nx,
+                value=9_000,
                 step=256,
-                key="sf_nx",
+                key="custom_detector_2_nx",
             )
 
             n_y: int = st.number_input(
                 "Pixels (y)",
                 min_value=256,
                 max_value=20000,
-                value=DETECTORS[detector].ny,
+                value=9_000,
                 step=256,
-                key="sf_ny",
+                key="custom_detector_2_ny",
             )
 
-        else:
-            detector_name: str = DETECTORS[detector].name
-            px_size: ScalarQuantity = DETECTORS[detector].pixel_size.to(u.um)
-            n_x: int = DETECTORS[detector].nx
-            n_y: int = DETECTORS[detector].ny
+            detectors.append(
+                Detector(
+                    name=detector_name,
+                    pixel_size=px_size,
+                    nx=int(n_x),
+                    ny=int(n_y),
+                )
+            )
 
         st.toggle("Show detector name in plot", value=True, key="detector_name")
 
@@ -744,18 +799,11 @@ elif cross_disperser_type == "Grating":
         groove_frequency=cross_disperser_groove_frequency,
     )
 
-DETECTOR: Detector = Detector(
-    name=detector_name,
-    pixel_size=px_size,
-    nx=int(n_x),
-    ny=int(n_y),
-)
-
 if cross_disperser_type == "Double-pass prism":
     spectrograph: DoublePassEchelleSpectrograph = DoublePassEchelleSpectrograph(
         grating=GRATING,
         cross_disperser=CROSS_DISPERSER,
-        detector=DETECTOR,
+        detector=Detector(),
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=beam_diameter,
@@ -770,7 +818,7 @@ else:
     spectrograph: EchelleSpectrograph = EchelleSpectrograph(
         grating=GRATING,
         cross_disperser=CROSS_DISPERSER,
-        detector=DETECTOR,
+        detector=Detector(),
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=beam_diameter,
@@ -870,31 +918,36 @@ with st.container(horizontal_alignment="center"):
             with st.spinner("Computing spectral format..."):
                 fig = go.Figure()
 
-                # Detector outline
-                half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
-                half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
+                for d in detectors:
+                    # Detector outline
+                    half_x: float = d.size[0].to(u.mm).value / 2
+                    half_y: float = d.size[1].to(u.mm).value / 2
 
-                b = max(half_x, half_y) * 1.125
+                    b = max(half_x, half_y) * 1.125
 
-                fig.add_shape(
-                    type="rect",
-                    x0=-half_x,
-                    y0=-half_y,
-                    x1=half_x,
-                    y1=half_y,
-                    line={"color": "rgba(255,255,255,0.5)", "width": 3, "dash": "dash"},
-                    fillcolor="rgba(0,0,0,0)",
-                )
-                if st.session_state["detector_name"] and detector_name:
-                    fig.add_annotation(
-                        x=0,
-                        y=-half_y,
-                        text=detector_name,
-                        xanchor="center",
-                        yanchor="top",
-                        showarrow=False,
-                        font={"size": 20, "color": "rgba(255,255,255,0.5)"},
+                    fig.add_shape(
+                        type="rect",
+                        x0=-half_x,
+                        y0=-half_y,
+                        x1=half_x,
+                        y1=half_y,
+                        line={
+                            "color": "rgba(255,255,255,0.5)",
+                            "width": 3,
+                            "dash": "dash",
+                        },
+                        fillcolor="rgba(0,0,0,0)",
                     )
+                    if st.session_state["detector_name"] and d.name:
+                        fig.add_annotation(
+                            x=0,
+                            y=-half_y,
+                            text=d.name,
+                            xanchor="center",
+                            yanchor="top",
+                            showarrow=False,
+                            font={"size": 20, "color": "rgba(255,255,255,0.5)"},
+                        )
 
                 orders: list[int] = spectrograph.spectral_orders
                 for m in orders:
@@ -1042,14 +1095,17 @@ with st.container(horizontal_alignment="center"):
                 fig: plt.Figure = plt.figure(figsize=(10, 10))
                 ax: plt.Axes = fig.gca()
 
-                # Detector outline
-                half_x: float = spectrograph.detector.size[0].to(u.mm).value / 2
-                half_y: float = spectrograph.detector.size[1].to(u.mm).value / 2
+                for d in detectors:
+                    # Detector outline
+                    half_x: float = d.size[0].to(u.mm).value / 2
+                    half_y: float = d.size[1].to(u.mm).value / 2
 
-                spectrograph.plot_detector_edge(
-                    ax=ax,
-                    name=st.session_state["detector_name"],
-                )
+                    # spectrograph.plot_detector_edge(
+                    #     ax=ax,
+                    #     name=st.session_state["detector_name"],
+                    # )
+
+                    d.plot_edge(ax=ax, name=st.session_state["detector_name"])
 
                 b: float = max(half_x, half_y) * 1.125
 
