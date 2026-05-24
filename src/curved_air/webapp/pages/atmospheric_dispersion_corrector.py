@@ -13,7 +13,6 @@ import numpy as np
 import streamlit as st
 from astropy import units as u
 from matplotlib import pyplot as plt
-from streamlit.components.v1 import html
 
 from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
@@ -51,11 +50,10 @@ with st.expander("About this tool", expanded=False):
         """
     )
 
-    html(
+    st.iframe(
         """
         <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """,
-        height=70,
+        """
     )
 
 st.divider()

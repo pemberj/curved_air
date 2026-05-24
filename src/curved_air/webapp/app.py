@@ -53,5 +53,10 @@ st.navigation(
             title="Surface Tolerances",
             icon="🎯",
         ),
+        st.Page(
+            page="pages/telescope_designer.py",
+            title="Telescope Designer",
+            icon="🔭",
+        ),
     ]
 ).run()

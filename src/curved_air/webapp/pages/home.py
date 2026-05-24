@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit.components.v1 import html
 
 st.title("Curved Air: Optical Design Tools")
 
@@ -20,9 +19,8 @@ You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find any o
 """
 )
 
-html(
+st.iframe(
     """
     <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
     """,
-    height=70,
 )
