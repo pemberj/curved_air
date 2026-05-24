@@ -341,9 +341,7 @@ class ADC:
             alpha_fit, wl_0_fit = result.x
 
         except Exception as e:
-            print(e)
-            print("Unable to converge on solution.")
-            return None
+            raise ValueError("Unable to converge on a solution") from e
 
         # residuals_PTV = residuals(x = result.x)
         # residuals_curve = residuals(x = result.x, return_residuals=True)

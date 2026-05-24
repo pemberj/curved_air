@@ -17,6 +17,7 @@ from matplotlib import pyplot as plt
 from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.plotting import plot_style
+from curved_air.utils import st_quantity_input
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -61,28 +62,26 @@ st.divider()
 # Interface
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=True):
-        min_wl: ScalarQuantity = (
-            st.number_input(
-                "Min λ (nm)",
-                min_value=100.0,
-                max_value=5000.0,
-                value=380.0,
-                step=5.0,
-                key="adc_min_wl",
-            )
-            * u.nm
+        min_wl: ScalarQuantity = st_quantity_input(
+            "Min λ",
+            min_value=0.0,
+            max_value=1600.0,
+            value=380.0,
+            step=5.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="adc_min_wl",
         )
 
-        max_wl: ScalarQuantity = (
-            st.number_input(
-                "Max λ (nm)",
-                min_value=100.0,
-                max_value=5000.0,
-                value=950.0,
-                step=5.0,
-                key="adc_max_wl",
-            )
-            * u.nm
+        max_wl: ScalarQuantity = st_quantity_input(
+            "Max λ",
+            min_value=0.0,
+            max_value=1600.0,
+            value=950.0,
+            step=5.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="adc_max_wl",
         )
 
     with st.expander(label="Glass selection", expanded=True):
@@ -130,81 +129,31 @@ with st.sidebar:
 
         glass2: Glass = glasses2[glass2]
 
-        # st.toggle(
-        #     "Plot glass refractive indices",
-        #     value=False,
-        # )
-
-        # if st.session_state["ref_index_plot_toggle"]:
-        #     wls: ArrayQuantity = (
-        #         np.linspace(min_wl.to(u.nm).value, max_wl.to(u.nm).value, 200) * u.nm
-        #     )
-
-        #     fig: go.Figure = go.Figure()  # go figure!
-
-        #     for g in [glass1, glass2]:
-        #         fig.add_trace(
-        #             trace=go.Scatter(
-        #                 x=wls,
-        #                 y=g.refractive_index(wls),
-        #                 mode="lines",
-        #             )
-        #         )
-        #     fig.update_layout(
-        #         xaxis_title="Wavelength (nm)",
-        #         yaxis_title="Refractive Index",
-        #         template="plotly_dark",
-        #     )
-
-        #     st.plotly_chart(fig)
-
     with st.expander(label="Beam sizes", expanded=True):
-        cols = st.columns(2)
-        with cols[0]:
-            D_telescope: float = st.number_input(
-                "Telescope diameter",
-                min_value=1.0,
-                max_value=1000.0,
-                value=800.0,
-                step=100.0,
-            )
+        D_telescope: ScalarQuantity = st_quantity_input(
+            "Telescope diameter",
+            min_value=1.0,
+            max_value=1000.0,
+            value=800.0,
+            step=100.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            key="D_telescope",
+        )
 
-        with cols[1]:
-            D_telescope_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit",
-                    options=["mm", "cm", "m"],
-                    default="mm",
-                    key="D_telescope_unit",
-                )
-            )
-
-        D_telescope *= D_telescope_unit
-
-        cols = st.columns(2)
-        with cols[0]:
-            D_ADC: float = st.number_input(
-                "ADC diameter",
-                min_value=1.0,
-                max_value=1000.0,
-                value=25.0,
-                step=5.0,
-            )
-
-        with cols[1]:
-            D_ADC_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit",
-                    options=["mm", "cm", "m"],
-                    default="mm",
-                    key="D_ADC_unit",
-                )
-            )
-
-        D_ADC *= D_ADC_unit
+        D_ADC: ScalarQuantity = st_quantity_input(
+            "ADC diameter",
+            min_value=1.0,
+            max_value=1000.0,
+            value=25.0,
+            step=5.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            key="D_ADC",
+        )
 
     with st.expander(label="Zenith angles", expanded=True):
-        z_max: float = (
+        z_max: ScalarQuantity = (
             st.number_input(
                 "Maximum zenith angle (degrees)",
                 min_value=0.0,
@@ -238,15 +187,19 @@ with st.sidebar:
 
 
 # Create and optimise ADC
-adc = ADC(
-    prism_stack=PrismStack([glass1, glass2]),
-    min_wl=min_wl,
-    max_wl=max_wl,
-    D_telescope=D_telescope,
-    D_ADC=D_ADC,
-    z_max=z_max,
-    criterion=optimisation_criterion,
-)
+try:
+    adc = ADC(
+        prism_stack=PrismStack([glass1, glass2]),
+        min_wl=min_wl,
+        max_wl=max_wl.to(u.nm),
+        D_telescope=D_telescope,
+        D_ADC=D_ADC,
+        z_max=z_max,
+        criterion=optimisation_criterion,
+    )
+except Exception as e:
+    st.exception(e)
+    st.stop()
 
 with st.spinner("Optimising ADC..."):
     adc.optimise()
@@ -314,4 +267,6 @@ with next(cols):
     )
 
 with st.container(horizontal_alignment="center"), st.spinner("Plotting..."):
-    st.pyplot(adc.plot(show=False), width=1000)
+    # st.pyplot(adc.plot(show=False), width=1000)
+    figure: plt.Figure = adc.plot(show=False)
+    st.pyplot(figure, width=1000)
