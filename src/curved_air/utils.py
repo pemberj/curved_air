@@ -489,7 +489,7 @@ def st_quantity_input(
         unit: str | None = st.segmented_control(
             "Unit",
             possible_units,
-            default=possible_units[0],
+            default=possible_units[0] if default_unit is None else default_unit,
             disabled=disabled,
             key=f"{key}_unit",
         )
