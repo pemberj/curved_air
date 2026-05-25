@@ -1,9 +1,5 @@
 #! uv run streamlit run
 
-"""
-Telescope mirror prescription designer
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -196,17 +192,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Telescope Mirror Prescription Designer")
+st.header("Telescope Designer")
 
 with st.expander("About this tool", expanded=False):
     st.markdown(
         """
-        This tool calculates a two-mirror telescope prescription from the primary
-        diameter, system focal length, primary mirror f/ratio, and back focal distance.
+        This tool calculates a two-mirror telescope prescription from the primary diameter, system focal length, primary mirror f/ratio, and back focal distance.
 
-        It reports the approximate mirror radii of curvature, conic constants, mirror
-        separation, and central obstruction for Newtonian, Cassegrain, Ritchey-Chrétien,
-        Dall-Kirkham, and Gregorian designs.
+        It reports the approximate mirror radii of curvature, conic constants, mirror separation, and central obstruction for Newtonian, Cassegrain, Ritchey-Chrétien, Dall-Kirkham, and Gregorian designs.
 
         All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
