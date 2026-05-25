@@ -30,7 +30,7 @@ from curved_air.optics.dispersers import (
 )
 from curved_air.other import _atomic_lines
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex
-from curved_air.utils import richardson_gratings
+from curved_air.utils import richardson_gratings, st_quantity_input
 
 if TYPE_CHECKING:
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
@@ -76,42 +76,26 @@ st.divider()
 # Interface
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=False):
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            min_wl_value: float = st.number_input(
-                "Min λ",
-                min_value=1.0,
-                max_value=2000.0,
-                value=380.0,
-                step=1.0,
-                key="min_wl_value",
-            )
-        with cols[1]:
-            min_wl_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", ["nm", "um"], default="nm", key="min_wl_unit"
-                )
-            )
-        min_wl: ScalarQuantity = min_wl_value * min_wl_unit
+        min_wl: ScalarQuantity = st_quantity_input(
+            "Min λ",
+            min_value=0.0,
+            value=380.0,
+            step=1.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="min_wl",
+        )
         st.session_state["min_wl"] = min_wl
 
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            max_wl_value: float = st.number_input(
-                "Max λ",
-                min_value=1.0,
-                max_value=2000.0,
-                value=950.0,
-                step=1.0,
-                key="max_wl_value",
-            )
-        with cols[1]:
-            max_wl_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", ["nm", "um"], default="nm", key="max_wl_unit"
-                )
-            )
-        max_wl: ScalarQuantity = max_wl_value * max_wl_unit
+        max_wl: ScalarQuantity = st_quantity_input(
+            "Max λ",
+            min_value=0.0,
+            value=950.0,
+            step=1.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="max_wl",
+        )
         st.session_state["max_wl"] = max_wl
 
     with st.expander(label="Echelle Grating", expanded=False):
@@ -124,10 +108,11 @@ with st.sidebar:
             "Richardson gratings",
             options=list(ECHELLE_GRATINGS.keys()),
             index=6,  # MARVEL grating
+            width=300,
+            disabled=st.session_state.get("customise_grating", False),
             help="""Select from a list of commercially available echelle gratings from
             Richardson Gratings. The grating parameters will be pre-filled based on the
             selected option.""",
-            disabled=st.session_state.get("customise_grating", False),
         )
 
         grating: EchelleGrating = ECHELLE_GRATINGS[grating]
@@ -141,16 +126,17 @@ with st.sidebar:
         )
 
         if st.session_state["customise_grating"]:
-            groove_freq: ScalarQuantity = (
-                st.number_input(
-                    "Groove freqency (grooves / mm)",
-                    min_value=1.0,
-                    max_value=500.0,
-                    value=grating.groove_frequency.to(u.mm**-1).value,
-                    step=0.1,
-                )
-                * 1
-                / u.mm
+            groove_frequency: ScalarQuantity = st_quantity_input(
+                "Groove freqency",
+                min_value=0.0,
+                value=grating.groove_frequency.to(u.mm**-1).value,
+                step=0.1,
+                possible_units=["µm", "mm", "cm"],
+                default_unit="mm",
+                unit_input_text="Per",
+                inverse=True,
+                key="groove_frequency",
+                # help="""Spatial groove frequency""",
             )
 
             blaze_angle: ScalarQuantity = (
@@ -167,17 +153,16 @@ with st.sidebar:
                 * u.deg
             )
 
-            ruled_width: ScalarQuantity = (
-                st.number_input(
-                    "Ruled width (mm)",
-                    min_value=0.0,
-                    # max_value=1200.0,
-                    value=grating.ruled_width.to(u.mm).value,
-                    step=0.05,
-                    help="""The ruled width of the echelle grating, in millimetres. This
+            ruled_width: ScalarQuantity = st_quantity_input(
+                "Ruled width (mm)",
+                min_value=0.0,
+                # max_value=1200.0,
+                value=grating.ruled_width.to(u.mm).value,
+                step=0.05,
+                possible_units=["mm", "cm", "m"],
+                default_unit="mm",
+                help="""The ruled width of the echelle grating, in millimetres. This
                     refers to the dimension perpendicular to the grooves themselves.""",
-                )
-                * u.mm
             )
 
             st.metric(
@@ -188,7 +173,7 @@ with st.sidebar:
             )
 
         else:
-            groove_freq: float = grating.groove_frequency.to(u.mm**-1)
+            groove_frequency: float = grating.groove_frequency.to(u.mm**-1)
             blaze_angle: float = grating.blaze_angle.to(u.deg)
             ruled_width: float = grating.ruled_width.to(u.mm)
 
@@ -226,6 +211,7 @@ with st.sidebar:
                 index=list(GLASS_CATALOGUES.keys()).index("Schott")
                 if "Schott" in GLASS_CATALOGUES
                 else 0,
+                width=300,
             )
 
             try:
@@ -242,6 +228,7 @@ with st.sidebar:
                 index=glass_names.index(default_glass)
                 if default_glass in glass_names
                 else 0,
+                width=300,
             )
 
             apex_angle: ScalarQuantity = (
@@ -251,6 +238,7 @@ with st.sidebar:
                     max_value=60.0,
                     value=default_apex_angle.to(u.deg).value,
                     step=1.0,
+                    width=300,
                 )
                 * u.deg
             )
@@ -305,6 +293,7 @@ with st.sidebar:
                 index=list(GLASS_CATALOGUES.keys()).index("Schott")
                 if "Schott" in GLASS_CATALOGUES
                 else 0,
+                width=300,
             )
 
             try:
@@ -321,6 +310,7 @@ with st.sidebar:
                 index=p1_glass_names.index(default_glass)
                 if default_glass in p1_glass_names
                 else 0,
+                width=300,
             )
 
             p1_apex_angle: ScalarQuantity = (
@@ -331,6 +321,7 @@ with st.sidebar:
                     value=48.7,
                     step=1.0,
                     key="p1_apex_angle",
+                    width=300,
                 )
                 * u.deg
             )
@@ -371,9 +362,9 @@ with st.sidebar:
 
             if st.session_state["identical_prisms_toggle"]:
                 # p2_catalogue = p1_catalogue
-                p2_glasses = p1_glasses
-                p2_glass_name = p1_glass_name
-                p2_apex_angle = p1_apex_angle
+                p2_glasses: GlassCatalogue = p1_glasses
+                p2_glass_name: str = p1_glass_name
+                p2_apex_angle: ScalarQuantity = p1_apex_angle
             else:
                 p2_catalogue: str = st.selectbox(
                     "Prism 2 glass catalogue",
@@ -381,6 +372,7 @@ with st.sidebar:
                     index=list(GLASS_CATALOGUES.keys()).index("Schott")
                     if "Schott" in GLASS_CATALOGUES
                     else 0,
+                    width=300,
                 )
 
                 try:
@@ -395,6 +387,7 @@ with st.sidebar:
                     index=p2_glass_names.index(default_glass)
                     if default_glass in p2_glass_names
                     else 0,
+                    width=300,
                 )
 
                 p2_apex_angle: ScalarQuantity = (
@@ -405,6 +398,7 @@ with st.sidebar:
                         value=48.7,
                         step=1.0,
                         key="p2_apex_angle",
+                        width=300,
                     )
                     * u.deg
                 )
@@ -457,20 +451,20 @@ with st.sidebar:
             )
 
         elif cross_disperser_type == "Grating":
-            cross_disperser_groove_frequency: ScalarQuantity = (
-                st.number_input(
-                    "Groove frequency (grooves / mm)",
-                    min_value=10.0,
-                    max_value=2000.0,
-                    value=200.0,
-                    step=10.0,
-                )
-                * 1
-                / u.mm
+            cross_disperser_groove_frequency: ScalarQuantity = st_quantity_input(
+                "Groove frequency",
+                min_value=0.0,
+                value=200.0,
+                step=10.0,
+                possible_units=["µm", "mm", "cm"],
+                default_unit="mm",
+                unit_input_text="Per",
+                inverse=True,
+                key="cross_disperser_groove_frequency",
             )
 
-            if st.session_state.get("max_wl", 950) > 2 * st.session_state.get(
-                "min_wl", 380
+            if st.session_state.get("max_wl", 950 * u.nm) > 2 * st.session_state.get(
+                "min_wl", 380 * u.nm
             ):
                 st.warning(
                     """Warning: with a grating cross-disperser, the wavelength range
@@ -490,46 +484,27 @@ with st.sidebar:
             )
 
     with st.expander(label="Slit", expanded=False):
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            slit_width_value: float = st.number_input(
-                "Slit width",
-                min_value=1.0,
-                max_value=1200.0,
-                value=40.0,
-                step=5.0,
-                help="""The dispersion-direction width of the spectrograph input
-                    (slit or fibre).""",
-            )
-        with cols[1]:
-            slit_width_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", options=["um", "mm"], default="um", key="slit_width_unit"
-                )
-            )
-        slit_width: ScalarQuantity = slit_width_value * slit_width_unit
+        slit_width: ScalarQuantity = st_quantity_input(
+            "Slit width",
+            min_value=0.0,
+            value=40.0,
+            step=1.0,
+            possible_units=["µm", "mm"],
+            default_unit="µm",
+            help="""The dispersion-direction physical width of the slit.""",
+            key="slit_width",
+        )
 
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            slit_length_value: float = st.number_input(
-                "Slit length",
-                min_value=1.0,
-                max_value=1200.0,
-                value=360.0,
-                step=10.0,
-                help="""The cross-dispersion-direction length of the spectrograph input.
-                    For an instrument with multiple fibre inputs, this refers to the
-                    total length of the input geometry.""",
-            )
-
-        with cols[1]:
-            slit_length_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", options=["um", "mm"], default="um", key="slit_length_unit"
-                )
-            )
-
-        slit_length: ScalarQuantity = slit_length_value * slit_length_unit
+        slit_length: ScalarQuantity = st_quantity_input(
+            "Slit length",
+            min_value=0.0,
+            value=360.0,
+            step=1.0,
+            possible_units=["µm", "mm"],
+            default_unit="µm",
+            help="""The spatial-direction physical length of the slit.""",
+            key="slit_length",
+        )
 
         slit_focal_ratio: float = st.number_input(
             "Slit native f/#",
@@ -537,43 +512,40 @@ with st.sidebar:
             max_value=20.0,
             value=3.85,
             step=0.05,
+            width=200,
             help="""The native focal ratio of the slit, i.e. the focal ratio of the beam
             entering the spectrograph, at which the slit appears to be the same size as
             the physical slit dimensions above.""",
         )
 
     with st.expander(label="Collimator and Camera", expanded=False):
-        if True:  # Temp
-            beam_diameter: ScalarQuantity = (
-                st.number_input(
-                    "Collimated beam diameter (mm)",
-                    min_value=10.0,
-                    max_value=1200.0,
-                    value=160.0,
-                    step=1.0,
-                    help="""The diameter of the collimated beam at the echelle grating.
-                    This is a critical parameter that affects the spectral resolution
-                    and the size of the spectral format on the detector.""",
-                )
-                * u.mm
+        beam_diameter: ScalarQuantity = st_quantity_input(
+            "Collimated beam diameter",
+            min_value=0.0,
+            value=160.0,
+            step=1.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            help="""The diameter of the collimated beam at the echelle grating. This is
+                a critical parameter that affects the spectral resolution and the size
+                of the spectral format on the detector.""",
+        )
+
+        f_col = None
+
+        if beam_diameter.to(u.mm) > grating.beam_diameter.to(u.mm):
+            st.warning(
+                "Warning: projected beam diameter is larger than grating ruled width!",
             )
 
-            f_col = None
-
-            if beam_diameter > grating.beam_diameter.to(u.mm):
-                st.warning(
-                    "Warning: projected beam diameter is larger than grating ruled width!",
-                )
-
-        f_cam: ScalarQuantity = (
-            st.number_input(
-                "Camera focal length (mm)",
-                min_value=50.0,
-                max_value=5000.0,
-                value=730.0,
-                step=10.0,
-            )
-            * u.mm
+        f_cam: ScalarQuantity = st_quantity_input(
+            "Camera focal length",
+            min_value=0.0,
+            value=730.0,
+            step=10.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            key="f_cam",
         )
 
         st.metric(
@@ -616,8 +588,7 @@ with st.sidebar:
             px_size: ScalarQuantity = (
                 st.number_input(
                     "Pixel size (µm)",
-                    min_value=1.0,
-                    max_value=50.0,
+                    min_value=0.0,
                     value=10.0,
                     step=0.5,
                     key="custom_detector_1_pixel_size",
@@ -663,8 +634,7 @@ with st.sidebar:
             px_size: ScalarQuantity = (
                 st.number_input(
                     "Pixel size (µm)",
-                    min_value=1.0,
-                    max_value=50.0,
+                    min_value=0.0,
                     value=10 * u.um,
                     step=0.5,
                     key="custom_detector_2_pixel_size",
@@ -674,8 +644,8 @@ with st.sidebar:
 
             n_x: int = st.number_input(
                 "Pixels (x)",
-                min_value=256,
-                max_value=20000,
+                min_value=0,
+                max_value=20_000,
                 value=9_000,
                 step=256,
                 key="custom_detector_2_nx",
@@ -683,8 +653,8 @@ with st.sidebar:
 
             n_y: int = st.number_input(
                 "Pixels (y)",
-                min_value=256,
-                max_value=20000,
+                min_value=0,
+                max_value=20_000,
                 value=9_000,
                 step=256,
                 key="custom_detector_2_ny",
@@ -704,7 +674,7 @@ with st.sidebar:
     with st.expander(label="Plot Format Options", expanded=False):
         fsr_fraction: float = st.slider(
             "FSR fraction to display",
-            min_value=0.1,
+            min_value=0.05,
             max_value=2.0,
             value=1.0,
             step=0.05,
@@ -767,7 +737,7 @@ MIN_WL: ScalarQuantity = min_wl.to(u.nm)
 MAX_WL: ScalarQuantity = max_wl.to(u.nm)
 
 GRATING: EchelleGrating = EchelleGrating(
-    groove_frequency=groove_freq,
+    groove_frequency=groove_frequency,
     blaze_angle=blaze_angle,
     gamma_angle=0 * u.deg,
     ruled_width=ruled_width,
