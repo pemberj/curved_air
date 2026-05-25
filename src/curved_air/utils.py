@@ -455,6 +455,8 @@ def st_quantity_input(
     disabled: bool = False,
     help: str | None = None,  # noqa: A002
     key: str = "",
+    unit_input_text: str = "Unit",
+    inverse: bool = False,
 ) -> ScalarQuantity:
     """
     A custom Streamlit input widget for entering a numeric quantity with a value and
@@ -487,7 +489,7 @@ def st_quantity_input(
         )
     with cols[1]:
         unit: str | None = st.segmented_control(
-            "Unit",
+            unit_input_text,
             possible_units,
             default=possible_units[0] if default_unit is None else default_unit,
             disabled=disabled,
@@ -496,6 +498,9 @@ def st_quantity_input(
     if unit is None:
         st.warning("Please select a unit.")
         st.stop()
+
+    if inverse:
+        return value / u.Unit(unit)
 
     return value * u.Unit(unit)
 

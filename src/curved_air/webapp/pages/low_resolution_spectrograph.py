@@ -11,6 +11,7 @@ from curved_air.instruments.LRS import LowResolutionSpectrograph
 from curved_air.optics.dispersers import Prism, SimpleGrating
 from curved_air.plotting import plot_style, wl_to_hex
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+from curved_air.utils import st_quantity_input
 
 plt.style.use(plot_style)
 
@@ -49,42 +50,26 @@ with st.sidebar:
     st.header("Spectrograph Configuration")
 
     with st.expander(label="Wavelength range", expanded=False):
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            min_wl_value: float = st.number_input(
-                "Min λ",
-                min_value=1.0,
-                max_value=2000.0,
-                value=380.0,
-                step=1.0,
-                key="min_wl_value",
-            )
-        with cols[1]:
-            min_wl_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", ["nm", "um"], default="nm", key="min_wl_unit"
-                )
-            )
-        min_wl: ScalarQuantity = min_wl_value * min_wl_unit
+        min_wl: ScalarQuantity = st_quantity_input(
+            "Min λ",
+            min_value=0.0,
+            value=380.0,
+            step=1.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="min_wl",
+        )
         st.session_state["min_wl"] = min_wl
 
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            max_wl_value: float = st.number_input(
-                "Max λ",
-                min_value=1.0,
-                max_value=2000.0,
-                value=950.0,
-                step=1.0,
-                key="max_wl_value",
-            )
-        with cols[1]:
-            max_wl_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", ["nm", "um"], default="nm", key="max_wl_unit"
-                )
-            )
-        max_wl: ScalarQuantity = max_wl_value * max_wl_unit
+        max_wl: ScalarQuantity = st_quantity_input(
+            "Max λ",
+            min_value=0.0,
+            value=950.0,
+            step=1.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="max_wl",
+        )
         st.session_state["max_wl"] = max_wl
 
     with st.expander(label="Disperser", expanded=False):
@@ -173,112 +158,91 @@ with st.sidebar:
                 st.metric(
                     "Calculated incidence angle",
                     f"{_prism.incidence_angle.value:.2f} degrees",
-                    help="""This tool automatically calculates the
-                    appropriate incidence angle such that the spectral format is symmetrically
-                    centred on the detector.""",
+                    help="""This tool automatically calculates the appropriate incidence
+                    angle such that the spectral format is symmetrically centred on the
+                    detector.""",
                 )
 
         elif st.session_state["disperser_type"] == "Grating":
-            groove_frequency: ScalarQuantity = (
-                st.number_input(
-                    "Groove frequency (grooves / mm)",
-                    min_value=10.0,
-                    max_value=2000.0,
-                    value=200.0,
-                    step=10.0,
-                )
-                * 1
-                / u.mm
+            groove_frequency: ScalarQuantity = st_quantity_input(
+                "Groove frequency",
+                min_value=0.0,
+                value=200.0,
+                step=10.0,
+                possible_units=["µm", "mm", "cm"],
+                default_unit="mm",
+                key="groove_frequency",
+                unit_input_text="Per",
+                inverse=True,
             )
 
-            if st.session_state.get("max_wl", 950) > 2 * st.session_state.get(
-                "min_wl", 380
+            if st.session_state.get("max_wl", 950 * u.nm) > 2 * st.session_state.get(
+                "min_wl", 380 * u.nm
             ):
                 st.warning(
-                    """Warning: with a grating disperser, the wavelength range should not
-                    exceed an octave (max λ should be less than 2x min λ) to avoid
+                    """Warning: with a grating disperser, the wavelength range should
+                    not exceed an octave (max λ should be less than 2x min λ) to avoid
                     significant wavelength overlap issues.""",
                 )
 
             st.info(
-                """Note: only the first diffraction order of the grating is displayed in the
-                spectral format plot.""",
+                """Note: only the first diffraction order of the grating is displayed in
+                the spectral format plot.""",
             )
 
     with st.expander(label="Slit", expanded=False):
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            slit_width_value: float = st.number_input(
-                "Slit width",
-                min_value=1.0,
-                max_value=1000.0,
-                value=50.0,
-                step=5.0,
-                help="""The dispersion-direction physical width of the slit.""",
-            )
+        slit_width: ScalarQuantity = st_quantity_input(
+            "Slit width",
+            min_value=0.0,
+            value=50.0,
+            step=1.0,
+            possible_units=["µm", "mm"],
+            default_unit="µm",
+            help="""The dispersion-direction physical width of the slit.""",
+            key="slit_width",
+        )
 
-        with cols[1]:
-            slit_width_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", options=["um", "mm"], default="um", key="slit_width_unit"
-                )
-            )
-
-        slit_width: ScalarQuantity = slit_width_value * slit_width_unit
-
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            slit_length_value: float = st.number_input(
-                "Slit length",
-                min_value=1.0,
-                max_value=1000.0,
-                value=5.0,
-                step=5.0,
-                help="""The spatial-direction physical length of the slit.""",
-            )
-
-        with cols[1]:
-            slit_length_unit: u.Unit = u.Unit(
-                st.segmented_control(
-                    "Unit", options=["um", "mm"], default="mm", key="slit_length_unit"
-                )
-            )
-
-        slit_length: ScalarQuantity = slit_length_value * slit_length_unit
+        slit_length: ScalarQuantity = st_quantity_input(
+            "Slit length",
+            min_value=0.0,
+            value=5.0,
+            step=1.0,
+            possible_units=["µm", "mm"],
+            default_unit="mm",
+            help="""The spatial-direction physical length of the slit.""",
+            key="slit_length",
+        )
 
         slit_f_number: float = st.number_input(
             "Slit native f/#",
-            min_value=1.0,
-            max_value=20.0,
+            min_value=0.0,
             value=4.0,
             step=0.05,
+            width=200,
             help="""The native focal ratio of the slit, i.e. the focal ratio of the beam
             entering the spectrograph, at which the slit appears to be the same size as
             the physical slit dimensions above.""",
         )
 
     with st.expander(label="Collimator and Camera", expanded=False):
-        beam_diameter: ScalarQuantity = (
-            st.number_input(
-                "Collimated beam diameter (mm)",
-                min_value=10.0,
-                max_value=1200.0,
-                value=100.0,
-                step=1.0,
-                help="""The diameter of the collimated beam at the disperser.""",
-            )
-            * u.mm
+        beam_diameter: ScalarQuantity = st_quantity_input(
+            "Collimated beam diameter",
+            min_value=0.0,
+            value=100.0,
+            step=1.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            help="""The diameter of the collimated beam at the disperser.""",
         )
 
-        f_coll: ScalarQuantity = (
-            st.number_input(
-                "Collimator focal length (mm)",
-                min_value=50.0,
-                max_value=3000.0,
-                value=800.0,
-                step=10.0,
-            )
-            * u.mm
+        f_coll: ScalarQuantity = st_quantity_input(
+            "Collimator focal length",
+            min_value=0.0,
+            value=800.0,
+            step=10.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            key="collimator_focal_length",
         )
 
         st.metric(
@@ -290,15 +254,14 @@ with st.sidebar:
             complexity, image quality, and cost.""",
         )
 
-        f_cam: ScalarQuantity = (
-            st.number_input(
-                "Camera focal length (mm)",
-                min_value=50.0,
-                max_value=3000.0,
-                value=500.0,
-                step=10.0,
-            )
-            * u.mm
+        f_cam: ScalarQuantity = st_quantity_input(
+            "Camera focal length",
+            min_value=0.0,
+            value=500.0,
+            step=10.0,
+            possible_units=["mm", "cm", "m"],
+            default_unit="mm",
+            key="camera_focal_length",
         )
 
         st.metric(
@@ -315,8 +278,9 @@ with st.sidebar:
             "Common detectors",
             [*list(DETECTORS.keys())],
             index=5,  # default to 4k, 15um
-            help="""Select from a list of commercially available detectors.""",
             disabled=st.session_state.get("customise_detector", False),
+            width=200,
+            help="""Select from a list of commercially available detectors.""",
         )
 
         st.toggle(
