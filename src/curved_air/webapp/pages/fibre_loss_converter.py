@@ -14,7 +14,8 @@ from curved_air.data import (
     example_fibre_attenuation_dBkm,
     example_fibre_transmission_relative,
 )
-from curved_air.type_hinting import ArrayQuantity
+from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+from curved_air.utils import st_quantity_input
 
 
 def relative_to_dBkm(
@@ -94,26 +95,15 @@ if mode is None:
     st.stop()
 
 # Common inputs
-cols = st.columns([1, 2])
-with cols[0]:
-    length_value: float = st.number_input(
-        "Fibre length",
-        min_value=0.0,
-        value=50.0,
-        step=1.0,
-        width=200,
-    )
-with cols[1]:
-    length_unit: str | None = st.segmented_control(
-        "Unit",
-        ["cm", "m", "km"],
-        default="m",
-    )
-if length_unit is None:
-    st.warning("Please select a unit for fibre length.")
-    st.stop()
 
-length: Quantity = length_value * u.Unit(length_unit)
+length: ScalarQuantity = st_quantity_input(
+    "Fibre length",
+    min_value=0.0,
+    value=50.0,
+    step=1.0,
+    possible_units=["cm", "m", "km"],
+    default_unit="m",
+)
 
 st.divider()
 
