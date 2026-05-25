@@ -26,6 +26,7 @@ from astropy import units as u
 from curved_air.glass import GLASS_CATALOGUES, AGFData, Glass, GlassCatalogue
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex  # noqa: F401
 from curved_air.type_hinting import ScalarQuantity
+from curved_air.utils import st_quantity_input
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -184,7 +185,6 @@ with st.sidebar:
                     min_wl=None,
                     max_wl=None,
                     status_description=selected_statuses,
-                    debug_level=1,
                 )
 
                 st.divider()
@@ -210,16 +210,14 @@ with st.sidebar:
                         st.session_state["n_wavelength"] = n_wavelength.to(u.nm).value
 
                     if n_wavelength == "Custom":
-                        n_wavelength: ScalarQuantity = (
-                            st.number_input(
-                                "Refractive index wavelength (nm)",
-                                min_value=100.0,
-                                max_value=4500.0,
-                                value=st.session_state.get("n_wavelength", 589.3),
-                                step=1.0,
-                                key="n_wavelength_input",
-                            )
-                            * u.nm
+                        n_wavelength: ScalarQuantity = st_quantity_input(
+                            "Refractive index wavelength",
+                            min_value=0.0,
+                            value=st.session_state.get("n_wavelength", 589.3),
+                            step=1.0,
+                            possible_units=["nm", "µm"],
+                            default_unit="nm",
+                            key="n_wavelength_input",
                         )
 
                     st.metric(
@@ -246,7 +244,6 @@ with st.sidebar:
                     min_n=n_range[0],
                     max_n=n_range[1],
                     n_wavelength=n_wavelength,
-                    debug_level=1,
                 )
 
                 st.divider()
@@ -272,7 +269,6 @@ with st.sidebar:
                     max_wl=None,
                     min_V_d=V_range[0],
                     max_V_d=V_range[1],
-                    debug_level=1,
                 )
 
             st.divider()
@@ -334,6 +330,8 @@ if st.session_state.get("select_nV_wavelength", False):
             st.session_state["nV_plot_wavelength"] = nV_plot_wavelength.to(u.nm).value
 
     if nV_plot_wavelength == "Custom":
+        # I didn't replace this with a st_quantity_input because it's not using columns
+        # 0 and 1
         with cols[1]:
             nV_plot_wavelength_value: float = st.number_input(
                 "Custom wavelength",
