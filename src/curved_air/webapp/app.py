@@ -58,5 +58,10 @@ st.navigation(
             title="Telescope Designer",
             icon="🔭",
         ),
+        st.Page(
+            page="pages/cte_match.py",
+            title="CTE Match",
+            icon="🔩",
+        ),
     ]
 ).run()
