@@ -152,9 +152,9 @@ if single_multi_mode == "Single value":
             subcols = st.columns(2)
 
             with subcols[0]:
-                st.metric("Total attenuation over length", f"{total_loss:.3f}")
+                st.metric("Total attenuation over length", f"{total_loss:.3g}")
             with subcols[1]:
-                st.metric("Equivalent attenuation", f"{attenuation:.3f}")
+                st.metric("Equivalent attenuation", f"{attenuation:.3g}")
 
     else:
         with cols[0]:
@@ -177,11 +177,11 @@ if single_multi_mode == "Single value":
             subcols = st.columns(3)
 
             with subcols[0]:
-                st.metric("Total attenuation over length", f"{total_loss:.3f}")
+                st.metric("Total attenuation over length", f"{total_loss:.4g}")
             with subcols[1]:
-                st.metric("Relative Transmission", f"{transmission_fraction:.6f}")
+                st.metric("Relative Transmission", f"{transmission_fraction:.5g}")
             with subcols[2]:
-                st.metric("Relative Transmission", f"{transmission_percent:.3f}%")
+                st.metric("Relative Transmission", f"{transmission_percent:.4g}%")
 
 
 elif single_multi_mode == "Multi-value (CSV)":
