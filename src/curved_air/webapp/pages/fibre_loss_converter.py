@@ -83,13 +83,13 @@ with st.expander("About this tool", expanded=False):
 
 with st.container(horizontal_alignment="center"):
     conversion_mode: str | None = st.segmented_control(
-        "",
+        "Conversion mode",
         ["dB/km -> Relative Transmission", "Relative Transmission -> dB/km"],
         default="dB/km -> Relative Transmission",
         key="conversion_mode",
     )
     single_multi_mode: str | None = st.segmented_control(
-        "",
+        "Single or multi-value?",
         ["Single value", "Multi-value (CSV)"],
         default="Single value",
         key="single_multi_mode",
@@ -195,7 +195,7 @@ elif single_multi_mode == "Multi-value (CSV)":
             default_data = example_fibre_transmission_relative
 
         csv_data = st.text_area(
-            "",
+            "CSV data",
             height=200,
             value=default_data,
             key="csv_data",
