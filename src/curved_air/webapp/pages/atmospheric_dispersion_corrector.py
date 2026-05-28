@@ -59,7 +59,7 @@ with st.expander("About this tool", expanded=False):
 
 # Interface
 with st.sidebar:
-    with st.expander(label="Wavelength range", expanded=True):
+    with st.expander(label="Wavelength range", expanded=False):
         min_wl: ScalarQuantity = st_quantity_input(
             "Min λ",
             min_value=0.0,
@@ -82,7 +82,7 @@ with st.sidebar:
             key="adc_max_wl",
         )
 
-    with st.expander(label="Glass selection", expanded=True):
+    with st.expander(label="Glass selection", expanded=False):
         catalogue1: str = st.selectbox(
             "Catalogue for glass 1",
             GLASS_CATALOGUES.keys(),
@@ -127,7 +127,7 @@ with st.sidebar:
 
         glass2: Glass = glasses2[glass2]
 
-    with st.expander(label="Beam sizes", expanded=True):
+    with st.expander(label="Beam sizes", expanded=False):
         D_telescope: ScalarQuantity = st_quantity_input(
             "Telescope diameter",
             min_value=1.0,
@@ -150,7 +150,7 @@ with st.sidebar:
             key="D_ADC",
         )
 
-    with st.expander(label="Zenith angles", expanded=True):
+    with st.expander(label="Zenith angles", expanded=False):
         z_max: ScalarQuantity = (
             st.number_input(
                 "Maximum zenith angle (degrees)",
@@ -163,7 +163,7 @@ with st.sidebar:
             * u.degree
         )
 
-    with st.expander(label="Contraints", expanded=True):
+    with st.expander(label="Contraints", expanded=False):
         optimisation_criterion: str = st.segmented_control(
             "ADC optimisation criterion",
             ["PTV", "RMS", "RSS", "Max. Abs."],
