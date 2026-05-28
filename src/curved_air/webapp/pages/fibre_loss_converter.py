@@ -195,9 +195,10 @@ elif single_multi_mode == "Multi-value (CSV)":
             default_data = example_fibre_transmission_relative
 
         csv_data = st.text_area(
-            "Paste CSV data",
+            "",
             height=200,
             value=default_data,
+            key="csv_data",
         )
 
         with st.expander("Data examples", expanded=False):
