@@ -71,8 +71,6 @@ with st.expander("About this tool", expanded=False):
         """,
     )
 
-st.divider()
-
 # Interface
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=False):

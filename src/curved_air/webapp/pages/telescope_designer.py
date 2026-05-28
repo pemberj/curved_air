@@ -215,8 +215,6 @@ with st.expander("About this tool", expanded=False):
         """,
     )
 
-st.divider()
-
 cols = st.columns(2)
 
 with cols[0]:

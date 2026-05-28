@@ -36,9 +36,6 @@ with st.expander("About this tool", expanded=False):
         """,
     )
 
-st.divider()
-
-
 cols = st.columns([1, 1.25])
 
 with cols[0]:
