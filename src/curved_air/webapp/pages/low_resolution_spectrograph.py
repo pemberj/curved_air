@@ -47,8 +47,6 @@ with st.expander("About this tool", expanded=False):
     )
 
 with st.sidebar:
-    st.header("Spectrograph Configuration")
-
     with st.expander(label="Wavelength range", expanded=False):
         min_wl: ScalarQuantity = st_quantity_input(
             "Min λ",
