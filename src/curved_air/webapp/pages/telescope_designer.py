@@ -2,178 +2,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import numpy as np
+# import matplotlib.pyplot as plt
+# import numpy as np
 import pandas as pd
 import streamlit as st
 
-from curved_air.type_hinting import ScalarQuantity
+from curved_air.telescopes import (
+    CONIC_NOTES,
+    DESIGNS,
+    Mirror,
+    TelescopeDesign,
+)
 from curved_air.utils import st_quantity_input
 
-DESIGNS: list[str] = [
-    "Newtonian",
-    "Classic Cassegrain",
-    "Ritchey-Chrétien",
-    "Dall-Kirkham",
-    "Gregorian",
-]
-
-CONIC_NOTES: dict[str, str] = {
-    "Newtonian": "Parabolic primary (K1 = -1), flat secondary.",
-    "Classic Cassegrain": "Parabolic primary (K1 = -1), hyperbolic convex secondary.",
-    "Ritchey-Chrétien": "Both mirrors are hyperboloids; corrects for coma (aplanatic).",
-    "Dall-Kirkham": "Elliptical primary, spherical secondary (K2 = 0). Not aplanatic.",
-    "Gregorian": "Parabolic primary (K1 = -1), elliptical concave secondary.",
-}
-
-
-@dataclass
-class Mirror:
-    diameter: ScalarQuantity | None = None
-    radius: ScalarQuantity | None = None
-    conic: float | None = None
-
-    @property
-    def focal_length(self) -> ScalarQuantity | None:
-        if self.radius is not None:
-            return self.radius / 2
-        return None
-
-    @property
-    def f_number(self) -> float | None:
-        if self.focal_length is not None:
-            return (self.focal_length / self.diameter).si.value
-        return None
-
-
-@dataclass
-class TelescopeDesign:
-    name: str
-    design: str
-    M1: Mirror
-    M2: Mirror
-    system_focal_length: ScalarQuantity
-    back_focal_distance: ScalarQuantity
-    separation: ScalarQuantity | None = None
-    magnification: float | None = None
-
-    @property
-    def system_f_number(self) -> float:
-        return (self.system_focal_length / self.M1.diameter).si.value
-
-    @property
-    def central_obstruction(self) -> float | None:
-        if self.M2.diameter is not None:
-            return 1 - (self.M2.diameter / self.M1.diameter).si.value
-        return None
-
-    def __post_init__(self) -> None:
-        if self.design not in DESIGNS:
-            raise ValueError(
-                f"Invalid design: {self.design}. Must be one of {DESIGNS}."
-            )
-
-        assert isinstance(self.M1.diameter, ScalarQuantity), (
-            "Primary diameter must be specified."
-        )
-        assert isinstance(self.M1.radius, ScalarQuantity), (
-            "Primary radius must be specified."
-        )
-
-        assert self.system_focal_length >= self.M1.focal_length, (
-            "System focal length must be greater than primary focal length."
-        )
-
-        if self.M1.focal_length is not None:
-            self.M1.radius: ScalarQuantity = 2 * self.M1.focal_length
-
-        self.magnification: float = (
-            self.system_focal_length / self.M1.focal_length
-        ).si.value
-
-        self.compute_prescription()
-
-    def compute_prescription(self) -> TelescopeDesign:
-        """
-        Compute a two-mirror telescope prescription
-        """
-
-        assert self.magnification is not None
-
-        if self.design == "Newtonian":
-            self.M1.conic = -1
-            self.M2.radius: float = np.inf
-            self.M2.conic = 0
-            self.separation: ScalarQuantity = (
-                self.M1.focal_length - 1 * self.back_focal_distance
-            )
-            self.M2.diameter: ScalarQuantity = (
-                self.M1.diameter * self.separation / self.M1.focal_length
-            )
-            return self
-
-        # First, compute the mirror separation and secondary focal length
-        if self.design == "Gregorian":
-            self.separation: ScalarQuantity = (
-                self.system_focal_length + self.back_focal_distance
-            ) / (self.magnification - 1)
-
-            self.M2.radius: ScalarQuantity = 2 * (
-                self.magnification * self.separation / (self.magnification + 1)
-            )
-
-        else:
-            self.separation: ScalarQuantity = (
-                self.system_focal_length - self.back_focal_distance
-            ) / (self.magnification + 1)
-
-            self.M2.radius: ScalarQuantity = 2 * (
-                self.magnification * self.separation / (self.magnification - 1)
-            )
-
-        self.M2.diameter: ScalarQuantity = (
-            self.M1.diameter * self.separation / self.M1.focal_length
-        )
-
-        # Then compute the conic constants based on the design type
-        if self.design == "Classic Cassegrain":
-            self.M1.conic = -1
-            self.eccentricity: float = (self.magnification + 1) / (
-                self.magnification - 1
-            )
-            self.M2.conic: float = -(self.eccentricity**2)
-
-        elif self.design == "Ritchey-Chrétien":
-            self.back_focus_ratio: float = (
-                self.back_focal_distance / self.M1.focal_length
-            ).si.value
-            self.M1.conic: float = (
-                -1 - (2 / self.magnification**3) * self.back_focus_ratio
-            )
-            self.M2.conic: float = -(
-                ((self.magnification + 1) / (self.magnification - 1)) ** 2
-            ) - (2.0 * self.magnification * (self.magnification + 1)) / (
-                (self.magnification - 1) ** 3 * self.back_focus_ratio
-            )
-
-        elif self.design == "Dall-Kirkham":
-            self.M1.conic: float = -(
-                ((self.magnification - 1) / (self.magnification + 1)) ** 2
-            )
-            self.M2.conic = 0
-
-        elif self.design == "Gregorian":
-            self.M1.conic = -1
-            self.eccentricity: float = (self.magnification + 1) / (
-                self.magnification - 1
-            )
-            self.M2.conic: float = -(self.eccentricity**2)
-        else:
-            self.M1.conic: float = np.nan
-            self.M2.conic: float = np.nan
-
-        return self
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ScalarQuantity
 
 
 def render_table(title: str, rows: list[tuple[str, str]]) -> None:
@@ -309,6 +154,59 @@ with cols[0]:
         help="Distance from the secondary vertex to the final focus.",
     )
 
+    maximum_field: ScalarQuantity = st_quantity_input(
+        "Maximum field",
+        min_value=0.0,
+        value=1.0,
+        step=0.1,
+        possible_units=["arcmin", "arcsec", "milliradian", "deg"],
+        default_unit="deg",
+        key="maximum_field",
+    )
+
+    m2_diameter = None
+    separation = None
+
+    # if design == "Dall-Kirkham":
+    #     # Need an additional parameter to uniquely determine the prescription for Dall-Kirkham, since the secondary is spherical and doesn't have a conic constant to solve for.
+    #     st.info(
+    #         """For a Dall-Kirkham design, you must specify one additional parameter to
+    #         uniquely determine the prescription."""
+    #     )
+
+    #     dall_kirkham_parameter: str | None = st.segmented_control(
+    #         "Specify the secondary mirror by",
+    #         ["M2 Diameter", "M1-M2 Separation"],
+    #         default="M2 Diameter",
+    #         key="dall_kirkham_parameter",
+    #     )
+
+    #     if dall_kirkham_parameter is None:
+    #         st.error("Please select a Dall-Kirkham specification mode.")
+    #         st.stop()
+    #     elif dall_kirkham_parameter == "M2 Diameter":
+    #         m2_diameter: ScalarQuantity = st_quantity_input(
+    #             "Secondary mirror diameter (D2)",
+    #             min_value=0.0,
+    #             value=0.3 * diameter.to(u.mm).value,
+    #             step=1.0,
+    #             possible_units=["mm", "cm", "m"],
+    #             default_unit="mm",
+    #             key="m2_diameter",
+    #         )
+    #         separation = None
+    #     elif dall_kirkham_parameter == "M1-M2 Separation":
+    #         separation: ScalarQuantity = st_quantity_input(
+    #             "Primary-secondary separation (d)",
+    #             min_value=0.0,
+    #             value=0.5 * primary_focal_length.to(u.m).value,
+    #             step=1.0,
+    #             possible_units=["mm", "cm", "m"],
+    #             default_unit="m",
+    #             key="separation",
+    #         )
+    #         m2_diameter = None
+
 if design != "Newtonian" and system_focal_length < primary_focal_length:
     st.error(
         f"System focal length ({system_focal_length:.1f}) must be greater than the primary focal length ({primary_focal_length:.1f})."
@@ -321,19 +219,16 @@ if design != "gregorian" and back_focal_distance >= primary_focal_length:
     )
     st.stop()
 
-# try:
 telescope: TelescopeDesign = TelescopeDesign(
     name=f"{design} D={diameter:.1f} F={system_focal_length:.1f}",
     design=design,
     M1=Mirror(diameter=diameter, radius=2 * primary_focal_length),
-    M2=Mirror(),
+    M2=Mirror(diameter=m2_diameter),
     system_focal_length=system_focal_length,
     back_focal_distance=back_focal_distance,
+    maximum_field=maximum_field,
+    primary_secondary_separation=separation,
 )
-
-# except Exception as exc:
-#     st.error(f"Calculation error: {exc}")
-#     st.stop()
 
 with cols[1]:
     metric_cols = st.columns(2)
@@ -344,11 +239,13 @@ with cols[1]:
         )
 
     with metric_cols[1]:
-        st.metric("System f/number", f"{telescope.system_f_number:.4g}", border=True)
+        st.metric("System f/number", f"{telescope.system_f_number:,.5g}", border=True)
 
     with metric_cols[0]:
         st.metric(
-            "Primary-secondary separation", f"{telescope.separation:.4g}", border=True
+            "Primary-secondary separation",
+            f"{telescope.primary_secondary_separation:,.5g}",
+            border=True,
         )
 
     with metric_cols[1]:
@@ -360,13 +257,13 @@ with cols[1]:
         st.metric("Primary radius R1", f"{telescope.M1.radius:.6g}", border=True)
 
     with metric_cols[1]:
-        st.metric("Primary conic K1", f"{telescope.M1.conic:.4g}", border=True)
+        st.metric("Primary conic K1", f"{telescope.M1.conic:,.5g}", border=True)
 
     with metric_cols[0]:
-        st.metric("Secondary radius R2", f"{telescope.M2.radius:.4g}", border=True)
+        st.metric("Secondary radius R2", f"{telescope.M2.radius:,.5g}", border=True)
 
     with metric_cols[1]:
-        st.metric("Secondary conic K2", f"{telescope.M2.conic:.4g}", border=True)
+        st.metric("Secondary conic K2", f"{telescope.M2.conic:,.5g}", border=True)
 
 st.divider()
 
@@ -375,11 +272,14 @@ with table_cols[0]:
     render_table(
         "System Parameters",
         [
-            ("System focal length", f"{telescope.system_focal_length:.5g}"),
-            ("System f/#", f"{telescope.system_f_number:.4g}"),
-            ("Primary-secondary separation d", f"{telescope.separation:.4g}"),
-            ("Central obstruction fraction", f"{telescope.central_obstruction:.4g}"),
-            ("Back focal distance", f"{telescope.back_focal_distance:.4g}"),
+            ("System focal length", f"{telescope.system_focal_length:,.5g}"),
+            ("System f/#", f"{telescope.system_f_number:,.5g}"),
+            (
+                "Primary-secondary separation d",
+                f"{telescope.primary_secondary_separation:,.5g}",
+            ),
+            ("Central obstruction fraction", f"{telescope.central_obstruction:,.5g}"),
+            ("Back focal distance", f"{telescope.back_focal_distance:,.5g}"),
         ],
     )
 
@@ -387,20 +287,46 @@ with table_cols[1]:
     render_table(
         "Primary Mirror",
         [
-            ("Diameter D1", f"{telescope.M1.diameter:.4g}"),
-            ("Radius of curvature R1", f"{telescope.M1.radius:.4g}"),
-            ("Conic constant K1", f"{telescope.M1.conic:.4g}"),
-            ("Focal length f1", f"{telescope.M1.focal_length:.4g}"),
-            ("Primary f/number", f"{telescope.M1.f_number:.4g}"),
+            ("Diameter D1", f"{telescope.M1.diameter:,.5g}"),
+            ("Radius of curvature R1", f"{telescope.M1.radius:,.5g}"),
+            ("Conic constant K1", f"{telescope.M1.conic:,.5g}"),
+            ("Focal length f1", f"{telescope.M1.focal_length:,.5g}"),
+            ("Primary f/number", f"{telescope.M1.f_number:,.5g}"),
         ],
     )
 with table_cols[2]:
     render_table(
         "Secondary Mirror",
         [
-            ("Diameter D2", f"{telescope.M2.diameter:.4g}"),
-            ("Radius of curvature R2", f"{telescope.M2.radius:.4g}"),
-            ("Conic constant K2", f"{telescope.M2.conic:.4g}"),
-            ("Focal length f2", f"{telescope.M2.focal_length:.4g}"),
+            ("Diameter D2", f"{telescope.M2.diameter:,.5g}"),
+            ("Radius of curvature R2", f"{telescope.M2.radius:,.5g}"),
+            ("Conic constant K2", f"{telescope.M2.conic:,.5g}"),
+            ("Focal length f2", f"{telescope.M2.focal_length:,.5g}"),
+            ("Extension factor", f"{telescope.extension_factor:,.5g}"),
+        ],
+    )
+
+performance_cols = st.columns(2)
+with performance_cols[0]:
+    render_table(
+        "Optical Aberrations",
+        [
+            ("Coma coefficient", f"{telescope.coma_coefficient:,.5g}"),
+            ("Coma", f"{telescope.coma:,.5g}"),
+            ("Astigmatism coefficient", f"{telescope.astigmatism_coefficient:,.5g}"),
+            ("Astigmatism", f"{telescope.astigmatism:,.5g}"),
+            ("Petzval curvature", f"{telescope.petzval_curvature:,.5g}"),
+        ],
+    )
+with performance_cols[1]:
+    render_table(
+        "Focal plane",
+        [
+            ("Plate scale", f"{telescope.plate_scale:,.5g}"),
+            ("Image height at max field", f"{telescope.image_height:,.5g}"),
+            # ("Angular field of view", f"{telescope.angular_field_of_view:,.5g}"),
+            ("Angular resolution", f"{telescope.angular_resolution:,.5g}"),
+            ("Field curvature", f"{telescope.field_curvature:,.5g}"),
+            ("Radius of field curvature", f"{telescope.field_curvature_radius:,.5g}"),
         ],
     )
