@@ -159,7 +159,7 @@ with cols[0]:
         min_value=0.0,
         value=1.0,
         step=0.1,
-        possible_units=["arcmin", "arcsec", "milliradian", "deg"],
+        possible_units=["arcsec", "arcmin", "mrad", "deg"],
         default_unit="deg",
         key="maximum_field",
     )
