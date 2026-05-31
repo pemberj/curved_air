@@ -4,11 +4,11 @@
 //  - Ruff (Astral Software)
 {
   "workbench.colorCustomizations": {
-    "titleBar.activeBackground": "#77b0e0",
-    "titleBar.activeForeground": "#3a3a3a",
-    "titleBar.inactiveBackground": "#476c8a",
+    "titleBar.activeBackground": "#3e87c3",
+    "titleBar.activeForeground": "#232323",
+    "titleBar.inactiveBackground": "#4e667c",
     "titleBar.inactiveForeground": "#c2c2c2",
-    "activityBar.activeBorder": "#77b0e0"
+    "activityBar.activeBorder": "#3e87c3"
   },
   "editor.formatOnSave": true,
   "[python]": {
