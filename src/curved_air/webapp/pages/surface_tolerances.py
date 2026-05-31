@@ -46,7 +46,8 @@ with cols[0]:
         value=200.0,
         step=1.0,
         default_unit="mm",
-        help="""The surface diameter. This is used to calculate the sagitta, which is needed to convert between radius tolerance and fringe tolerance.""",
+        help="""The surface diameter. This is used to calculate the sagitta, which is
+        needed to convert between radius tolerance and fringe tolerance.""",
         key="diameter",
     )
 
@@ -58,7 +59,8 @@ with cols[0]:
         value=632.8,
         step=0.1,
         default_unit="nm",
-        help="""The wavelength at which the surface will be tested. This is used to convert between radius tolerance and fringe tolerance.""",
+        help="""The wavelength at which the surface will be tested. This is used to
+        convert between radius tolerance and fringe tolerance.""",
         key="wavelength",
     )
 
@@ -72,13 +74,18 @@ with cols[0]:
         help="""The nominal radius of curvature of the surface.""",
         key="radius",
     )
+    if radius < diameter / 2:
+        st.warning(
+            "The radius of curvature is less than half the diameter of the surface!"
+        )
 
     mode: str | None = st.segmented_control(
         label="Specify tolerances in:",
         options=["Radius", "Fringes"],
         selection_mode="single",
         default="Radius",
-        help="""Choose whether to specify the surface tolerances in terms of radius of curvature or in number of interference fringes.""",
+        help="""Choose whether to specify the surface tolerances in terms of radius of
+        curvature or in number of interference fringes.""",
         key="tolerance_specification_method",
     )
 
@@ -89,7 +96,9 @@ with cols[0]:
         neg_toggle: bool = st.toggle(
             label="Different positive and negative radius tolerances?",
             value=False,
-            help="""By default, the tolerance is specified symmetrically, with the positive and negative radius tolerances are the same. Toggle this on if you want to specify different positive and negative radius tolerances.""",
+            help="""By default, the tolerance is specified symmetrically, with the
+            positive and negative radius tolerances are the same. Toggle this on if you
+            want to specify different positive and negative radius tolerances.""",
             key="neg_toggle",
         )
 
@@ -123,7 +132,9 @@ with cols[0]:
             value=5.0,
             step=0.1,
             width=400,
-            help="""The surface tolerance in number of interference fringes. 1 fringe = 1/2 test wavelength of sagitta difference between the nominal and the tolerated curvature of the surface.""",
+            help="""The surface tolerance in number of interference fringes.
+            1 fringe = 1/2 test wavelength of sagitta difference between the nominal and
+            the tolerated curvature of the surface.""",
             key="fringes",
         )
 
@@ -135,7 +146,8 @@ with cols[0]:
             value="",
             width=400,
             placeholder=f"Surface {num_surfaces + 1}",
-            help="""An optional name for the surface. This is used to identify the surface in the table to the side.""",
+            help="""An optional name for the surface. This is used to identify the
+            surface in the table to the side.""",
             key="surface_name",
         )
 
