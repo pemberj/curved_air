@@ -63,5 +63,10 @@ st.navigation(
             title="CTE Match",
             icon="🔩",
         ),
+        st.Page(
+            page="pages/solid_angle_and_etendue.py",
+            title="Solid Angle & Étendue",
+            icon="📐",
+        ),
     ]
 ).run()
