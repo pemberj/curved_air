@@ -123,6 +123,11 @@ with cols[0]:
 
     assert isinstance(half_cone_angle, ScalarQuantity)
 
+    if half_cone_angle >= 90 * u.deg:
+        st.error(
+            "The values you have entered correspond to a half cone angle greater than 90 degrees."
+        )
+
     solid_angle: ScalarQuantity = compute_solid_angle(half_cone_angle=half_cone_angle)
 
     if full_cone_angle is None:
@@ -137,9 +142,9 @@ with cols[0]:
     subcols = st.columns(3)
 
     with subcols[0]:
-        st.metric("Half cone angle", f"{half_cone_angle.to(u.deg):.4g}")
+        st.metric("Half cone angle", f"{half_cone_angle:.4g}")
     with subcols[1]:
-        st.metric("Full cone angle", f"{full_cone_angle.to(u.deg):.4g}")
+        st.metric("Full cone angle", f"{full_cone_angle:.4g}")
     with subcols[2]:
         st.metric("Solid angle $\\Omega$", f"{solid_angle.to(u.sr):.4g}")
 
@@ -192,10 +197,10 @@ with cols[0]:
             )
 
     line: dict[str, str] = {
-        "Half cone angle": f"{half_cone_angle.to(u.deg):.5g}",
-        "Full cone angle": f"{full_cone_angle.to(u.deg):.5g}",
+        "Half cone angle": f"{half_cone_angle:.5g}",
+        "Full cone angle": f"{full_cone_angle:.5g}",
         "NA": f"{numerical_aperture:.5g}",
-        "f/#": f"{f_number:.5g}",
+        "f/#": f"{f_number:,.5g}",
         "Solid angle": f"{solid_angle:.5g}",
         "Area": f"{area:.5g}" if area is not None else "--",
         "Étendue": f"{etendue.to(u.m**2 * u.sr):.5g}" if area is not None else "--",
