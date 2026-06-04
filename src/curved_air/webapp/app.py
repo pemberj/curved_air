@@ -3,8 +3,9 @@
 """
 curved_air web interface
 
-Main entry point for the Streamlit-based calculator web app.
-Run with:  uv run streamlit run src/curved_air/webapp/app.py
+Main entry point for the multi-page Streamlit webapp
+
+Run with `uv run streamlit run src/curved_air/webapp/app.py`
 """
 
 import streamlit as st
@@ -16,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.navigation(
+nav = st.navigation(
     pages=[
         st.Page(
             page="pages/home.py",
@@ -69,4 +70,6 @@ st.navigation(
             icon="📐",
         ),
     ]
-).run()
+)
+
+nav.run()
