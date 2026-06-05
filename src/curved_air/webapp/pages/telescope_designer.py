@@ -37,7 +37,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Telescope Designer")
+st.header("Telescope Designer", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(

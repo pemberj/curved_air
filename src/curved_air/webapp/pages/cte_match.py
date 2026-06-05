@@ -31,7 +31,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("CTE Match")
+st.header("CTE Match", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(
@@ -97,7 +97,7 @@ materials: dict[str, Material] = {
 cols = st.columns([1, 2])
 
 with cols[0]:
-    st.subheader("Select Glass")
+    st.subheader("Select Glass", anchor=False)
 
     catalogue: str = st.selectbox(
         "Glass Catalogue",
@@ -216,5 +216,5 @@ with cols[1]:
         }
     )
 
-    st.subheader("Best Matches")
+    st.subheader("Best Matches", anchor=False)
     st.dataframe(styled_df, width="stretch", height=500, hide_index=True)

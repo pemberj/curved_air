@@ -23,6 +23,7 @@ nav = st.navigation(
             page="pages/home.py",
             title="Home",
             icon="🏠",
+            default=True,
         ),
         st.Page(
             page="pages/echelle_spectrograph.py",

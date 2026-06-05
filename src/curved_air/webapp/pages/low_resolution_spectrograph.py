@@ -22,7 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Low Resolution Spectrograph")
+st.header("Low Resolution Spectrograph", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(

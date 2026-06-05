@@ -33,7 +33,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Atmospheric Dispersion Corrector")
+st.header("Atmospheric Dispersion Corrector", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(

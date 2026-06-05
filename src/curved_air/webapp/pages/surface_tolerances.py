@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Surface Tolerances")
+st.header("Surface Tolerances", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(

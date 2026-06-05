@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.title("Curved Air: Optical Design Tools")
+st.title("Curved Air: Optical Design Tools", anchor=False)
 
 st.markdown(
     "Welcome to [**Curved Air**](https://curvedair.jakepember.com/). Use the sidebar to navigate between the available tools."

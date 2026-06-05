@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Solid Angle & Étendue Calculator")
+st.header("Solid Angle & Étendue Calculator", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(
@@ -48,7 +48,7 @@ with st.expander("About this tool", expanded=False):
 cols = st.columns(2)
 
 with cols[0]:
-    st.subheader("Solid angle input")
+    st.subheader("Solid angle input", anchor=False)
 
     full_cone_angle = None
     half_cone_angle = None
@@ -153,7 +153,7 @@ with cols[0]:
     with subcols[1]:
         st.metric("Focal ratio f/# (in air)", f"{f_number:.4g}")
 
-    st.subheader("Étendue")
+    st.subheader("Étendue", anchor=False)
 
     area_mode: str = st.radio(
         "Area input", ["None", "Direct area", "Circle diameter"], horizontal=True
