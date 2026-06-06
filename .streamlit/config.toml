@@ -1,4 +1,20 @@
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = "type"
+showErrorLinks = false
+
+[server]
+headless = true
+
 [theme]
 base = "dark"
 font = "Quicksand:https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap, sans-serif"
 baseFontSize = 16
+primaryColor = "#E5660C"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#323B4F"
+textColor = "#F9FAFB"
+linkColor = "#E5660C"
+baseRadius = "full"
