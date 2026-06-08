@@ -451,6 +451,7 @@ def st_quantity_input(
     max_value: float | None = None,
     value: float = 0.0,
     step: float = 1.0,
+    format: str | None = None,  # noqa: A002
     default_unit: str | None = None,
     disabled: bool = False,
     help: str | None = None,  # noqa: A002
@@ -482,6 +483,7 @@ def st_quantity_input(
             max_value=max_value,
             value=value,
             step=step,
+            format=format,
             width=200,
             disabled=disabled,
             help=help,

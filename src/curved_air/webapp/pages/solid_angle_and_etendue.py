@@ -71,6 +71,7 @@ with cols[0]:
             max_value=180.0,
             value=30.0,
             step=0.1,
+            format="%.6g",
             possible_units=["arcsec", "arcmin", "deg", "mrad", "rad"],
             default_unit="deg",
             key="full_cone_angle",
@@ -84,6 +85,7 @@ with cols[0]:
             max_value=180.0,
             value=30.0,
             step=0.1,
+            format="%.6g",
             possible_units=["arcsec", "arcmin", "deg", "mrad", "rad"],
             default_unit="deg",
             key="half_cone_angle",
@@ -95,6 +97,7 @@ with cols[0]:
             min_value=0.5,
             value=2.0,
             step=0.1,
+            format="%.4g",
             width=200,
             help="Calculation uses paraxial relation in air: NA~1/(2 f/#).",
         )
@@ -109,6 +112,7 @@ with cols[0]:
             max_value=1.0,
             value=0.25,
             step=0.01,
+            format="%.6g",
             width=200,
         )
         half_cone_angle = np.arcsin(numerical_aperture) * u.rad
