@@ -55,7 +55,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Fibre Loss Converter")
+st.header("Fibre Loss Converter", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(

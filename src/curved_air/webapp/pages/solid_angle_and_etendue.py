@@ -20,14 +20,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Solid Angle & Étendue Calculator")
+st.header("Solid Angle & Étendue Calculator", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(
         """
-        Use this tool to compute the solid angle subtended by a beam described by one of: full cone angle, half cone angle, focal ratio (f/#) or numerical aperture (NA)."
+        Use this tool to compute the solid angle subtended by a beam described by one of: full cone angle, half cone angle, focal ratio (f/#) or numerical aperture (NA).
 
         You can also optionally compute the étendue with an additional input of the emitting area.
+
+        To compare multiple computations, you can add results to the table, where the data can be sorted and downloaded as a CSV file.
 
         All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
 
@@ -46,7 +48,13 @@ with st.expander("About this tool", expanded=False):
 cols = st.columns(2)
 
 with cols[0]:
-    st.subheader("Solid angle input")
+    st.subheader("Solid angle input", anchor=False)
+
+    full_cone_angle = None
+    half_cone_angle = None
+    numerical_aperture = None
+    f_number = None
+
     mode: str | None = st.segmented_control(
         "Choose input type",
         [
@@ -61,29 +69,26 @@ with cols[0]:
         st.warning("Please select an input type for the solid angle.")
         st.stop()
 
-    half_cone_angle = None
-    note = ""
-
     if mode == "Full cone angle":
         full_cone_angle: ScalarQuantity = st_quantity_input(
             "Full cone angle",
             min_value=0.0,
             max_value=180.0,
-            value=30.0,
+            value=14.362,
             step=0.1,
             format="%.6g",
             possible_units=["arcsec", "arcmin", "deg", "mrad", "rad"],
             default_unit="deg",
             key="full_cone_angle",
         )
-        half_cone_angle: ScalarQuantity = 0.5 * full_cone_angle
+        half_cone_angle: ScalarQuantity = full_cone_angle / 2
 
     elif mode == "Half cone angle":
         half_cone_angle: ScalarQuantity = st_quantity_input(
             "Half cone angle",
             min_value=0.0,
-            max_value=180.0,
-            value=30.0,
+            max_value=90.0,
+            value=7.181,
             step=0.1,
             format="%.6g",
             possible_units=["arcsec", "arcmin", "deg", "mrad", "rad"],
@@ -95,12 +100,14 @@ with cols[0]:
         f_number: float = st.number_input(
             "Focal ratio f/#",
             min_value=0.5,
-            value=2.0,
+            value=4.0,
             step=0.1,
             format="%.4g",
             width=200,
             help="Calculation uses paraxial relation in air: NA~1/(2 f/#).",
+            key="f_number",
         )
+
         # For paraxial rays in air: NA~1/(2 f/#)
         numerical_aperture: float = 1 / (2 * f_number)
         half_cone_angle: ScalarQuantity = np.arcsin(numerical_aperture) * u.rad
@@ -110,35 +117,48 @@ with cols[0]:
             "Numerical aperture NA",
             min_value=0.0,
             max_value=1.0,
-            value=0.25,
+            value=0.125,
             step=0.01,
             format="%.6g",
             width=200,
+            key="numerical_aperture",
         )
         half_cone_angle = np.arcsin(numerical_aperture) * u.rad
 
-    solid_angle: ScalarQuantity = compute_solid_angle(half_cone_angle)
-    full_cone_angle_out: ScalarQuantity = 2 * half_cone_angle
-    na_out: ScalarQuantity = np.sin(half_cone_angle)  # ty:ignore[invalid-assignment]
+    assert isinstance(half_cone_angle, ScalarQuantity)
 
-    if note:
-        st.caption(note)
+    if half_cone_angle >= 90 * u.deg:
+        st.error(
+            "The values you have entered correspond to a half cone angle greater than 90 degrees."
+        )
+
+    solid_angle: ScalarQuantity = compute_solid_angle(half_cone_angle=half_cone_angle)
+
+    if full_cone_angle is None:
+        full_cone_angle: ScalarQuantity = 2 * half_cone_angle
+
+    if numerical_aperture is None:
+        numerical_aperture: float = np.sin(half_cone_angle)  # ty:ignore[invalid-assignment]
+
+    if f_number is None:
+        f_number: float = 1 / (2 * numerical_aperture)
 
     subcols = st.columns(3)
 
     with subcols[0]:
-        st.metric("Half cone angle", f"{half_cone_angle.to(u.deg):.4g}")
+        st.metric("Half cone angle", f"{half_cone_angle:.4g}")
     with subcols[1]:
-        st.metric("Full cone angle", f"{full_cone_angle_out.to(u.deg):.4g}")
+        st.metric("Full cone angle", f"{full_cone_angle:.4g}")
     with subcols[2]:
         st.metric("Solid angle $\\Omega$", f"{solid_angle.to(u.sr):.4g}")
 
     with subcols[0]:
-        st.metric("Numerical aperture NA", f"{na_out:.4g}")
+        st.metric("Numerical aperture NA", f"{numerical_aperture:.4g}")
     with subcols[1]:
-        st.metric("Focal ratio f/# (in air)", f"{0.5 / na_out:.4g}")
+        st.metric("Focal ratio f/# (in air)", f"{f_number:.4g}")
 
-    st.subheader("Étendue")
+    st.subheader("Étendue", anchor=False)
+
     area_mode: str = st.radio(
         "Area input", ["None", "Direct area", "Circle diameter"], horizontal=True
     )
@@ -169,6 +189,7 @@ with cols[0]:
 
     if area is not None:
         etendue: ScalarQuantity = area * solid_angle
+
         subcols = st.columns(2)
 
         with subcols[0]:
@@ -181,9 +202,9 @@ with cols[0]:
 
     line: dict[str, str] = {
         "Half cone angle": f"{half_cone_angle:.5g}",
-        "Full cone angle": f"{full_cone_angle_out:.5g}",
-        "NA": f"{na_out:.5g}",
-        "f/#": f"{0.5 / na_out:.5g}",
+        "Full cone angle": f"{full_cone_angle:.5g}",
+        "NA": f"{numerical_aperture:.5g}",
+        "f/#": f"{f_number:,.5g}",
         "Solid angle": f"{solid_angle:.5g}",
         "Area": f"{area:.5g}" if area is not None else "--",
         "Étendue": f"{etendue.to(u.m**2 * u.sr):.5g}" if area is not None else "--",
@@ -203,7 +224,7 @@ with cols[0]:
 
 with cols[1]:
     if not df.empty:
-        st.dataframe(df, hide_index=True, width="stretch", height=600)
+        st.dataframe(df, hide_index=True, width="stretch", height=650)
 
         subcols = st.columns(2)
 

@@ -44,7 +44,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.header("Echelle Spectrograph")
+st.header("Echelle Spectrograph", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     st.markdown(
