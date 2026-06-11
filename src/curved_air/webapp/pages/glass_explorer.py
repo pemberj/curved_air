@@ -472,8 +472,8 @@ with cols[1]:
                     ],
                     y=[selected_glass.n(nV_plot_wavelength)],
                     mode="markers",
-                    text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
-                    customdata=[g.name for g in catalogue_glasses],
+                    text=f"{selected_glass.manufacturer} {selected_glass.name}",
+                    customdata=selected_glass.name,
                     hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
                     marker={
                         "size": 16,
