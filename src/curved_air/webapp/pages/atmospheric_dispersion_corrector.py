@@ -163,7 +163,7 @@ with st.sidebar:
             * u.degree
         )
 
-    with st.expander(label="Contraints", expanded=False):
+    with st.expander(label="Constraints", expanded=False):
         optimisation_criterion: str = st.segmented_control(
             "ADC optimisation criterion",
             ["PTV", "RMS", "RSS", "Max. Abs."],
