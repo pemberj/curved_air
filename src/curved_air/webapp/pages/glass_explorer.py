@@ -422,10 +422,6 @@ df: pd.DataFrame = pd.DataFrame(
     },
 )
 
-# st.text(working_catalogue.comment)
-
-selected_glass_name: str | None = st.session_state.get("selected_glass_name")
-
 cols = st.columns(2)
 
 with cols[0]:
@@ -458,7 +454,10 @@ with cols[1]:
         # Use a default colour palette cycler
         catalogue_colors: dict[str, str] = {
             catalogue: px.colors.qualitative.Dark24[i]
-            for i, catalogue in enumerate(list(GLASS_CATALOGUES.keys()))
+            for i, catalogue in enumerate(
+                list(GLASS_CATALOGUES.keys())
+                + [m for m in df["Catalogue"].unique() if m not in GLASS_CATALOGUES]
+            )  # TODO: add uploaded catalogues to this list and color dict
         }
 
         for catalogue in unique_catalogues:
@@ -484,27 +483,27 @@ with cols[1]:
             )
 
         # add selected point(s) if applicable
-        for selected_glass in selected_glasses:
-            fig.add_trace(
-                trace=go.Scatter(
-                    x=[
-                        selected_glass.dV(nV_plot_wavelength)
-                        if st.session_state.get("use_differential_Abbe_number", False)
-                        else selected_glass.V_d
-                    ],
-                    y=[selected_glass.n(nV_plot_wavelength)],
-                    mode="markers",
-                    text=[f"{selected_glass.manufacturer} {selected_glass.name}"],
-                    customdata=[selected_glass.name],
-                    hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
-                    marker={
-                        "size": 16,
-                        "symbol": "cross-thin",
-                        "line": {"width": 1.5, "color": "white"},
-                    },
-                    showlegend=False,
-                )
+        fig.add_trace(
+            trace=go.Scatter(
+                x=[
+                    g.dV(nV_plot_wavelength)
+                    if st.session_state.get("use_differential_Abbe_number", False)
+                    else g.V_d
+                    for g in selected_glasses
+                ],
+                y=[g.n(nV_plot_wavelength) for g in selected_glasses],
+                mode="markers",
+                text=[f"{g.manufacturer} {g.name}" for g in selected_glasses],
+                customdata=[g.name for g in selected_glasses],
+                hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
+                marker={
+                    "size": 16,
+                    "symbol": "cross-thin",
+                    "line": {"width": 1.5, "color": "white"},
+                },
+                name="Selected",
             )
+        )
 
         fig.update_layout(
             title="Abbe Diagram of Glasses in Working Catalogue",
@@ -517,13 +516,14 @@ with cols[1]:
 
         fig.update_xaxes(autorange="reversed")
 
-        abbe_selected = st.plotly_chart(
+        st.plotly_chart(
             fig,
             width="stretch",
             on_select="rerun",
             selection_mode="points",
             key="abbe_diagram",
         )
+
 
 st.divider()
 
