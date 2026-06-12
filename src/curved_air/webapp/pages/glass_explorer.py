@@ -103,7 +103,18 @@ with st.sidebar:
     agf_paths: list[Path] = [GLASS_CATALOGUES[c] for c in base_catalogues]
 
     if base_catalogues:
-        working_catalogue += GlassCatalogue(agf=agf_paths)
+        commented = False
+        for c in base_catalogues:
+            _catalogue = GlassCatalogue(agf=GLASS_CATALOGUES[c])
+
+            if _catalogue.comment:
+                commented = True
+                st.text(f"{c} comment: {_catalogue.comment}")
+
+            working_catalogue += _catalogue
+
+        if commented:
+            st.divider()
 
     uploaded_files: list[st.UploadedFile] = st.file_uploader(
         "Upload AGF file(s)",
@@ -113,15 +124,26 @@ with st.sidebar:
     )
 
     if uploaded_files:
-        working_catalogue += GlassCatalogue(
-            agf=[
-                AGFData(
-                    agf_string=StringIO(f.getvalue().decode("utf-8")).read(),
-                    filename=f.name,
-                )
-                for f in uploaded_files
-            ]
-        )
+        commented = False
+
+        for f in uploaded_files:
+            _catalogue = GlassCatalogue(
+                agf=[
+                    AGFData(
+                        agf_string=StringIO(f.getvalue().decode("utf-8")).read(),
+                        filename=f.name,
+                    )
+                ]
+            )
+
+            if _catalogue.comment:
+                commented = True
+                st.text(f"{f.name} comment: {_catalogue.comment}")
+
+            working_catalogue += _catalogue
+
+        if commented:
+            st.divider()
 
     st.metric(
         "Glasses in working catalogue",
