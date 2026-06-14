@@ -26,12 +26,6 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.header("Atmospheric Dispersion Corrector", anchor=False)
 

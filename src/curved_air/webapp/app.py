@@ -8,11 +8,15 @@ Main entry point for the multi-page Streamlit webapp
 Run with `uv run streamlit run src/curved_air/webapp/app.py`
 """
 
+from pathlib import Path
+
 import streamlit as st
+
+APP_PATH = Path(__file__).parent
 
 st.set_page_config(
     page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
+    page_icon=Path(APP_PATH / "static/icon.png"),
     layout="wide",
     initial_sidebar_state="expanded",
 )

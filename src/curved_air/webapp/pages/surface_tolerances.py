@@ -6,13 +6,6 @@ import streamlit as st
 from curved_air.type_hinting import ScalarQuantity
 from curved_air.utils import SurfaceTolerance, st_quantity_input
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 st.header("Surface Tolerances", anchor=False)
 
 with st.expander("About this tool", expanded=False):

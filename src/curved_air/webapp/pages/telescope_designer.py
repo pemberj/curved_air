@@ -30,13 +30,6 @@ def render_table(title: str, rows: list[tuple[str, str]]) -> None:
     )
 
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 st.header("Telescope Designer", anchor=False)
 
 with st.expander("About this tool", expanded=False):

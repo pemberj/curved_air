@@ -15,12 +15,6 @@ from curved_air.utils import st_quantity_input
 
 plt.style.use(plot_style)
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.header("Low Resolution Spectrograph", anchor=False)
 

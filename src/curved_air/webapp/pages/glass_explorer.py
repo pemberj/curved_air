@@ -53,12 +53,6 @@ wavelength_options: dict[str, ScalarQuantity | None] = {
     "Custom": None,
 }
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.header("Glass Explorer", anchor=False)
 

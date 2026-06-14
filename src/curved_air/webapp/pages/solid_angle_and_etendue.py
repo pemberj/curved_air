@@ -13,13 +13,6 @@ def compute_solid_angle(half_cone_angle: ScalarQuantity) -> ScalarQuantity:
     return 2 * np.pi * (1 - np.cos(half_cone_angle)) * u.sr
 
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 st.header("Solid Angle & Étendue Calculator", anchor=False)
 
 with st.expander("About this tool", expanded=False):

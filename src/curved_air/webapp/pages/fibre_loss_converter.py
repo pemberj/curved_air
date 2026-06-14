@@ -48,13 +48,6 @@ def dBkm_to_percent(attenuation: Quantity, length: Quantity) -> NDArray[np.float
     return 100 * transmission_fraction
 
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    page_icon="🌈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 st.header("Fibre Loss Converter", anchor=False)
 
 with st.expander("About this tool", expanded=False):
