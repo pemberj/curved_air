@@ -1,9 +1,7 @@
 #! uv run streamlit run
 
-"""
-This calculator allows for calculating and generating a report on the performance of a
-rotational atmospheric dispersion corrector (ADC) design with two glass types.
-"""
+# This calculator allows for calculating and generating a report on the performance of a
+# rotational atmospheric dispersion corrector (ADC) design with two glass types.
 
 from __future__ import annotations
 
@@ -28,21 +26,23 @@ plt.style.use(plot_style)
 st.header("CTE Match", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    st.markdown(
-        """
-        Use this tool to find materials with a coefficient of thermal expansion (CTE) that matches that of a given optical glass. This is useful for selecting materials for optomechanical components such as lens mounts, where a good CTE match can help to reduce stress on the optics and improve the overall performance of sensitive systems.
+    """
+    Use this tool to find materials with a coefficient of thermal expansion (CTE) that
+    matches that of a given optical glass. This is useful for selecting materials for
+    optomechanical components such as lens mounts, where a good CTE match can help to
+    reduce stress on the optics and improve the overall performance of sensitive systems.
 
-        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
-        Please get in contact if you have any questions, suggestions, or find any bugs!
+    Please get in contact if you have any questions, suggestions, or find any bugs!
 
-        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool useful and want to support its development!
-        """
-    )
+    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+    useful and want to support its development!
+    """
 
     st.iframe(
         """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
         """
     )
 

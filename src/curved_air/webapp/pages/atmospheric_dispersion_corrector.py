@@ -1,9 +1,7 @@
 #! uv run streamlit run
 
-"""
-This calculator allows for calculating and generating a report on the performance of a
-rotational atmospheric dispersion corrector (ADC) design with two glass types.
-"""
+# This calculator allows for calculating and generating a report on the performance of a
+# rotational atmospheric dispersion corrector (ADC) design with two glass types.
 
 from __future__ import annotations
 
@@ -30,24 +28,23 @@ plt.style.use(plot_style)
 st.header("Atmospheric Dispersion Corrector", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    st.markdown(
-        """
-        This tool allows for the basic design of a rotational atmospheric dispersion
-        corrector (ADC) with two different glasses. Given the glass choice and other
-        input parameters, an ADC system is optimised and a report is generated on its
-        expected performance.
+    """
+    This tool allows for the basic design of a rotational atmospheric dispersion
+    corrector (ADC) with two different glasses. Given the glass choice and other input
+    parameters, an ADC system is optimised and a report is generated on its expected
+    performance.
 
-        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
-        Please get in contact if you have any questions, suggestions, or find any bugs!
+    Please get in contact if you have any questions, suggestions, or find any bugs!
 
-        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool useful and want to support its development!
-        """
-    )
+    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+    useful and want to support its development!
+    """
 
     st.iframe(
         """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
         """
     )
 

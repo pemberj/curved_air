@@ -16,25 +16,27 @@ def compute_solid_angle(half_cone_angle: ScalarQuantity) -> ScalarQuantity:
 st.header("Solid Angle & Étendue Calculator", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    st.markdown(
-        """
-        Use this tool to compute the solid angle subtended by a beam described by one of: full cone angle, half cone angle, focal ratio (f/#) or numerical aperture (NA).
+    """
+    Use this tool to compute the solid angle subtended by a beam described by one of:
+    full cone angle, half cone angle, focal ratio (f/#) or numerical aperture (NA).
 
-        You can also optionally compute the étendue with an additional input of the emitting area.
+    You can also optionally compute the étendue with an additional input of the
+    emitting area.
 
-        To compare multiple computations, you can add results to the table, where the data can be sorted and downloaded as a CSV file.
+    To compare multiple computations, you can add results to the table, where the data
+    can be sorted and downloaded as a CSV file.
 
-        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
-        Please get in contact if you have any questions, suggestions, or find any bugs!
+    Please get in contact if you have any questions, suggestions, or find any bugs!
 
-        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool useful and want to support its development!
-        """
-    )
+    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+    useful and want to support its development!
+    """
 
     st.iframe(
         """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
         """,
     )
 

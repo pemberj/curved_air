@@ -1,13 +1,11 @@
 #! uv run streamlit run
 
-"""
-Glass Explorer
+# Glass Explorer
 
-A frontend for loading one or more existing glass catalogues in AGF format (with the
-option to upload your own), viewing the glasses on an Abbe diagram and others, filtering
-glasses by various parameters, and saving (downloading) the filtered catalogue as an AGF
-for use in Zemax (and elsewhere?).
-"""
+# A frontend for loading one or more existing glass catalogues in AGF format (with the
+# option to upload your own), viewing the glasses on an Abbe diagram and others,
+# filtering glasses by various parameters, and saving (downloading) the filtered
+# catalogue as an AGF for use in Zemax (and elsewhere?).
 
 # TODO: Plot differential relative partial dispersion (dRPD) diagram
 
@@ -57,29 +55,27 @@ wavelength_options: dict[str, ScalarQuantity | None] = {
 st.header("Glass Explorer", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    st.markdown(
-        """
-        This tool allows querying, inspection, and filtering of glass catalogues for the
-        purpose of creating custom catalogues for use in Zemax projects or similar.
+    """
+    This tool allows querying, inspection, and filtering of glass catalogues for the
+    purpose of creating custom catalogues for use in Zemax projects or similar.
 
-        You can start from one or more of the catalogues included in the curved_air
-        repo, and/or upload your own AGF files.
+    You can start from one or more of the catalogues included in the curved_air repo,
+    and/or upload your own AGF files.
 
-        The catalogue can then be filtered by various parameters, and the filtered
-        catalogue can be downloaded as an AGF file for use in your optical design
-        projects.
+    The catalogue can then be filtered by various parameters, and the filtered catalogue
+    can be downloaded as an AGF file for use in your optical design projects.
 
-        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
-        Please get in contact if you have any questions, suggestions, or find any bugs!
+    Please get in contact if you have any questions, suggestions, or find any bugs!
 
-        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool useful and want to support its development!
-        """
-    )
+    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+    useful and want to support its development!
+    """
 
     st.iframe(
         """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
         """,
     )
 

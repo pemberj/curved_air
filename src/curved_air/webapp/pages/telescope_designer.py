@@ -1,11 +1,5 @@
 #! uv run streamlit run
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-# import matplotlib.pyplot as plt
-# import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -15,10 +9,8 @@ from curved_air.telescopes import (
     Mirror,
     TelescopeDesign,
 )
+from curved_air.type_hinting import ScalarQuantity
 from curved_air.utils import st_quantity_input
-
-if TYPE_CHECKING:
-    from curved_air.type_hinting import ScalarQuantity
 
 
 def render_table(title: str, rows: list[tuple[str, str]]) -> None:
@@ -33,23 +25,25 @@ def render_table(title: str, rows: list[tuple[str, str]]) -> None:
 st.header("Telescope Designer", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    st.markdown(
-        """
-        This tool calculates a two-mirror telescope prescription from the primary diameter, system focal length, primary mirror f/ratio, and back focal distance.
+    """
+    This tool calculates a two-mirror telescope prescription from the primary diameter,
+    system focal length, primary mirror f/ratio, and back focal distance.
 
-        It reports the approximate mirror radii of curvature, conic constants, mirror separation, and central obstruction for Newtonian, Cassegrain, Ritchey-Chrétien, Dall-Kirkham, and Gregorian designs.
+    It reports the approximate mirror radii of curvature, conic constants, mirror
+    separation, and central obstruction for Newtonian, Cassegrain, Ritchey-Chrétien,
+    Dall-Kirkham, and Gregorian designs.
 
-        All code is written by Jake Pember: [Github](https://github.com/pemberj/) / [Email](mailto:jacob.pember@ikmail.com)
+    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
-        Please get in contact if you have any questions, suggestions, or find any bugs!
+    Please get in contact if you have any questions, suggestions, or find any bugs!
 
-        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool useful and want to support its development!
-        """
-    )
+    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+    useful and want to support its development!
+    """
 
     st.iframe(
         """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#FF5F5F" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
         """,
     )
 
