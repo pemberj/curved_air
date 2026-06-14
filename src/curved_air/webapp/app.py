@@ -26,7 +26,6 @@ pages: list = [
         page=APP_PATH / "pages" / "about.py",
         title="About",
         icon=":material/info:",
-        default=True,
     ),
     st.Page(
         page=APP_PATH / "pages" / "echelle_spectrograph.py",
