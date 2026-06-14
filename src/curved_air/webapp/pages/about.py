@@ -2,7 +2,10 @@ import streamlit as st
 
 st.title("Curved Air: Optical Design Tools", anchor=False)
 
-"Welcome to [**Curved Air**](https://curvedair.jakepember.com/). Use the sidebar to navigate between the available tools."
+"""
+Welcome to [**Curved Air**](https://curvedair.jakepember.com/). Use the sidebar to
+navigate between the available tools.
+"""
 
 st.divider()
 
@@ -13,7 +16,8 @@ Please get in contact if you have any questions, suggestions, or find any bugs!
 
 The web interface to these tools was built with [Streamlit](https://streamlit.io)
 
-You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find any of these tools useful and want to support their development!
+You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find any of these
+tools useful and want to support their development!
 """
 
 st.iframe(
