@@ -185,10 +185,10 @@ class LowResolutionSpectrograph:
         slit_half_length: ScalarQuantity = self.slit_length / 2
 
         return [
-            Coordinate(-slit_half_width, -slit_half_length),
-            Coordinate(slit_half_width, -slit_half_length),
+            Coordinate(-1 * slit_half_width, -1 * slit_half_length),
+            Coordinate(slit_half_width, -1 * slit_half_length),
             Coordinate(slit_half_width, slit_half_length),
-            Coordinate(-slit_half_width, slit_half_length),
+            Coordinate(-1 * slit_half_width, slit_half_length),
         ]
 
     def slit_image_vertices(
