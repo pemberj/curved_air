@@ -228,10 +228,7 @@ with st.sidebar:
             blaze_angle: float = grating.blaze_angle.to(u.deg)
             ruled_width: float = grating.ruled_width.to(u.mm)
 
-    with st.expander(
-        label="Cross-disperser",
-        expanded=False,
-    ):
+    with st.expander(label="Cross-disperser", expanded=False):
         cross_disperser_type: str = st.segmented_control(
             "Type",
             [
