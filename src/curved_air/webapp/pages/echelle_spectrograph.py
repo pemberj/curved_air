@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -62,13 +63,78 @@ with st.expander("About this tool", expanded=False):
         """,
     )
 
+
+@dataclass
+class PresetInstrument:
+    name: str
+    min_wl: ScalarQuantity
+    max_wl: ScalarQuantity
+    echelle_grating: str
+    cross_disperser_type: str
+    slit_width: ScalarQuantity
+    slit_length: ScalarQuantity
+    slit_focal_ratio: float
+    beam_diameter: ScalarQuantity
+    camera_focal_length: ScalarQuantity
+
+
+preset_instruments: list[PresetInstrument] = [
+    PresetInstrument(
+        name="MARVEL",
+        min_wl=380 * u.nm,
+        max_wl=950 * u.nm,
+        echelle_grating="",
+        cross_disperser_type="Prism",
+        slit_width=40 * u.um,
+        slit_length=300 * u.um,
+        slit_focal_ratio=3.85,
+        beam_diameter=160 * u.mm,
+        camera_focal_length=730 * u.mm,
+    )
+]
+
+ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
+    f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
+    for g in richardson_gratings()
+}
+
+
 # Interface
 with st.sidebar:
+    with st.expander(label="Presets", expanded=True):
+        preset_instrument: str | None = st.segmented_control(
+            "Instrument",
+            [
+                "HARPS",
+                "ESPRESSO",
+                "NEID",
+                "EXPRES",
+                "KPF",
+                "MARVEL",
+                "2ES",
+                "",
+                "Custom",
+            ],
+            default="MARVEL",
+            help="""""",
+        )
+
+        if preset_instrument in ["Custom", None]:
+            ...
+        else:
+            ...
+
+        # Pre-populate the session_state with parameters for the chosen spectrograph,
+        # and then define all the 'default' values of the parameter selections below
+        # with st.session_state.get("preset_default_X", "normal_default"), so each of
+        # the preset instruments can easily be used as a starting point for a customised
+        # version.
+
     with st.expander(label="Wavelength range", expanded=False):
         min_wl: ScalarQuantity = st_quantity_input(
             "Min λ",
             min_value=0.0,
-            value=380.0,
+            value=st.session_state.get("min_wl", 380.0 * u.nm).to(u.nm).value,
             step=1.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
@@ -79,7 +145,7 @@ with st.sidebar:
         max_wl: ScalarQuantity = st_quantity_input(
             "Max λ",
             min_value=0.0,
-            value=950.0,
+            value=st.session_state.get("min_wl", 950.0 * u.nm).to(u.nm).value,
             step=1.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
@@ -88,17 +154,13 @@ with st.sidebar:
         st.session_state["max_wl"] = max_wl
 
     with st.expander(label="Echelle Grating", expanded=False):
-        ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
-            f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
-            for g in richardson_gratings()
-        }
-
         grating: str = st.selectbox(
             "Richardson gratings",
             options=list(ECHELLE_GRATINGS.keys()),
             index=6,  # MARVEL grating
             width=300,
             disabled=st.session_state.get("customise_grating", False),
+            key="echelle_grating",
             help="""Select from a list of commercially available echelle gratings from
             Richardson Gratings. The grating parameters will be pre-filled based on the
             selected option.""",
@@ -108,7 +170,7 @@ with st.sidebar:
 
         st.toggle(
             "Custom grating parameters",
-            value=False,
+            value=st.session_state.get("customise_grating", False),
             key="customise_grating",
             help="""Input your own values for the grating groove spacing, blaze angle,
             and ruled width.""",
@@ -179,7 +241,8 @@ with st.sidebar:
                 "Multiple prisms",
                 "Double-pass prism",
             ],
-            default="Prism",
+            default=st.session_state.get("cross_disperser_type", "Prism"),
+            key="cross_disperser_type",
             help="""Select the type of cross-disperser used in the spectrograph.
             The choice of cross-disperser has a significant impact on the layout of the
             spectral format, the achievable wavelength coverage and the order
