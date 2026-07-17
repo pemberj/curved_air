@@ -90,7 +90,7 @@ with st.sidebar:
     with st.expander(label="Echelle Grating", expanded=False):
         ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
             f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
-            for g in richardson_gratings()
+            for g in richardson_gratings(selection_query="Ruled_width>=0")
         }
 
         grating: str = st.selectbox(
@@ -124,7 +124,7 @@ with st.sidebar:
                 default_unit="mm",
                 unit_input_text="Per",
                 inverse=True,
-                key="groove_frequency",
+                key="grating_groove_frequency",
                 # help="""Spatial groove frequency""",
             )
 
@@ -135,6 +135,7 @@ with st.sidebar:
                     max_value=89.0,
                     value=grating.blaze_angle.to(u.deg).value,
                     step=0.1,
+                    key="grating_blaze_angle",
                     help="""The blaze angle of the echelle grating, in degrees. This is
                     the angle of illumination under which the grating is designed for
                     optimal efficiency.""",
@@ -150,6 +151,7 @@ with st.sidebar:
                 step=0.05,
                 possible_units=["mm", "cm", "m"],
                 default_unit="mm",
+                key="grating_ruled_width",
                 help="""The ruled width of the echelle grating, in millimetres. This
                     refers to the dimension perpendicular to the grooves themselves.""",
             )
@@ -515,6 +517,7 @@ with st.sidebar:
             step=1.0,
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
+            key="collimated_beam_diameter",
             help="""The diameter of the collimated beam at the echelle grating. This is
                 a critical parameter that affects the spectral resolution and the size
                 of the spectral format on the detector.""",
