@@ -90,7 +90,7 @@ with st.sidebar:
     with st.expander(label="Echelle Grating", expanded=False):
         ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
             f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
-            for g in richardson_gratings(selection_query="Ruled_width>=0")
+            for g in richardson_gratings(selection_query="")
         }
 
         grating: str = st.selectbox(
@@ -105,6 +105,27 @@ with st.sidebar:
         )
 
         grating: EchelleGrating = ECHELLE_GRATINGS[grating]
+
+        if not st.session_state.get("customise_grating", False):
+            if grating.groove_length is not None:
+                st.metric(
+                    "Maximum Groove Length",
+                    f"{grating.groove_length.to(u.mm):.0f}",
+                )
+            else:
+                st.warning(
+                    "Warning: maximum groove length is not specified for this grating."
+                )
+
+            if grating.ruled_width is not None:
+                st.metric(
+                    "Maximum Ruled Width",
+                    f"{grating.ruled_width.to(u.mm):.0f}",
+                )
+            else:
+                st.warning(
+                    "Warning: maximum ruled width is not specified for this grating."
+                )
 
         st.toggle(
             "Custom grating parameters",

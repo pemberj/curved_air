@@ -182,26 +182,23 @@ def richardson_gratings(
     """
 
     if not filename:
-        data_dir = Path(__file__).parent / "gratings"
-        files = list(data_dir.glob("richardson-echelle-T3.csv"))
+        data_dir: Path = Path(__file__).parent / "gratings"
+        files: list[Path] = list(data_dir.glob("richardson-echelle-T3.csv"))
         assert len(files) == 1
-        file = files[0]
-    df = pd.read_csv(file, delimiter=" ")
+        file: Path = files[0]
+    df: pd.DataFrame = pd.read_csv(file, delimiter=" ")
 
-    selection = df.query(selection_query)
+    selection: pd.DataFrame = df.query(selection_query) if selection_query else df
 
     gratings: list[EchelleGrating] = [
         EchelleGrating(
-            catalogue_number=c,
-            groove_frequency=float(gpmm) / u.mm,
-            blaze_angle=float(theta[:-1]) * u.deg,
+            catalogue_number=g["Catalog_number"],
+            groove_frequency=float(g["Grooves_per_mm"]) / u.mm,
+            blaze_angle=float(g["Nominal_blaze_angle"][:-1]) * u.deg,
+            ruled_width=float(g["Ruled_width"]) * u.mm,
+            groove_length=float(g["Groove_length"]) * u.mm,
         )
-        for c, gpmm, theta in zip(
-            selection["Catalog_number"],
-            selection["Grooves_per_mm"],
-            selection["Nominal_blaze_angle"],
-            strict=False,
-        )
+        for g in selection.to_dict(orient="records")
     ]
 
     return gratings
