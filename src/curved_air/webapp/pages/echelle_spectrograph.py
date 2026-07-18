@@ -96,7 +96,7 @@ with st.sidebar:
         grating: str = st.selectbox(
             "Richardson gratings",
             options=list(ECHELLE_GRATINGS.keys()),
-            index=14,  # MARVEL grating
+            index=16,  # MARVEL grating
             width=300,
             disabled=st.session_state.get("customise_grating", False),
             help="""Select from a list of commercially available echelle gratings from
