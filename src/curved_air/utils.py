@@ -175,7 +175,7 @@ def agf_files(search: str = "") -> list[Path]:
 
 def richardson_gratings(
     filename: str | None = None,
-    selection_query: str = "Ruled_width >= 400",
+    selection_query: str | None = "Ruled_width >= 400",
 ) -> list[EchelleGrating]:
     """
     Load grating parameters from a csv catalogue from Richardson Gratings.
