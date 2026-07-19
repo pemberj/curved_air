@@ -90,7 +90,7 @@ with st.sidebar:
     with st.expander(label="Echelle Grating", expanded=False):
         ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
             f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
-            for g in richardson_gratings(selection_query="")
+            for g in richardson_gratings(selection_query=None)
         }
 
         grating: str = st.selectbox(
@@ -188,6 +188,19 @@ with st.sidebar:
             groove_frequency: float = grating.groove_frequency.to(u.mm**-1)
             blaze_angle: float = grating.blaze_angle.to(u.deg)
             ruled_width: float = grating.ruled_width.to(u.mm)
+
+        gamma_angle: ScalarQuantity = (
+            st.number_input(
+                "Gamma angle (degrees)",
+                min_value=0.0,
+                value=0.3,
+                step=0.1,
+                key="grating_gamma_angle",
+                help="""The gamma (out-of-plane) angle under which the echelle grating
+                    is used, in degrees.""",
+            )
+            * u.deg
+        )
 
     with st.expander(
         label="Cross-disperser",
@@ -752,7 +765,7 @@ MAX_WL: ScalarQuantity = max_wl.to(u.nm)
 GRATING: EchelleGrating = EchelleGrating(
     groove_frequency=groove_frequency,
     blaze_angle=blaze_angle,
-    gamma_angle=0 * u.deg,
+    gamma_angle=gamma_angle,
     ruled_width=ruled_width,
 )
 
