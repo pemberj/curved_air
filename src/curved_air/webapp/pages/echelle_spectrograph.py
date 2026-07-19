@@ -780,11 +780,13 @@ elif cross_disperser_type == "Grating":
         groove_frequency=cross_disperser_groove_frequency,
     )
 
+DETECTOR = detectors[0] if detectors else None
+
 if cross_disperser_type == "Double-pass prism":
     spectrograph: DoublePassEchelleSpectrograph = DoublePassEchelleSpectrograph(
         grating=GRATING,
         cross_disperser=CROSS_DISPERSER,
-        detector=Detector(),
+        detector=DETECTOR,
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=beam_diameter,
@@ -799,7 +801,7 @@ else:
     spectrograph: EchelleSpectrograph = EchelleSpectrograph(
         grating=GRATING,
         cross_disperser=CROSS_DISPERSER,
-        detector=Detector(),
+        detector=DETECTOR,
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=beam_diameter,
@@ -840,34 +842,60 @@ with c2:
     )
 
 with c3:
-    sampling: tuple[float, ...] = tuple(
-        [
-            spectrograph.slit_sampling * a
-            for a in spectrograph.anamorphic_magnification()
-        ]
-    )
+    if spectrograph.detector is not None:
+        sampling: tuple[float, ...] = tuple(
+            [
+                spectrograph.slit_sampling * a
+                for a in spectrograph.anamorphic_magnification()
+            ]
+        )
 
-    st.metric(
-        "Slit sampling",
-        f"{min(sampling):.1f}—{max(sampling):.1f} pixels",
-        help="""The slit sampling in pixels at the detector. Anamorphic magnification is
-        accounted for by the range of values given. Any value under 3 pixels will raise
-        an (optional) warning that the slit is undersampled.""",
-    )
-    if min(sampling) < 3 and st.session_state["warn"]:  # noqa: PLR2004
-        st.warning("Minimum slit sampling is less than 3 pixels!")
+        st.metric(
+            "Slit sampling",
+            f"{min(sampling):.1f}—{max(sampling):.1f} pixels",
+            help="""The slit sampling in pixels at the detector. Anamorphic
+            magnification is accounted for by the range of values given. Any value under
+            3 pixels will raise an (optional) warning that the slit is undersampled. If
+            multiple detectors are selected, the first is used to compute sampling.""",
+        )
+        if min(sampling) < 3 and st.session_state["warn"]:  # noqa: PLR2004
+            st.warning("Minimum slit sampling is less than 3 pixels!")
+
+    else:
+        slit_image_width: tuple[ScalarQuantity, ...] = tuple(
+            [
+                spectrograph.slit_magnification * spectrograph.slit_width * a
+                for a in spectrograph.anamorphic_magnification()
+            ]
+        )
+        st.metric(
+            "Imaged slit width",
+            f"{min(slit_image_width):.3g}—{max(slit_image_width):.3g}",
+            help="""The size of the slit image at the detector. Anamorphic magnification
+            is accounted for by the range of values given. If you select a detector,
+            this metric will be given as 'Slit sampling' in units of detector pixels""",
+        )
 
 with c4:
     red_sep: ScalarQuantity = spectrograph.reddest_order_image_plane_separation
     blue_sep: ScalarQuantity = spectrograph.bluest_order_image_plane_separation
 
-    st.metric(
-        "Minimum order separation",
-        f"{(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.1f} pixels",
-        help="""The minimum separation between adjacent diffraction orders on the
-        detector, at the reddest or bluest orders. This is compared to the imaged slit
-        length to check for potential order overlap issues.""",
-    )
+    separation_help: str = """The minimum separation between adjacent diffraction orders
+    at the image plane, typically at the reddest or bluest orders. This is compared to
+    the imaged slit length to check for potential order overlap issues."""
+
+    if len(detectors) == 1:
+        st.metric(
+            "Minimum order separation",
+            f"{(min(red_sep, blue_sep) / spectrograph.detector.pixel_size).si:.3g} pixels",
+            help=separation_help,
+        )
+    else:
+        st.metric(
+            "Minimum order separation",
+            f"{(min(red_sep, blue_sep)).to(u.um):.3g}",
+            help=separation_help,
+        )
 
     if (
         min(red_sep, blue_sep) < spectrograph.slit_image_length
@@ -1076,6 +1104,8 @@ with st.container(horizontal_alignment="center"):
                 fig: plt.Figure = plt.figure(figsize=(10, 10))
                 ax: plt.Axes = fig.gca()
 
+                max_b: float = 0
+
                 for d in detectors:
                     # Detector outline
                     half_x: float = d.size[0].to(u.mm).value / 2
@@ -1088,19 +1118,10 @@ with st.container(horizontal_alignment="center"):
 
                     d.plot_edge(ax=ax, name=st.session_state["detector_name"])
 
-                b: float = max(half_x, half_y) * 1.125
+                    b: float = max(half_x, half_y) * 1.125
 
-                if "Flip x" in st.session_state["coord_transforms"]:
-                    ax.set_xlim(left=-b, right=b)
-                else:
-                    ax.set_xlim(left=b, right=-b)
-
-                if "Flip y" in st.session_state["coord_transforms"]:
-                    ax.set_ylim(bottom=b, top=-b)
-                else:
-                    ax.set_ylim(bottom=-b, top=b)
-
-                ax.set_aspect(aspect="equal")
+                    if b > max_b:
+                        max_b: float = b
 
                 for f in range(1):  # number of fibres
                     fiber_spacing = 130 * u.um  # Example!
@@ -1136,7 +1157,10 @@ with st.container(horizontal_alignment="center"):
                                 mtext = f"{m}"
                                 wltext = f"{wls[0].to(u.nm).value:.0f}"
 
-                            if abs(ys[0].value) + 5 > b or abs(ys[-1].value) + 5 > b:
+                            if max_b != 0 and (
+                                abs(ys[0].value) + 5 > max_b
+                                or abs(ys[-1].value) + 5 > max_b
+                            ):
                                 continue
 
                             # if st.session_state["dispersion_direction"] == "Vertical (y)":
@@ -1208,6 +1232,28 @@ with st.container(horizontal_alignment="center"):
                                             "boxstyle": "round,pad=0.25",
                                         },
                                     )
+
+                if max_b == 0:
+                    b: float = max(
+                        [
+                            abs(ax.get_xlim()[0]),
+                            abs(ax.get_xlim()[1]),
+                            abs(ax.get_ylim()[0]),
+                            abs(ax.get_ylim()[1]),
+                        ]
+                    )
+
+                if "Flip x" in st.session_state["coord_transforms"]:
+                    ax.set_xlim(left=-b, right=b)
+                else:
+                    ax.set_xlim(left=b, right=-b)
+
+                if "Flip y" in st.session_state["coord_transforms"]:
+                    ax.set_ylim(bottom=b, top=-b)
+                else:
+                    ax.set_ylim(bottom=-b, top=b)
+
+                ax.set_aspect(aspect="equal")
 
                 # ax.patch.set_facecolor("black")
                 ax.axis("off")

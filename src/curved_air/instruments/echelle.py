@@ -39,7 +39,7 @@ class EchelleSpectrograph:
     name: str = ""
     grating: EchelleGrating = field(default_factory=EchelleGrating)
     cross_disperser: CrossDisperser = field(default_factory=Prism)
-    detector: Detector = field(default_factory=Detector)
+    detector: Detector | None = field(default_factory=Detector)
 
     beam_diameter: ScalarQuantity | None = None
     min_wl: ScalarQuantity = 390 * u.nm

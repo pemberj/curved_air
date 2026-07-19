@@ -12,7 +12,7 @@ from pathlib import Path
 
 import streamlit as st
 
-APP_PATH = Path(__file__).parent
+APP_PATH: Path = Path(__file__).parent
 
 st.set_page_config(
     page_title="Curved Air: Optical Design Tools",
