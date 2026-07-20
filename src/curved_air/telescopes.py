@@ -317,6 +317,7 @@ class TelescopeDesign:
             case "Classical Cassegrain":
                 self.M1.conic = -1
                 self.M2.conic: float = -self.CT
+
             case "Ritchey-Chrétien":
                 self.M1.conic: float = -(
                     self.secondary_prime_focus_distance
@@ -333,6 +334,7 @@ class TelescopeDesign:
                     )
                     + self.CT
                 ).si
+
             case "Dall-Kirkham":
                 self.M1.conic: float = -(
                     1
@@ -342,6 +344,7 @@ class TelescopeDesign:
                     / (self.extension_factor**4)
                 ).si
                 self.M2.conic = 0
+
             case "Pressmann-Camichel":
                 self.M1.conic = 0
                 self.M2.conic: float = (
@@ -350,8 +353,10 @@ class TelescopeDesign:
                     * (self.extension_factor / (self.extension_factor - 1)) ** 4
                     - self.CT
                 ).si
+
             case "Gregorian":
                 ...
+
             case "Stigmatic combination":
                 if self.M1.conic is None:
                     assert self.M2.conic is not None
