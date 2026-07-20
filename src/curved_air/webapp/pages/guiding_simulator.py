@@ -1,4 +1,5 @@
 #! uv run streamlit run
+
 from pathlib import Path
 
 import cv2
@@ -15,7 +16,7 @@ from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
-SCRIPT_PATH = Path(__file__).parent
+SCRIPT_PATH: Path = Path(__file__).parent
 
 
 # This dictionary provides a reference for the absolute flux of magnitude 0 stars across
