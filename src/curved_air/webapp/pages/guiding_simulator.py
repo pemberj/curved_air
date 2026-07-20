@@ -339,7 +339,7 @@ def simulate_image(
     seeing_fwhm: float | Quantity = 2 * u.arcsec,
     exposure_time: float | Quantity = 0.1 * u.second,
     sky_background: float | Quantity = 22 * u.mag / u.arcsec**2,
-) -> None:
+) -> plt.Figure:
     """
     The main script.
 
@@ -438,7 +438,7 @@ def simulate_image(
 
     exposure -= np.median(dark) + np.median(read)
 
-    _fig, axs = plt.subplots(
+    fig, axs = plt.subplots(
         nrows=2, ncols=1, figsize=(10, 10), gridspec_kw={"height_ratios": [3, 1]}
     )
 
@@ -506,9 +506,7 @@ def simulate_image(
     for i in exposure:
         ax.plot(i, alpha=0.25)
 
-    for ext in ["png", "pdf"]:
-        plt.savefig(SCRIPT_PATH / f"image.{ext}")
-    plt.close()
+    return fig
 
 
 def plot_curves(
@@ -516,7 +514,7 @@ def plot_curves(
     blackbody_temperature: float | Quantity = 3200 * u.K,
     seeing_fwhm: float | Quantity = 2 * u.arcsec,
     exposure_time: float | Quantity = 0.1 * u.second,
-) -> None:
+) -> plt.Figure:
     """ """
 
     if isinstance(magnitude, (int, float)):
@@ -633,13 +631,10 @@ def plot_curves(
     ax.set_ylabel("Efficiency / Normalised Flux")
     ax.legend()
 
-    for ext in ["png", "pdf"]:
-        plt.savefig(SCRIPT_PATH / f"curves.{ext}")
-    plt.close()
+    return fig
 
 
-def plot_QE_and_coating() -> None:
-    """ """
+def plot_QE_and_coating() -> plt.Figure:
 
     guiding_split: Path = SCRIPT_PATH / "data" / "Tafelmeier_6_final.csv"
 
@@ -703,9 +698,7 @@ def plot_QE_and_coating() -> None:
     labels: list[str] = [str(line.get_label()) for line in lines]
     ax1.legend(lines, labels)
 
-    for ext in ["png", "pdf"]:
-        plt.savefig(SCRIPT_PATH / f"QE_coating_curves.{ext}")
-    plt.close()
+    return fig
 
 
 def main() -> None:
