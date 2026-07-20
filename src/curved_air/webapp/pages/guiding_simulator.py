@@ -56,14 +56,14 @@ def gaussian_seeing(
     of the seeing disk at a detector.
     """
 
-    sigma = fwhm / (2 * np.sqrt(2 * np.log(2)))
-    sigma_pixels = sigma / plate_scale / pixel_size
+    sigma: ScalarQuantity = fwhm / (2 * np.sqrt(2 * np.log(2)))
+    sigma_pixels: ScalarQuantity = sigma / plate_scale / pixel_size
 
-    x = np.linspace(-num_pixels / 2, num_pixels / 2 - 1, num_pixels)
+    x: NDArray = np.linspace(-num_pixels / 2, num_pixels / 2 - 1, num_pixels)
     # x = np.arange(start=-num_pixels / 2, stop=num_pixels / 2, step=1)
-    y = x[:, np.newaxis]
+    y: NDArray = x[:, np.newaxis]
 
-    gaussian = np.exp(
+    gaussian: NDArray = np.exp(
         -((x - center[0]) ** 2 + (y - center[1]) ** 2) / (2 * sigma_pixels**2)
     )
     return gaussian / np.sum(gaussian)
@@ -80,14 +80,14 @@ def PSF(
     Assumes a Gaussian PSF.
     """
 
-    sigma = fwhm / (2 * np.sqrt(2 * np.log(2)))
-    sigma_pixels = sigma / pixel_size
+    sigma: ScalarQuantity = fwhm / (2 * np.sqrt(2 * np.log(2)))
+    sigma_pixels: ScalarQuantity = sigma / pixel_size
 
-    x = np.linspace(-num_pixels / 2, num_pixels / 2 - 1, num_pixels)
+    x: NDArray = np.linspace(-num_pixels / 2, num_pixels / 2 - 1, num_pixels)
     # x = np.arange(start=-num_pixels / 2, stop=num_pixels / 2, step=1)
-    y = x[:, np.newaxis]
+    y: NDArray = x[:, np.newaxis]
 
-    gaussian = np.exp(-(x**2 + y**2) / (2 * sigma_pixels**2))
+    gaussian: NDArray = np.exp(-(x**2 + y**2) / (2 * sigma_pixels**2))
     return gaussian / np.sum(gaussian)
 
 
@@ -117,8 +117,8 @@ def photon_flux(
     # Calculating the blackbody radiation of the observed star over the full wavelenghth
     # range and converting to photon/s/m²/sr
     bb = BlackBody(temperature)
-    bbJy = bb(wavelengths).to(u.Jy / u.sr)
-    bbPh = (
+    bbJy: ArrayQuantity = bb(wavelengths).to(u.Jy / u.sr)
+    bbPh: ArrayQuantity = (
         bbJy.to(
             u.photon / u.s / u.m**2 / u.nm / u.sr,
             equivalencies=u.spectral_density(wavelengths),
@@ -128,9 +128,9 @@ def photon_flux(
 
     # The same calculation but only for the V band, this will be used to scale the flux
     # V band wavelength range and spacing between wavelengths
-    wave_V = np.arange(492, 580, dlambda.to(u.nm).value) * u.nm
-    bbJy_V = bb(wave_V).to(u.Jy / u.sr)
-    bbPh_V = np.sum(
+    wave_V: ArrayQuantity = np.arange(492, 580, dlambda.to(u.nm).value) * u.nm
+    bbJy_V: ArrayQuantity = bb(wave_V).to(u.Jy / u.sr)
+    bbPh_V: ArrayQuantity = np.sum(
         bbJy_V.to(
             u.photon / u.s / u.m**2 / u.nm / u.sr,
             equivalencies=u.spectral_density(wave_V),
@@ -139,10 +139,10 @@ def photon_flux(
     )
 
     # Reference flux for a magnitude 0 star in the V band
-    ref_V = band_properties["V"]["standard_flux"]
+    ref_V: ScalarQuantity = band_properties["V"]["standard_flux"]
 
     # Scaling the flux from the blackbody function -> units: photon/s/m²
-    ref_V_ph = np.sum(
+    ref_V_ph: ScalarQuantity = np.sum(
         ref_V.to(
             u.photon / u.s / u.m**2 / u.nm,
             equivalencies=u.spectral_density(wave_V),
@@ -188,7 +188,7 @@ def read_noise(
     # noise = np.random.normal(0, noise_level.to(u.electron).value, image.shape)
 
     # For a CMOS - Poissonian noise?
-    noise = np.random.poisson(
+    noise: NDArray = np.random.poisson(
         lam=noise_level.to(u.electron).value,
         size=image.shape,
     )
@@ -281,7 +281,9 @@ def telescope_efficiency(
     wave_data = data["wavelength"]
     efficiency = data["reflectivity"]
 
-    refl_full = np.interp(wavelengths.value, wave_data, efficiency, left=efficiency[0])
+    refl_full: NDArray = np.interp(
+        wavelengths.value, wave_data, efficiency, left=efficiency[0]
+    )
 
     return refl_full**num_mirrors
 
@@ -291,7 +293,7 @@ def detector_QE(
     wavelengths: NDArray | None = None,
 ) -> NDArray:
     if wavelengths is None:
-        wavelengths = np.linspace(380, 950, 100) * u.nm
+        wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
 
     data: pd.DataFrame = pd.read_csv(csv, names=["wavelength", "QE"], skiprows=1)
     wave_QE_data = data["wavelength"]
@@ -322,7 +324,7 @@ def guiding_efficiency(
     wavelengths: NDArray | None = None,
 ) -> NDArray:
     if wavelengths is None:
-        wavelengths = np.linspace(380, 950, 100) * u.nm
+        wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
 
     data: pd.DataFrame = pd.read_csv(csv, names=["wavelength", "efficiency"])
     wave_data = data["wavelength"]
@@ -426,11 +428,11 @@ def simulate_image(
     )
     exposure *= np.sum(flux)
 
-    dark = dark_noise(
+    dark: NDArray = dark_noise(
         num_pixels=image_size, exposure_time=exposure_time, dark_current=dark_current
     )
 
-    read = read_noise(num_pixels=image_size, noise_level=read_noise_level)
+    read: NDArray = read_noise(num_pixels=image_size, noise_level=read_noise_level)
 
     exposure += dark + read
 
@@ -444,7 +446,7 @@ def simulate_image(
 
     ax.imshow(exposure)
 
-    fibre_radius = 20 * u.um
+    fibre_radius: ScalarQuantity = 20 * u.um
 
     fibre = plt.Circle(
         (image_size // 2, image_size // 2),
@@ -498,7 +500,7 @@ def simulate_image(
     ax.set_xticks([])
     ax.set_yticks([])
 
-    ax = axs[1]
+    ax: plt.Axes = axs[1]
     ax.set_ylabel("Signal", size=15)
     ax.set_xlabel("Pixel", size=15)
     for i in exposure:
@@ -529,9 +531,9 @@ def plot_curves(
     if isinstance(exposure_time, (int, float)):
         exposure_time *= u.second
 
-    mirror_R = SCRIPT_PATH / "data" / "ASA_Protected_Enhanced_Aluminium.csv"
-    guiding_split = SCRIPT_PATH / "data" / "Tafelmeier_6_final.csv"
-    QE = SCRIPT_PATH / "data" / "IMX265_QE.csv"
+    mirror_R: Path = SCRIPT_PATH / "data" / "ASA_Protected_Enhanced_Aluminium.csv"
+    guiding_split: Path = SCRIPT_PATH / "data" / "Tafelmeier_6_final.csv"
+    QE: Path = SCRIPT_PATH / "data" / "IMX265_QE.csv"
 
     image_size = 70
 
@@ -698,7 +700,7 @@ def plot_QE_and_coating() -> None:
     ax2.set_ylabel("Guiding split efficiency", color=BSline[0].get_color())
 
     lines = QEline + BSline + BSline_measured
-    labels = [str(line.get_label()) for line in lines]
+    labels: list[str] = [str(line.get_label()) for line in lines]
     ax1.legend(lines, labels)
 
     for ext in ["png", "pdf"]:
