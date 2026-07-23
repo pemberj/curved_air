@@ -6,6 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import streamlit as st
 from astropy import units as u
 from astropy.modeling.models import BlackBody
 from astropy.units import Quantity
@@ -53,8 +54,9 @@ def gaussian_seeing(
     num_pixels: int = 50,
 ) -> NDArray:
     """
-    From the input parameters, creates a 2D array (image) of the expected size
-    of the seeing disk at a detector.
+    From the input parameters, creates a 2D array (image) of the appropriate size of the
+    seeing disk (parametrised with an angular FWHM) as imaged through a telescope onto a
+    detector.
     """
 
     sigma: ScalarQuantity = fwhm / (2 * np.sqrt(2 * np.log(2)))
@@ -76,9 +78,7 @@ def PSF(
     num_pixels: int = 20,
 ) -> NDArray:
     """
-    Creates a 2D array (image) of a point spread function.
-
-    Assumes a Gaussian PSF.
+    Creates a 2D array (image) of a Gaussian point spread function.
     """
 
     sigma: ScalarQuantity = fwhm / (2 * np.sqrt(2 * np.log(2)))
@@ -702,17 +702,4 @@ def plot_QE_and_coating() -> plt.Figure:
     return fig
 
 
-def main() -> None:
-    simulate_image(
-        magnitude=11 * u.mag,
-        blackbody_temperature=3200 * u.K,
-        seeing_fwhm=1.5 * u.arcsec,
-        exposure_time=0.1 * u.second,
-    )
-
-    plot_curves()
-    plot_QE_and_coating()
-
-
-if __name__ == "__main__":
-    main()
+st.title("Guiding Simulator")
