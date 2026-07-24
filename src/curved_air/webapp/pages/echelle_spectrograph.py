@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -35,6 +36,546 @@ if TYPE_CHECKING:
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
+
+
+def zemax_wavelengths(
+    spectrograph: EchelleSpectrograph,
+) -> list[tuple[int, list[ScalarQuantity]]]:
+    """Return a list of wavelengths to use in Zemax file generation"""
+
+    number_of_configs: int = 12
+
+    out: list[tuple[int, list[ScalarQuantity]]] = []
+
+    # Generate all the diffraction orders: 12 spanning the full wavelength range
+
+    max_wl_order: int = spectrograph.grating.order_number(MAX_WL, quantised=True)
+    min_wl_order: int = spectrograph.grating.order_number(MIN_WL, quantised=True)
+
+    step: int = int((min_wl_order - max_wl_order) / (number_of_configs - 1))
+
+    ms: list[int] = [
+        max_wl_order,
+        *[max_wl_order + 1 + (i - 1) * step for i in range(2, number_of_configs)],
+        min_wl_order,
+    ]
+
+    for m in ms:
+        wls: list[float] = (
+            spectrograph.order_wavelengths(m=m, num=5, FSR_fraction=1.0)
+            .to(u.nm)
+            .to(u.um)
+            .value
+        )
+        out.append((m, [w * u.um for w in wls]))
+
+    return out
+
+
+def _fmt_float(value: float, precision: int = 12) -> str:
+    return f"{value:.{precision}f}".rstrip("0").rstrip(".")
+
+
+def _fmt_sci(value: float) -> str:
+    return f"{value:.12E}"
+
+
+def _surface_block(
+    idx: int,
+    comment: str,
+    surface_type: str,
+    disz_mm: float,
+    *,
+    stop: bool = False,
+    params: dict[int, float] | None = None,
+    glass: str | None = None,
+    conic: float | None = None,
+    diam: float | None = None,
+    sqap: tuple[float, float, float] | None = None,
+    mirror_angle: float | None = None,
+    dgrating: tuple[float, float] | None = None,
+) -> list[str]:
+    lines: list[str] = [f"SURF {idx}", f"  COMM {comment}"]
+    if stop:
+        lines.append("  STOP")
+    lines.extend(
+        [
+            f"  TYPE {surface_type}",
+            "  FIMP ",
+            "",
+            '  CURV 0.0 0 0 0 0 ""',
+            "  HIDE 0 0 0 0 0 0 0 0 0 0 0 0 0",
+        ]
+    )
+
+    if mirror_angle is None:
+        lines.append("  MIRR 2 0")
+    else:
+        lines.append(f"  MIRR 1 {_fmt_float(mirror_angle, precision=6)}")
+
+    if params is not None:
+        for p_idx, p_val in sorted(params.items()):
+            lines.append(f"  PARM {p_idx} {_fmt_float(p_val, precision=12)}")
+
+    if dgrating is not None:
+        groove_density_per_um, order = dgrating
+        lines.append(f"  PARM 1 {_fmt_float(groove_density_per_um, precision=12)}")
+        lines.append(f"  PARM 2 {_fmt_float(order, precision=12)}")
+
+    lines.append(f"  DISZ {_fmt_float(disz_mm, precision=12)}")
+
+    if glass is not None:
+        lines.append(f"  GLAS {glass} 0 0 1.5 40 0 0 0 0 0 0 ")
+
+    if conic is not None:
+        lines.append(f"  CONI {_fmt_float(conic, precision=6)}")
+
+    if diam is not None:
+        lines.append(f'  DIAM {_fmt_float(diam, precision=12)} 0 0 0 1 ""')
+        lines.append(f'  MEMA {_fmt_float(diam, precision=12)} 0 0 0 1 ""')
+    else:
+        lines.append('  DIAM 0 0 0 0 1 ""')
+        lines.append('  MEMA 0 0 0 0 1 ""')
+
+    if sqap is not None:
+        wx, wy, rot = sqap
+        lines.append(
+            f"  SQAP {_fmt_float(wx, precision=12)} {_fmt_float(wy, precision=12)} {_fmt_float(rot, precision=12)}"
+        )
+
+    lines.append("  POPS 0 0 0 0 0 0 0 0 1 1 1 1 0 0 0 0")
+    return lines
+
+
+def _zemax_surface_sequence(
+    spectrograph: EchelleSpectrograph,
+    cross_disperser_type: str,
+) -> list[list[str]]:
+    beam_diameter_mm: float = spectrograph.beam_diameter.to(u.mm).value
+    half_beam_mm: float = beam_diameter_mm / 2
+
+    f_col = (
+        spectrograph.collimator_focal_length
+        if spectrograph.collimator_focal_length is not None
+        else 1125 * u.mm
+    )
+    f_col_mm: float = f_col.to(u.mm).value
+    f_cam_mm: float = spectrograph.camera_focal_length.to(u.mm).value
+
+    prism_like = cross_disperser_type in {
+        "Prism",
+        "Double-pass prism",
+        "Multiple prisms",
+    }
+    if not prism_like:
+        raise ValueError(
+            "Zemax export currently supports prism-based cross-dispersers only."
+        )
+
+    assert isinstance(spectrograph.cross_disperser, Prism | TwoPrisms)
+
+    if isinstance(spectrograph.cross_disperser, Prism):
+        prism1: Prism = spectrograph.cross_disperser
+        prism2: Prism | None = None
+    else:
+        prism1 = spectrograph.cross_disperser.prism1
+        prism2 = spectrograph.cross_disperser.prism2
+
+    echelle_order = -spectrograph.grating.order_number(MAX_WL, quantised=True)
+    groove_density_per_um: float = (
+        spectrograph.grating.groove_frequency.to(1 / u.mm).value / 1000
+    )
+
+    blocks: list[list[str]] = []
+    sidx: int = 0
+
+    def add(block: list[str]) -> None:
+        nonlocal sidx
+        blocks.append(block)
+        sidx += 1
+
+    add(_surface_block(sidx, "Input", "STANDARD", 0.0))
+
+    add(_surface_block(sidx, "Flip coordinate system", "STANDARD", 0.0, glass="MIRROR"))
+
+    add(
+        _surface_block(
+            sidx, "Collimate", "COORDBRK", -spectrograph.slit_native_focal_ratio
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Collimate",
+            "PARAXIAL",
+            0.0,
+            params={1: spectrograph.slit_native_focal_ratio, 2: 1.0},
+            diam=half_beam_mm / f_col_mm,
+        )
+    )
+    add(
+        _surface_block(
+            sidx, "Collimate", "COORDBRK", -spectrograph.slit_native_focal_ratio
+        )
+    )
+
+    add(_surface_block(sidx, "Injection Pupil", "STANDARD", 0.0, stop=True))
+
+    # TODO: compute the collimator focal length or f/# in order to set the correct distances here (default 7 mm) - this is essentially a free parameter!
+    add(_surface_block(sidx, "Refocus", "COORDBRK", -7))
+    add(
+        _surface_block(
+            sidx,
+            "Refocus",
+            "PARAXIAL",
+            0.0,
+            params={1: 7, 2: 1.0},
+            diam=half_beam_mm / f_col_mm,
+        )
+    )
+    add(_surface_block(sidx, "Refocus", "COORDBRK", -7))
+
+    add(_surface_block(sidx, "to Collimator", "COORDBRK", -f_col_mm))
+    add(
+        _surface_block(
+            sidx,
+            "M1.1",
+            "STANDARD",
+            0.0,
+            glass="MIRROR",
+            conic=-1.0,
+            diam=beam_diameter_mm * 1.5,
+            mirror_angle=54.73,
+        )
+    )
+    add(_surface_block(sidx, "to Echelle", "COORDBRK", f_col_mm))
+    add(
+        _surface_block(
+            sidx, "Echelle decenter", "COORDBRK", 0.0, params={1: 0.8 * half_beam_mm}
+        )
+    )
+    add(
+        _surface_block(
+            sidx, "Echelle pupil", "STANDARD", 0.0, stop=True, diam=half_beam_mm
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Gamma",
+            "COORDBRK",
+            0.0,
+            params={4: spectrograph.grating.gamma_angle.to(u.deg).value},
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Blaze",
+            "COORDBRK",
+            0.0,
+            params={3: spectrograph.grating.blaze_angle.to(u.deg).value},
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Echelle",
+            "DGRATING",
+            0.0,
+            glass="MIRROR",
+            diam=beam_diameter_mm * 1.45,
+            sqap=(
+                beam_diameter_mm * 0.5,
+                beam_diameter_mm * 0.5 * spectrograph.grating.R,
+                0.0,
+            ),
+            mirror_angle=75.0,
+            dgrating=(groove_density_per_um, float(echelle_order)),
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "- Blaze",
+            "COORDBRK",
+            0.0,
+            params={3: -spectrograph.grating.blaze_angle.to(u.deg).value},
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "- Gamma",
+            "COORDBRK",
+            0.0,
+            params={4: -spectrograph.grating.gamma_angle.to(u.deg).value},
+        )
+    )
+    add(
+        _surface_block(
+            sidx, "- Echelle decenter", "COORDBRK", 0.0, params={1: -0.8 * half_beam_mm}
+        )
+    )
+    add(_surface_block(sidx, "to Collimator", "COORDBRK", -f_col_mm))
+    add(
+        _surface_block(
+            sidx,
+            "M1.2",
+            "STANDARD",
+            0.0,
+            glass="MIRROR",
+            conic=-1.0,
+            diam=beam_diameter_mm * 1.5,
+        )
+    )
+    add(_surface_block(sidx, "to Prism", "COORDBRK", f_col_mm))
+    add(
+        _surface_block(
+            sidx,
+            "Prism incidence angle",
+            "COORDBRK",
+            0.0,
+            params={4: -prism1.incidence_angle.to(u.deg).value},
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Prism S1",
+            "STANDARD",
+            beam_diameter_mm,
+            glass=prism1.glass.name,
+            diam=half_beam_mm,
+            sqap=(beam_diameter_mm, np.tan(prism1.incidence_angle.to(u.deg)), 0.0),
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Prism apex angle",
+            "COORDBRK",
+            0.0,
+            params={1: 90.0, 4: prism1.apex_angle.to(u.deg).value},
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Prism S2",
+            "STANDARD",
+            0.0,
+            glass=prism1.glass.name,
+            diam=half_beam_mm,
+            sqap=(beam_diameter_mm, np.tan(prism1.incidence_angle.to(u.deg)), 0.0),
+        )
+    )
+    add(
+        _surface_block(
+            sidx,
+            "Post prism tilt",
+            "COORDBRK",
+            0.0,
+            params={4: -prism1.incidence_angle.to(u.deg).value},
+        )
+    )
+
+    if prism2 is not None:
+        add(
+            _surface_block(
+                sidx, "to Prism 2", "COORDBRK", 0.0, params={1: 5.0, 2: -15.0}
+            )
+        )
+        add(
+            _surface_block(
+                sidx,
+                "Prism 2 incidence angle",
+                "COORDBRK",
+                0.0,
+                params={4: -prism2.incidence_angle.to(u.deg).value},
+            )
+        )
+        add(
+            _surface_block(
+                sidx,
+                "Prism 2 S1",
+                "STANDARD",
+                beam_diameter_mm,
+                glass=prism2.glass.name,
+                diam=half_beam_mm,
+                sqap=(beam_diameter_mm, np.tan(prism2.incidence_angle.to(u.deg)), 0.0),
+            )
+        )
+        add(
+            _surface_block(
+                sidx,
+                "Prism 2 apex angle",
+                "COORDBRK",
+                0.0,
+                params={1: 90.0, 4: prism2.apex_angle.to(u.deg).value},
+            )
+        )
+        add(
+            _surface_block(
+                sidx,
+                "Prism 2 S2",
+                "STANDARD",
+                0.0,
+                glass=prism2.glass.name,
+                diam=half_beam_mm,
+                sqap=(beam_diameter_mm, np.tan(prism2.incidence_angle.to(u.deg)), 0.0),
+            )
+        )
+        add(
+            _surface_block(
+                sidx,
+                "Post prism tilt",
+                "COORDBRK",
+                0.0,
+                params={4: -prism2.incidence_angle.to(u.deg).value},
+            )
+        )
+
+    add(_surface_block(sidx, "to Camera", "COORDBRK", 100.0))
+    add(
+        _surface_block(
+            sidx,
+            "Camera",
+            "PARAXIAL",
+            0.0,
+            params={1: f_cam_mm, 2: 1.0},
+            diam=half_beam_mm,
+        )
+    )
+    add(_surface_block(sidx, "to Detector", "COORDBRK", f_cam_mm))
+    add(
+        _surface_block(
+            sidx,
+            "CCD",
+            "STANDARD",
+            0.0,
+            sqap=(
+                spectrograph.detector.size[0].to(u.mm).value,
+                spectrograph.detector.size[1].to(u.mm).value,
+                0.0,
+            ),
+            mirror_angle=5.0,
+        )
+    )
+
+    return blocks
+
+
+def generate_zemax_zmx(
+    spectrograph: EchelleSpectrograph,
+    cross_disperser_type: str,
+) -> str:
+    """Generate a sequential Zemax ZMX text model from the current design."""
+
+    mce_wavelengths: list[tuple[int, list[ScalarQuantity]]] = zemax_wavelengths(
+        spectrograph
+    )
+
+    first_cfg: list[ScalarQuantity] = mce_wavelengths[0][1]
+    timestamp: str = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+
+    header: list[str] = [
+        f"VERS {timestamp} 37328 1153887 01153887",
+        "MODE SEQ",
+        "NAME curved_air_export",
+        "AUTH curved_air",
+        "IWDP 0",
+        "PFIL 0 0 0",
+        "LANG 0",
+        "UNIT MM X W X CM MR CPMM LU ",
+        "OBNA 0.13 0",
+        "ENVD 20 1e-08 1",
+        "GFAC 0 0",
+        f"GCAT {spectrograph.prism1.glass.catalogue_name.upper()}"
+        + f" {spectrograph.prism2.glass.catalogue_name.upper()}"
+        if "prism2" in spectrograph.__dict__
+        else "" + "MISC" + " 0",
+        "RAIM 0 0 1 1 0 0 0 0 0 1",
+        "PUSH 0 0 0 0 0 0",
+        "SDMA 0 0 0",
+        "OMMA 1 1",
+        "FTYP 1 1 1 5 1 0 0 1",
+        "ROPD 2",
+        "HYPR 0",
+        "PICB 1",
+        "XFLN 0",
+        "YFLN 0",
+        "FWGN 1",
+        "VDXN 0",
+        "VDYN 0",
+        "VCXN 0",
+        "VCYN 0",
+        "VANN 0",
+    ]
+
+    for i, wl in enumerate(first_cfg, start=1):
+        header.append(f"WAVM {i} {_fmt_float(wl.to(u.um).value, precision=16)} 1")
+
+    header.extend(
+        [
+            "PWAV 1",
+            "POLS 1 0 1 0 0 1 0",
+            "GLRS 12 0",
+            "GSTD 1 100.000 100.000 100.000 100.000 100.000 100.000 0 1 1 0 0 1 1 1 1 1 1",
+            "NSCD 100 500 0 9.9999999999999995e-07 10 9.9999999999999995e-07 0 0 0 0 0 0 1000000 0 2",
+            'COFN QF "COATING.DAT" "SCATTER_PROFILE.DAT" "ABG_DATA.DAT" "PROFILE.GRD"',
+            "COFN COATING.DAT SCATTER_PROFILE.DAT ABG_DATA.DAT PROFILE.GRD",
+            "LUID 197",
+            "EERA 0 0 0 10",
+        ]
+    )
+
+    surface_blocks: list[list[str]] = _zemax_surface_sequence(
+        spectrograph=spectrograph,
+        cross_disperser_type=cross_disperser_type,
+    )
+
+    mce_lines: list[str] = [
+        f"CONF {len(mce_wavelengths)} 0 0 0 0 0 0 0 0 0",
+        "BLNK ",
+        "TOL TOFF   0   0 0.0000000000000000E+00 0.0000000000000000E+00   0 0 0 0 0",
+        f"MNUM {len(mce_wavelengths)} 1",
+    ]
+
+    echelle_surface_idx: int | None = None
+    for block in surface_blocks:
+        if any(line.strip() == "COMM Echelle" for line in block):
+            echelle_surface_idx = int(block[0].split()[1])
+            break
+
+    if echelle_surface_idx is None:
+        raise RuntimeError("Could not identify echelle surface index for MCE setup.")
+
+    for cfg_idx, (order, _wls) in enumerate(mce_wavelengths, start=1):
+        mce_lines.append(
+            "PRAM"
+            + f" {echelle_surface_idx:>3}"
+            + f" {cfg_idx:>3}"
+            + f" {_fmt_sci(float(-order))}"
+            + ' 0 2 0 1 1 1.000000000000E+00 0.000000000000E+00 0 "" 0'
+        )
+
+    for cfg_idx, (_order, wls) in enumerate(mce_wavelengths, start=1):
+        for w_idx, wl in enumerate(wls, start=1):
+            mce_lines.append(
+                "WAVE"
+                + f" {cfg_idx:>3}"
+                + f" {w_idx:>3}"
+                + f" {_fmt_sci(wl.to(u.um).value)}"
+                + ' 0 0 0 1 1 1.000000000000E+00 0.000000000000E+00 0 "" 0'
+            )
+
+    all_lines: list[str] = header
+    for block in surface_blocks:
+        all_lines.extend(block)
+    all_lines.extend(mce_lines)
+
+    return "\n".join(all_lines) + "\n"
 
 
 st.header("Echelle Spectrograph", anchor=False)
@@ -757,6 +1298,11 @@ with st.sidebar:
             help="Click to recompute the spectral format plot.",
         )
 
+    with st.container(horizontal_alignment="center"):
+        st.caption(
+            "Use the sidebar download button below the model summary to export a Zemax .zmx file."
+        )
+
 
 # Create Spectrograph
 
@@ -824,6 +1370,26 @@ else:
         slit_width=slit_width,
         slit_length=slit_length,
         slit_native_focal_ratio=slit_focal_ratio,
+    )
+
+
+try:
+    zmx_text: str = generate_zemax_zmx(
+        spectrograph=spectrograph,
+        cross_disperser_type=cross_disperser_type,
+    )
+except Exception as exc:
+    st.sidebar.warning(f"Zemax export unavailable for current settings: {exc}")
+else:
+    st.sidebar.download_button(
+        "Download Zemax file",
+        data=zmx_text,
+        file_name="curved_air_export.zmx",
+        mime="text/plain",
+        help=(
+            "Export a sequential Zemax file with paraxial/reflective surfaces and "
+            "a prism cross-disperser."
+        ),
     )
 
 # Summary
