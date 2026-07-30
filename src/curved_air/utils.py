@@ -499,8 +499,10 @@ def st_quantity_input(
         st.stop()
 
     if inverse:
+        st.session_state[key] = value / u.Unit(unit)
         return value / u.Unit(unit)
 
+    st.session_state[key] = value * u.Unit(unit)
     return value * u.Unit(unit)
 
 
