@@ -77,6 +77,11 @@ pages: list = [
         title="Guiding Simulator",
         icon="✨",
     ),
+    st.Page(
+        page=APP_PATH / "pages" / "guide_star_fov.py",
+        title="Guide Star FoV",
+        icon="⭐",
+    ),
 ]
 
 nav = st.navigation(pages={"Curved Air: Optical Design Tools": pages})
