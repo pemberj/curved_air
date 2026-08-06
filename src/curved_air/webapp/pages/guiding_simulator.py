@@ -370,6 +370,7 @@ def simulate_image(
     detector: Detector = detectors[0],
     image_size: int = 44,
     centroid_ROI: int = 30,
+    fibre_size: float | ScalarQuantity | None = None,
 ) -> plt.Figure:
     """
     The main script.
@@ -402,6 +403,9 @@ def simulate_image(
 
     if isinstance(secondary_diameter, int | float):
         secondary_diameter *= u.meter
+
+    if isinstance(fibre_size, int | float):
+        fibre_size *= u.micron
 
     mirror_R: Path = DATA_PATH / "ASA_Protected_Enhanced_Aluminium.csv"
     guiding_split: Path = DATA_PATH / "Tafelmeier_6_final.csv"
@@ -467,16 +471,15 @@ def simulate_image(
 
     ax.imshow(exposure)
 
-    fibre_radius: ScalarQuantity = 20 * u.um
-
-    fibre = plt.Circle(
-        (image_size // 2, image_size // 2),
-        radius=(fibre_radius / detector.pixel_size).si.value,
-        color="red",
-        fill=False,
-        label="Science fibre",
-    )
-    ax.add_artist(fibre)
+    if fibre_size is not None:
+        fibre = plt.Circle(
+            (image_size // 2, image_size // 2),
+            radius=((fibre_size / 2) / detector.pixel_size).si.value,
+            color="red",
+            fill=False,
+            label="Science fibre",
+        )
+        ax.add_artist(fibre)
 
     cenx, ceny = compute_centroid(image=exposure, ROI_size=centroid_ROI)
 
@@ -748,6 +751,27 @@ with settings_column:
         key="centroid_ROI",
     )
 
+    cols = st.columns([1, 3])
+
+    with cols[0]:
+        st.container(height=12, border=False)
+        st.toggle("Show fibre?", key="show_fibre_overlay")
+
+    with cols[1]:
+        st_quantity_input(
+            "Fibre size",
+            min_value=0.0,
+            value=40.0,
+            step=0.1,
+            default_unit="µm",
+            possible_units=["µm", "mm"],
+            disabled=not st.session_state.get("show_fibre_overlay", False),
+            key="fibre_size",
+        )
+
+    if not st.session_state.get("show_fibre_overlay", False):
+        st.session_state["fibre_size"] = None
+
 
 fig: plt.Figure = simulate_image(
     magnitude=st.session_state["stellar_magnitude"],
@@ -765,6 +789,7 @@ fig: plt.Figure = simulate_image(
     ),
     image_size=st.session_state["image_size"],
     centroid_ROI=st.session_state["centroid_ROI"],
+    fibre_size=st.session_state.get("fibre_size", None),
 )
 
 
