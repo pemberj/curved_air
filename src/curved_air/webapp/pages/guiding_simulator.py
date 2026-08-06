@@ -1,5 +1,5 @@
 #! uv run streamlit run
-
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -14,10 +14,12 @@ from numpy.typing import NDArray
 
 from curved_air.plotting import plot_style
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+from curved_air.utils import st_quantity_input
 
 plt.style.use(plot_style)
 
 SCRIPT_PATH: Path = Path(__file__).parent
+DATA_PATH: Path = SCRIPT_PATH / ".." / ".." / "data"
 
 
 # This dictionary provides a reference for the absolute flux of magnitude 0 stars across
@@ -44,6 +46,26 @@ band_properties: dict[str, dict[str, ScalarQuantity]] = {
         "standard_flux": 3080 * u.Jy,  # mag 0
     },
 }
+
+
+@dataclass
+class Detector:
+    name: str
+    pixel_size: ScalarQuantity  # micron
+    gain: ScalarQuantity  # e¯ / photon
+    dark_noise: ScalarQuantity  # e¯ / s
+    read_noise: ScalarQuantity  # e¯
+
+
+detectors: list[Detector] = [
+    Detector(
+        name="Sony IMX265",
+        pixel_size=3.45 * u.micron,
+        gain=1 / u.photon,
+        dark_noise=3.2 * u.electron / u.second,
+        read_noise=2.2 * u.electron,
+    ),
+]
 
 
 def gaussian_seeing(
@@ -206,7 +228,7 @@ def dark_noise(
     image: NDArray | None = None,
     num_pixels: int = 50,
     exposure_time: ScalarQuantity = 2 * u.second,
-    dark_current: ScalarQuantity = 3.2 * u.electron / u.second,
+    dark_noise: ScalarQuantity = 3.2 * u.electron / u.second,
     plot_hist: bool = False,
 ) -> NDArray:
     """
@@ -218,7 +240,7 @@ def dark_noise(
         image: NDArray = np.zeros((num_pixels, num_pixels))
 
     DC: NDArray = np.random.poisson(
-        lam=(dark_current * exposure_time).to(u.electron).value,
+        lam=(dark_noise * exposure_time).to(u.electron).value,
         size=image.shape,
     )
 
@@ -335,11 +357,19 @@ def guiding_efficiency(
 
 
 def simulate_image(
-    magnitude: float | Quantity = 11 * u.mag,
-    blackbody_temperature: float | Quantity = 3200 * u.K,
-    seeing_fwhm: float | Quantity = 2 * u.arcsec,
-    exposure_time: float | Quantity = 0.1 * u.second,
-    sky_background: float | Quantity = 22 * u.mag / u.arcsec**2,
+    magnitude: float | ScalarQuantity = 11 * u.mag,
+    blackbody_temperature: float | ScalarQuantity = 3200 * u.K,
+    seeing_fwhm: float | ScalarQuantity = 2 * u.arcsec,
+    psf_fwhm: float | ScalarQuantity = 2.5 * u.micron,
+    exposure_time: float | ScalarQuantity = 0.1 * u.second,
+    sky_background: float | ScalarQuantity = 22 * u.mag / u.arcsec**2,
+    telescope_diameter: float | ScalarQuantity = 0.8 * u.meter,
+    secondary_diameter: float | ScalarQuantity = 0.2 * u.meter,
+    telescope_num_mirrors: int = 3,
+    guide_focal_ratio: float = 3.5,
+    detector: Detector = detectors[0],
+    image_size: int = 44,
+    centroid_ROI: int = 30,
 ) -> plt.Figure:
     """
     The main script.
@@ -349,54 +379,45 @@ def simulate_image(
     and then computes the centroid of the resulting image.
     """
 
-    if isinstance(magnitude, (int, float)):
+    if isinstance(magnitude, int | float):
         magnitude *= u.mag
 
-    if isinstance(blackbody_temperature, (int, float)):
+    if isinstance(blackbody_temperature, int | float):
         blackbody_temperature *= u.K
 
-    if isinstance(seeing_fwhm, (int, float)):
+    if isinstance(seeing_fwhm, int | float):
         seeing_fwhm *= u.arcsec
 
-    if isinstance(exposure_time, (int, float)):
+    if isinstance(psf_fwhm, int | float):
+        psf_fwhm *= u.micron
+
+    if isinstance(exposure_time, int | float):
         exposure_time *= u.second
 
-    if isinstance(sky_background, (int, float)):
+    if isinstance(sky_background, int | float):
         sky_background *= u.mag / u.arcsec**2
 
-    mirror_R = SCRIPT_PATH / "data" / "ASA_Protected_Enhanced_Aluminium.csv"
-    guiding_split = SCRIPT_PATH / "data" / "Tafelmeier_6_final.csv"
-    QE = SCRIPT_PATH / "data" / "IMX265_QE.csv"
+    if isinstance(telescope_diameter, int | float):
+        telescope_diameter *= u.meter
 
-    image_size = 44
-    centroid_ROI = 30
+    if isinstance(secondary_diameter, int | float):
+        secondary_diameter *= u.meter
+
+    mirror_R: Path = DATA_PATH / "ASA_Protected_Enhanced_Aluminium.csv"
+    guiding_split: Path = DATA_PATH / "Tafelmeier_6_final.csv"
+    QE: Path = DATA_PATH / "IMX265_QE.csv"
 
     wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
 
-    # Optical performance
-    psf_fwhm: ScalarQuantity = 2.5 * u.micron
-
-    # Telescope properties
-    telescope_diameter: ScalarQuantity = 0.8 * u.meter
-    secondary_diameter: ScalarQuantity = 0.2 * u.meter
-    mirrors = 3  # number of mirrors throughout telescope
-
-    guide_focal_ratio = 3.5
     plate_scale: ScalarQuantity = (
         1 * u.radian / (telescope_diameter * guide_focal_ratio)
     )
     plate_scale: ScalarQuantity = plate_scale.to(u.arcsec / u.um)
 
-    # Detector properties
-    pixel_size: ScalarQuantity = 3.45 * u.um
-    gain: ScalarQuantity = 1 / u.photon  # ?
-    dark_current: ScalarQuantity = 3.2 * u.electron / u.second
-    read_noise_level: ScalarQuantity = 2.2 * u.electron
-
     exposure: NDArray = gaussian_seeing(
         fwhm=seeing_fwhm,
         plate_scale=plate_scale,
-        pixel_size=pixel_size,
+        pixel_size=detector.pixel_size,
         num_pixels=image_size,
     )
 
@@ -409,7 +430,7 @@ def simulate_image(
     )
 
     _telescope_efficiency = telescope_efficiency(
-        wavelengths=wavelengths, num_mirrors=mirrors, csv=mirror_R
+        wavelengths=wavelengths, num_mirrors=telescope_num_mirrors, csv=mirror_R
     )
 
     _guiding_efficiency = guiding_efficiency(csv=guiding_split, wavelengths=wavelengths)
@@ -424,26 +445,25 @@ def simulate_image(
         * _telescope_efficiency
         * _guiding_efficiency
         * exposure_time
-        * gain
+        * detector.gain
         * _detector_QE
     )
-    exposure *= np.sum(flux)
+    exposure: NDArray = exposure * np.sum(flux)
 
     dark: NDArray = dark_noise(
-        num_pixels=image_size, exposure_time=exposure_time, dark_current=dark_current
+        num_pixels=image_size,
+        exposure_time=exposure_time,
+        dark_noise=detector.dark_noise,
     )
 
-    read: NDArray = read_noise(num_pixels=image_size, noise_level=read_noise_level)
+    read: NDArray = read_noise(num_pixels=image_size, noise_level=detector.read_noise)
 
     exposure += dark + read
 
     exposure -= np.median(dark) + np.median(read)
 
-    fig, axs = plt.subplots(
-        nrows=2, ncols=1, figsize=(10, 10), gridspec_kw={"height_ratios": [3, 1]}
-    )
-
-    ax: plt.Axes = axs[0]
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
 
     ax.imshow(exposure)
 
@@ -451,7 +471,7 @@ def simulate_image(
 
     fibre = plt.Circle(
         (image_size // 2, image_size // 2),
-        radius=(fibre_radius / pixel_size).si.value,
+        radius=(fibre_radius / detector.pixel_size).si.value,
         color="red",
         fill=False,
         label="Science fibre",
@@ -490,216 +510,263 @@ def simulate_image(
         label=f"True centroid: ({image_size / 2}, {image_size / 2})",
     )
 
-    ax.legend()
+    ax.legend(frameon=True, loc="lower center", fontsize=12)
     ax.set_title(
         "Simulated guiding image\n"
         f"Seeing FWHM = {seeing_fwhm:.2g}, "
         f"V={magnitude.value:.3g} Blackbody of T={blackbody_temperature:.4g}\n"
-        f"{exposure_time:.3g} exposure on Sony IMX265 CMOS detector",
+        f"{exposure_time:.3g} exposure on {detector.name} detector",
         size=17,
     )
     ax.set_xticks([])
     ax.set_yticks([])
 
-    ax: plt.Axes = axs[1]
-    ax.set_ylabel("Signal", size=15)
-    ax.set_xlabel("Pixel", size=15)
-    for i in exposure:
-        ax.plot(i, alpha=0.25)
-
     return fig
 
 
-def plot_curves(
-    magnitude: float | Quantity = 11 * u.mag,
-    blackbody_temperature: float | Quantity = 3200 * u.K,
-    seeing_fwhm: float | Quantity = 2 * u.arcsec,
-    exposure_time: float | Quantity = 0.1 * u.second,
-) -> plt.Figure:
-    """ """
+# Now start the actual webapp
 
-    if isinstance(magnitude, (int, float)):
-        magnitude *= u.mag
 
-    if isinstance(blackbody_temperature, (int, float)):
-        blackbody_temperature *= u.K
+st.title("Guide Image Simulator")
 
-    if isinstance(seeing_fwhm, (int, float)):
-        seeing_fwhm *= u.arcsec
+with st.expander("About this tool", expanded=False):
+    """
+    This tool generates simulated images for a telescope guiding system.
 
-    if isinstance(exposure_time, (int, float)):
-        exposure_time *= u.second
+    You can use this tool to evaluate guiding speeds for objects of different
+    brightness, for telescopes of different size, with different efficiency through the
+    optical system, for different guide image exposure times, etc.
 
-    mirror_R: Path = SCRIPT_PATH / "data" / "ASA_Protected_Enhanced_Aluminium.csv"
-    guiding_split: Path = SCRIPT_PATH / "data" / "Tafelmeier_6_final.csv"
-    QE: Path = SCRIPT_PATH / "data" / "IMX265_QE.csv"
+    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
-    image_size = 70
+    Please get in contact if you have any questions, suggestions, or find any bugs!
 
-    wavelengths: ArrayQuantity = np.linspace(380, 950, 1_000) * u.nm
+    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+    useful and want to support its development!
+    """
 
-    # Optical performance
-    psf_fwhm: ScalarQuantity = 2.5 * u.micron
-
-    # Telescope properties
-    telescope_diameter: ScalarQuantity = 0.8 * u.meter
-    secondary_diameter: ScalarQuantity = 0.2 * u.meter
-    mirrors = 3  # number of mirrors throughout telescope
-
-    guide_focal_ratio = 3.5
-    plate_scale: ScalarQuantity = (
-        1 * u.radian / (telescope_diameter * guide_focal_ratio)
-    )
-    plate_scale: ScalarQuantity = plate_scale.to(u.arcsec / u.um)
-
-    # Detector properties
-    pixel_size: ScalarQuantity = 3.45 * u.um
-    gain: ScalarQuantity = 1 / u.photon  # ?
-    dark_current: ScalarQuantity = 3.2 * u.electron / u.second
-    read_noise_level: ScalarQuantity = 2.2 * u.electron
-
-    exposure: NDArray = gaussian_seeing(
-        fwhm=seeing_fwhm,
-        plate_scale=plate_scale,
-        pixel_size=pixel_size,
-        num_pixels=image_size,
+    st.iframe(
+        """
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+        """,
     )
 
-    psf: NDArray = PSF(fwhm=psf_fwhm)
-    exposure: NDArray = cv2.filter2D(exposure, -1, psf)
+st.divider()
 
-    _photon_flux = photon_flux(
-        magnitude=magnitude, wavelengths=wavelengths, temperature=blackbody_temperature
-    )
+settings_column, output_column = st.columns(2)
 
-    _telescope_efficiency = telescope_efficiency(
-        wavelengths=wavelengths, num_mirrors=mirrors, csv=mirror_R
-    )
-
-    _guiding_efficiency = guiding_efficiency(csv=guiding_split, wavelengths=wavelengths)
-    _detector_QE = detector_QE(wavelengths=wavelengths, csv=QE)
-
-    flux = (
-        _photon_flux
-        * telescope_area(
-            telescope_diameter=telescope_diameter,
-            secondary_diameter=secondary_diameter,
+with settings_column:
+    with st.expander("Object"):
+        st.number_input(
+            "Magnitude",
+            value=10.0,
+            step=0.1,
+            width=200,
+            key="stellar_magnitude",
         )
-        * _telescope_efficiency
-        * _guiding_efficiency
-        * exposure_time
-        * gain
-        * _detector_QE
+
+        st.number_input(
+            "Blackbody temperature (K)",
+            value=5777,
+            step=1,
+            width=200,
+            key="stellar_temperature",
+        )
+
+    with st.expander("Seeing"):
+        st_quantity_input(
+            "Angular seeing FWHM",
+            min_value=0.0,
+            value=1.0,
+            step=0.1,
+            default_unit="arcsec",
+            possible_units=["arcsec", "arcmin", "mrad", "degree"],
+            key="seeing_fwhm",
+        )
+
+    with st.expander("Telescope"):
+        st_quantity_input(
+            "Primary mirror diameter",
+            min_value=0.0,
+            value=0.8,
+            step=0.1,
+            default_unit="m",
+            possible_units=["mm", "cm", "m"],
+            key="telescope_diameter",
+        )
+
+        st_quantity_input(
+            "Secondary mirror diameter",
+            min_value=0.0,
+            value=0.2,
+            step=0.1,
+            default_unit="m",
+            possible_units=["mm", "cm", "m"],
+            key="telescope_secondary_diameter",
+        )
+
+        st.number_input(
+            "Number of mirrors",
+            min_value=1,
+            value=3,
+            step=1,
+            width=200,
+            key="telescope_num_mirrors",
+        )
+
+    with st.expander("Guide system"):
+        st.number_input(
+            "Guide system focal ratio",
+            min_value=0.1,
+            value=3.5,
+            step=0.1,
+            width=200,
+            key="guide_focal_ratio",
+        )
+
+        st.session_state["guide_plate_scale"] = (
+            1
+            * u.radian
+            / (
+                st.session_state["telescope_diameter"]
+                * st.session_state["guide_focal_ratio"]
+            )
+        ).to(u.arcsec / u.um)
+
+        st_quantity_input(
+            "PSF size (FWHM)",
+            min_value=0.0,
+            value=10.0,
+            step=0.1,
+            default_unit="µm",
+            possible_units=["µm", "mm"],
+            key="psf_fwhm",
+        )
+
+    with st.expander("Detector"):
+        st.selectbox(
+            "Detector",
+            options=[*[detector.name for detector in detectors], "Custom"],
+            index=0,
+            width=200,
+            key="detector_preset",
+        )
+
+        if st.session_state.get("detector_preset", "Custom") != "Custom":
+            detector: Detector = next(
+                d for d in detectors if d.name == st.session_state["detector_preset"]
+            )
+
+            st.session_state["detector_pixel_size"] = detector.pixel_size.to(u.um)
+            st.session_state["detector_gain"] = detector.gain.to(1 / u.photon)
+            st.session_state["detector_dark_noise"] = detector.dark_noise.to(
+                u.electron / u.second
+            )
+            st.session_state["detector_read_noise"] = detector.read_noise.to(u.electron)
+
+        else:
+            custom_pixel_size: float = st.number_input(
+                "Pixel size (µm)",
+                min_value=0.0,
+                value=3.45,
+                step=0.01,
+                width=200,
+            )
+
+            st.session_state["detector_pixel_size"] = custom_pixel_size * u.um
+
+            custom_gain: float = st.number_input(
+                "Gain (e¯/photon)",
+                min_value=0.0,
+                value=1.0,
+                step=0.1,
+                width=200,
+            )
+
+            st.session_state["detector_gain"] = custom_gain * (1 / u.photon)
+
+            custom_read_noise: float = st.number_input(
+                "Read noise (e¯)",
+                min_value=0.0,
+                value=2.2,
+                step=0.1,
+                width=200,
+            )
+
+            st.session_state["detector_read_noise"] = custom_read_noise * u.electron
+
+            custom_dark_noise: float = st.number_input(
+                "Dark noise (e¯/s)",
+                min_value=0.0,
+                value=3.2,
+                step=0.1,
+                width=200,
+            )
+
+            st.session_state["detector_dark_noise"] = custom_dark_noise * (
+                u.electron / u.second
+            )
+
+        # if not st.session_state.get("custom_qe", False):
+        #     st.number_input(
+        #         "Quantum efficiency (flat)",
+        #         min_value=0.0,
+        #         value=0.9,
+        #         max_value=1.0,
+        #         key="detector_qe",
+        #     )
+
+        # st.toggle("Upload QE curve?", key="custom_qe")
+
+        # if st.session_state.get("custom_qe", False):
+        #     st.file_upload("QE curve")
+
+    st_quantity_input(
+        "Exposure time",
+        min_value=0.01,
+        value=0.25,
+        default_unit="s",
+        possible_units=["ms", "s", "m"],
+        key="exposure_time",
     )
 
-    exposure *= np.sum(flux)
-
-    dark: NDArray = dark_noise(
-        num_pixels=image_size, exposure_time=exposure_time, dark_current=dark_current
+    st.number_input(
+        "Image size (pixels)",
+        min_value=1,
+        value=50,
+        step=1,
+        width=200,
+        key="image_size",
     )
 
-    read: NDArray = read_noise(num_pixels=image_size, noise_level=read_noise_level)
-
-    exposure += dark + read
-    exposure -= np.median(dark) + np.median(read)
-
-    fig: plt.Figure = plt.figure(figsize=(8, 8))
-    ax: plt.Axes = fig.gca()
-
-    _normalised_photon_flux = _photon_flux / np.max(_photon_flux)
-
-    ax.plot(
-        wavelengths,
-        _normalised_photon_flux,
-        label=f"Normalised input flux (Blackbody of T={blackbody_temperature:.4g})",
-    )
-    ax.plot(wavelengths, _telescope_efficiency, label="Telescope efficiency")
-    ax.plot(wavelengths, _guiding_efficiency, label="Guiding split (coating)")
-    ax.plot(wavelengths, _detector_QE, label="Detector QE")
-
-    _total_efficiency = _telescope_efficiency * _guiding_efficiency * _detector_QE
-    ax.plot(wavelengths, _total_efficiency, label="Total efficiency")
-
-    _total_flux = (
-        _photon_flux * _telescope_efficiency * _guiding_efficiency * _detector_QE
-    )
-    _normalised_total_flux = _total_flux / np.max(_total_flux)
-
-    ax.plot(wavelengths, _normalised_total_flux, label="Normalised guiding flux")
-
-    ax.set_ylim(-0.05, 1.3)
-    ax.set_xlabel("Wavelength (nm)")
-    ax.set_ylabel("Efficiency / Normalised Flux")
-    ax.legend()
-
-    return fig
-
-
-def plot_QE_and_coating() -> plt.Figure:
-
-    guiding_split: Path = SCRIPT_PATH / "data" / "Tafelmeier_6_final.csv"
-
-    measured_guiding_split: Path = (
-        SCRIPT_PATH / "data" / "MARVEL_beamsplitter_split.csv"
+    st.number_input(
+        "Centroid ROI size (pixels)",
+        min_value=1,
+        value=30,
+        step=1,
+        width=200,
+        key="centroid_ROI",
     )
 
-    QE: Path = SCRIPT_PATH / "data" / "IMX265_QE.csv"
 
-    wavelengths: ArrayQuantity = np.linspace(380, 950, 1_000) * u.nm
-
-    _guiding_efficiency = guiding_efficiency(
-        csv=guiding_split,
-        wavelengths=wavelengths,
-    )
-    _measured_guiding_efficiency = guiding_efficiency(
-        csv=measured_guiding_split,
-        wavelengths=wavelengths,
-    )
-    _detector_QE = detector_QE(
-        csv=QE,
-        wavelengths=wavelengths,
-    )
-
-    fig: plt.Figure = plt.figure(figsize=(8, 4))
-    ax1: plt.Axes = fig.gca()
-    ax2: plt.Axes = ax1.twinx()
-
-    QEline = ax1.plot(
-        wavelengths,
-        _detector_QE,
-        color="tab:blue",
-        label="Detector QE",
-        alpha=0.8,
-    )
-    BSline = ax2.plot(
-        wavelengths,
-        _guiding_efficiency,
-        color="tab:orange",
-        ls="--",
-        label="Guiding split\n(design)",
-        alpha=0.8,
-    )
-    BSline_measured = ax2.plot(
-        wavelengths,
-        _measured_guiding_efficiency,
-        color="tab:orange",
-        ls="-",
-        label="Guiding split\n(measured)",
-        alpha=0.8,
-    )
-
-    ax1.tick_params(axis="y", labelcolor=QEline[0].get_color())
-    ax2.tick_params(axis="y", labelcolor=BSline_measured[0].get_color())
-
-    ax1.set_xlabel("Wavelength (nm)")
-    ax1.set_ylabel("Detector quantum efficiency", color=QEline[0].get_color())
-    ax2.set_ylabel("Guiding split efficiency", color=BSline[0].get_color())
-
-    lines = QEline + BSline + BSline_measured
-    labels: list[str] = [str(line.get_label()) for line in lines]
-    ax1.legend(lines, labels)
-
-    return fig
+fig: plt.Figure = simulate_image(
+    magnitude=st.session_state["stellar_magnitude"],
+    blackbody_temperature=st.session_state["stellar_temperature"],
+    seeing_fwhm=st.session_state["seeing_fwhm"],
+    psf_fwhm=st.session_state["psf_fwhm"],
+    exposure_time=st.session_state["exposure_time"],
+    sky_background=22 * u.mag / u.arcsec**2,
+    telescope_diameter=st.session_state["telescope_diameter"],
+    secondary_diameter=st.session_state["telescope_secondary_diameter"],
+    telescope_num_mirrors=st.session_state["telescope_num_mirrors"],
+    guide_focal_ratio=st.session_state["guide_focal_ratio"],
+    detector=next(
+        d for d in detectors if d.name == st.session_state["detector_preset"]
+    ),
+    image_size=st.session_state["image_size"],
+    centroid_ROI=st.session_state["centroid_ROI"],
+)
 
 
-st.title("Guiding Simulator")
+with output_column:
+    st.pyplot(fig)
