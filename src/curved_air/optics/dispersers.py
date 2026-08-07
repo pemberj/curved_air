@@ -380,26 +380,22 @@ class EchelleGrating(Disperser):
 
     @overload
     def blaze_efficiency(
-        self,
-        m: int | None = None,
-        wl: ScalarQuantity | None = None,
-        set_angle: ScalarQuantity | None = None,
+        self, m: int, wl: ScalarQuantity, set_angle: ScalarQuantity | None = None
     ) -> float: ...
 
     @overload
     def blaze_efficiency(
-        self,
-        m: int | None = None,
-        wl: ScalarQuantity | None = None,
-        set_angle: ScalarQuantity | None = None,
+        self, wl: ScalarQuantity, set_angle: ScalarQuantity | None = None
+    ) -> float: ...
+
+    @overload
+    def blaze_efficiency(
+        self, m: int, set_angle: ScalarQuantity | None = None
     ) -> tuple[ArrayQuantity, list[float]]: ...
 
     @overload
     def blaze_efficiency(
-        self,
-        m: int | None = None,
-        wl: ScalarQuantity | None = None,
-        set_angle: ScalarQuantity | None = None,
+        self, set_angle: ScalarQuantity | None = None
     ) -> dict[int, tuple[ArrayQuantity, list[float]]]: ...
 
     def blaze_efficiency(
@@ -489,7 +485,7 @@ class EchelleGrating(Disperser):
             return {
                 i: self.blaze_efficiency(m=i, set_angle=set_angle)
                 for i in self.diffraction_orders
-            }  # ty:ignore[invalid-return-type]
+            }
 
         # Default case: both m and wl are passed
         assert m is not None and wl is not None
