@@ -602,119 +602,155 @@ st.divider()
 settings_column, output_column = st.columns(2)
 
 with settings_column:
-    with st.expander("Object"):
-        st.number_input(
-            "Magnitude",
-            value=10.0,
-            step=0.1,
-            width=200,
-            key="stellar_magnitude",
-        )
+    with st.expander("Object", expanded=True):
+        cols = cycle(st.columns(2))
 
-        st.number_input(
-            "Blackbody temperature (K)",
-            value=5777,
-            step=1,
-            width=200,
-            key="stellar_temperature",
-        )
-
-    with st.expander("Seeing"):
-        st_quantity_input(
-            "Angular seeing FWHM",
-            min_value=0.0,
-            value=1.0,
-            step=0.1,
-            default_unit="arcsec",
-            possible_units=["arcsec", "arcmin", "mrad", "degree"],
-            key="seeing_fwhm",
-        )
-
-    with st.expander("Telescope"):
-        st_quantity_input(
-            "Primary mirror diameter",
-            min_value=0.0,
-            value=0.8,
-            step=0.1,
-            default_unit="m",
-            possible_units=["mm", "cm", "m"],
-            key="telescope_diameter",
-        )
-
-        st_quantity_input(
-            "Secondary mirror diameter",
-            min_value=0.0,
-            value=0.2,
-            step=0.1,
-            default_unit="m",
-            possible_units=["mm", "cm", "m"],
-            key="telescope_secondary_diameter",
-        )
-
-        st.number_input(
-            "Number of mirrors",
-            min_value=1,
-            value=3,
-            step=1,
-            width=200,
-            key="telescope_num_mirrors",
-        )
-
-        st.selectbox(
-            "Mirror coating",
-            options=[*[coating.name for coating in mirror_coatings], "Custom"],
-            index=0,
-            width=400,
-            key="telescope_mirror_coating",
-        )
-
-        if st.session_state.get("telescope_mirror_coating", "Custom") != "Custom":
-            coating: Path = next(
-                c
-                for c in mirror_coatings
-                if c.name == st.session_state["telescope_mirror_coating"]
+        with next(cols):
+            st.number_input(
+                "Magnitude",
+                value=10.0,
+                step=0.1,
+                width=200,
+                key="stellar_magnitude",
             )
 
-            st.session_state["telescope_mirror_reflectivity"] = coating
-
-        else:
-            st.file_uploader(
-                "Upload mirror reflectivity curve (CSV)",
-                type=["csv"],
-                key="telescope_mirror_reflectivity",
-                help="CSV file with two columns: wavelength (nm) and reflectivity (0-1)",
+        with next(cols):
+            st.number_input(
+                "Blackbody temperature (K)",
+                value=5777,
+                step=1,
+                width=200,
+                key="stellar_temperature",
             )
 
-    with st.expander("Guide system"):
-        st.number_input(
-            "Guide system focal ratio",
-            min_value=0.1,
-            value=3.5,
-            step=0.1,
-            width=200,
-            key="guide_focal_ratio",
-        )
+    with st.expander("Seeing", expanded=True):
+        cols = cycle(st.columns([2, 1]))
 
-        st.session_state["guide_plate_scale"] = (
-            1
-            * u.radian
-            / (
-                st.session_state["telescope_diameter"]
-                * st.session_state["guide_focal_ratio"]
+        with next(cols):
+            st_quantity_input(
+                "Angular seeing FWHM",
+                min_value=0.0,
+                value=1.0,
+                step=0.1,
+                default_unit="arcsec",
+                possible_units=["arcsec", "arcmin", "mrad", "degree"],
+                key="seeing_fwhm",
             )
-        ).to(u.arcsec / u.um)
 
-        st_quantity_input(
-            "PSF size (FWHM)",
-            min_value=0.0,
-            value=10.0,
-            step=0.1,
-            default_unit="µm",
-            possible_units=["µm", "mm"],
-            key="psf_fwhm",
-        )
+    with st.expander("Telescope", expanded=True):
+        cols = cycle(st.columns(2))
 
-    with st.expander("Detector"):
+        with next(cols):
+            st_quantity_input(
+                "Primary mirror diameter",
+                min_value=0.0,
+                value=0.8,
+                step=0.1,
+                default_unit="m",
+                possible_units=["mm", "cm", "m"],
+                key="telescope_diameter",
+            )
+
+            st_quantity_input(
+                "Secondary mirror diameter",
+                min_value=0.0,
+                value=0.2,
+                step=0.1,
+                default_unit="m",
+                possible_units=["mm", "cm", "m"],
+                key="telescope_secondary_diameter",
+            )
+
+        with next(cols):
+            st.number_input(
+                "Number of mirrors",
+                min_value=1,
+                value=3,
+                step=1,
+                width=200,
+                key="telescope_num_mirrors",
+            )
+
+            st.selectbox(
+                "Mirror coating",
+                options=[*[coating.name for coating in mirror_coatings], "Custom"],
+                index=0,
+                width=400,
+                key="telescope_mirror_coating",
+            )
+
+        with next(cols):
+            if st.session_state.get("telescope_mirror_coating", "Custom") != "Custom":
+                coating: Path = next(
+                    c
+                    for c in mirror_coatings
+                    if c.name == st.session_state["telescope_mirror_coating"]
+                )
+
+                st.session_state["telescope_mirror_reflectivity"] = coating
+
+            else:
+                st.file_uploader(
+                    "Upload mirror reflectivity curve (CSV)",
+                    type=["csv"],
+                    key="telescope_mirror_reflectivity",
+                    help="CSV file with two columns: wavelength (nm) and reflectivity (0-1)",
+                )
+
+    with st.expander("Guide system", expanded=True):
+        cols = cycle(st.columns(2))
+
+        with next(cols):
+            st.number_input(
+                "Guide system focal ratio",
+                min_value=0.1,
+                value=3.5,
+                step=0.1,
+                width=200,
+                key="guide_focal_ratio",
+            )
+
+            st.session_state["guide_plate_scale"] = (
+                1
+                * u.radian
+                / (
+                    st.session_state["telescope_diameter"]
+                    * st.session_state["guide_focal_ratio"]
+                )
+            ).to(u.arcsec / u.um)
+
+            st_quantity_input(
+                "PSF size (FWHM)",
+                min_value=0.0,
+                value=10.0,
+                step=0.1,
+                default_unit="µm",
+                possible_units=["µm", "mm"],
+                key="psf_fwhm",
+            )
+
+        with next(cols):
+            st.number_input(
+                "Guiding split",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.05,
+                step=0.01,
+                width=200,
+                key="guiding_split",
+                help="The fraction of light to be sent to the guide camera",
+            )
+
+            st_quantity_input(
+                "Exposure time",
+                min_value=0.01,
+                value=0.25,
+                default_unit="s",
+                possible_units=["ms", "s", "m"],
+                key="exposure_time",
+            )
+
+    with st.expander("Detector", expanded=True):
         st.selectbox(
             "Detector",
             options=[*[detector.name for detector in detectors], "Custom"],
@@ -803,63 +839,49 @@ with settings_column:
                 QE=st.session_state.get("detector_qe", None),
             )
 
-    st_quantity_input(
-        "Exposure time",
-        min_value=0.01,
-        value=0.25,
-        default_unit="s",
-        possible_units=["ms", "s", "m"],
-        key="exposure_time",
-    )
+    with st.expander("Image settings", expanded=True):
+        cols = cycle(st.columns(4))
 
-    st.number_input(
-        "Guiding split (fraction of light to guide camera)",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.05,
-        step=0.01,
-        width=200,
-        key="guiding_split",
-    )
+        with next(cols):
+            st.number_input(
+                "Image size (pixels)",
+                min_value=1,
+                value=50,
+                step=1,
+                width=200,
+                key="image_size",
+            )
 
-    st.number_input(
-        "Image size (pixels)",
-        min_value=1,
-        value=50,
-        step=1,
-        width=200,
-        key="image_size",
-    )
+        with next(cols):
+            st.number_input(
+                "Centroid ROI size (pixels)",
+                min_value=1,
+                value=30,
+                step=1,
+                width=200,
+                key="centroid_ROI",
+            )
 
-    st.number_input(
-        "Centroid ROI size (pixels)",
-        min_value=1,
-        value=30,
-        step=1,
-        width=200,
-        key="centroid_ROI",
-    )
+        cols = st.columns([1, 3])
 
-    cols = st.columns([1, 3])
+        with cols[0]:
+            st.container(height=12, border=False)
+            st.toggle("Show fibre?", key="show_fibre_overlay")
 
-    with cols[0]:
-        st.container(height=12, border=False)
-        st.toggle("Show fibre?", key="show_fibre_overlay")
+        with cols[1]:
+            st_quantity_input(
+                "Fibre size",
+                min_value=0.0,
+                value=40.0,
+                step=0.1,
+                default_unit="µm",
+                possible_units=["µm", "mm"],
+                disabled=not st.session_state.get("show_fibre_overlay", False),
+                key="fibre_size",
+            )
 
-    with cols[1]:
-        st_quantity_input(
-            "Fibre size",
-            min_value=0.0,
-            value=40.0,
-            step=0.1,
-            default_unit="µm",
-            possible_units=["µm", "mm"],
-            disabled=not st.session_state.get("show_fibre_overlay", False),
-            key="fibre_size",
-        )
-
-    if not st.session_state.get("show_fibre_overlay", False):
-        st.session_state["fibre_size"] = None
+        if not st.session_state.get("show_fibre_overlay", False):
+            st.session_state["fibre_size"] = None
 
 
 fig: plt.Figure = simulate_image(
