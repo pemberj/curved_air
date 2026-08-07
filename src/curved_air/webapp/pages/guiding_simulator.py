@@ -1,5 +1,6 @@
 #! uv run streamlit run
 from dataclasses import dataclass
+from itertools import cycle
 from pathlib import Path
 
 import cv2
@@ -728,69 +729,77 @@ with settings_column:
             )
 
         else:
-            custom_pixel_size: float = st.number_input(
-                "Pixel size (µm)",
-                min_value=0.0,
-                value=3.45,
-                step=0.01,
-                width=200,
-            )
+            cols = cycle(st.columns(3))
 
-            st.session_state["detector_pixel_size"] = custom_pixel_size * u.um
+            with next(cols):
+                custom_detector_name: str = st.text_input(
+                    "Detector name",
+                    value="Custom",
+                    width=200,
+                )
 
-            custom_gain: float = st.number_input(
-                "Gain (e¯/photon)",
-                min_value=0.0,
-                value=1.0,
-                step=0.1,
-                width=200,
-            )
+            with next(cols):
+                custom_pixel_size: float = st.number_input(
+                    "Pixel size (µm)",
+                    min_value=0.0,
+                    value=3.45,
+                    step=0.01,
+                    width=200,
+                )
 
-            st.session_state["detector_gain"] = custom_gain * (1 / u.photon)
+            with next(cols):
+                custom_gain: float = st.number_input(
+                    "Gain (e¯/photon)",
+                    min_value=0.0,
+                    value=1.0,
+                    step=0.1,
+                    width=200,
+                )
 
-            custom_read_noise: float = st.number_input(
-                "Read noise (e¯)",
-                min_value=0.0,
-                value=2.2,
-                step=0.1,
-                width=200,
-            )
+            with next(cols):
+                custom_read_noise: float = st.number_input(
+                    "Read noise (e¯)",
+                    min_value=0.0,
+                    value=2.2,
+                    step=0.1,
+                    width=200,
+                )
 
-            st.session_state["detector_read_noise"] = custom_read_noise * u.electron
+            with next(cols):
+                custom_dark_noise: float = st.number_input(
+                    "Dark noise (e¯/s)",
+                    min_value=0.0,
+                    value=3.2,
+                    step=0.1,
+                    width=200,
+                )
 
-            custom_dark_noise: float = st.number_input(
-                "Dark noise (e¯/s)",
-                min_value=0.0,
-                value=3.2,
-                step=0.1,
-                width=200,
-            )
+            cols = cycle(st.columns(3))
 
-            st.session_state["detector_dark_noise"] = custom_dark_noise * (
-                u.electron / u.second
-            )
-
-            if not st.session_state.get("custom_qe", False):
-                st.number_input(
+            with next(cols):
+                custom_qe = st.number_input(
                     "Quantum efficiency (flat)",
                     min_value=0.0,
                     value=0.8,
                     max_value=1.0,
-                    key="detector_qe",
+                    width=200,
+                    disabled=st.session_state.get("custom_qe", False),
                 )
 
-            st.toggle("Upload QE curve?", key="custom_qe")
+            with next(cols):
+                st.container(height=12, border=False)
+                st.toggle("Upload QE curve?", key="custom_qe")
 
-            if st.session_state.get("custom_qe", False):
-                st.warning("Not implemented yet! Using flat QE of 0.8 for now.")
-                st.session_state["detector_qe"] = 0.8
+                if st.session_state.get("custom_qe", False):
+                    st.warning("Not implemented yet! Using flat QE of 0.8 for now.")
+                    custom_qe = 0.8
 
             detector: Detector = Detector(
-                name="Custom",
-                pixel_size=st.session_state["detector_pixel_size"],
-                gain=st.session_state["detector_gain"],
-                dark_noise=st.session_state["detector_dark_noise"],
-                read_noise=st.session_state["detector_read_noise"],
+                name=custom_detector_name,
+                pixel_size=custom_pixel_size * u.micron,
+                gain=custom_gain * (1 / u.photon),
+                dark_noise=custom_dark_noise * (u.electron / u.second),
+                read_noise=custom_read_noise * u.electron,
                 QE=st.session_state.get("detector_qe", None),
             )
 
