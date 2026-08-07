@@ -48,6 +48,11 @@ band_properties: dict[str, dict[str, ScalarQuantity]] = {
 }
 
 
+mirror_coatings: list[Path] = [
+    DATA_PATH / "ASA_Protected_Enhanced_Aluminium.csv",
+]
+
+
 @dataclass
 class Detector:
     name: str
@@ -55,6 +60,7 @@ class Detector:
     gain: ScalarQuantity  # e¯ / photon
     dark_noise: ScalarQuantity  # e¯ / s
     read_noise: ScalarQuantity  # e¯
+    QE: Path | str | float | None = None  # Quantum efficiency, optional
 
 
 detectors: list[Detector] = [
@@ -64,6 +70,7 @@ detectors: list[Detector] = [
         gain=1 / u.photon,
         dark_noise=3.2 * u.electron / u.second,
         read_noise=2.2 * u.electron,
+        QE=DATA_PATH / "IMX265_QE.csv",
     ),
 ]
 
@@ -292,13 +299,18 @@ def square_coordinates(w: float = 50) -> tuple[NDArray, NDArray]:
     return xs, ys
 
 
-def telescope_efficiency(
-    csv: Path | str,
+def mirror_reflectivity(
+    csv: Path | str | float,
     num_mirrors: int = 3,
     wavelengths: NDArray | None = None,
 ) -> NDArray:
     if wavelengths is None:
         wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
+
+    if isinstance(csv, float):
+        return np.ones_like(wavelengths.value) * csv**num_mirrors
+
+    assert isinstance(csv, (str, Path))
 
     data: pd.DataFrame = pd.read_csv(csv, names=["wavelength", "reflectivity"])
     wave_data = data["wavelength"]
@@ -312,11 +324,19 @@ def telescope_efficiency(
 
 
 def detector_QE(
-    csv: Path | str,
+    csv: Path | str | float | None = None,
     wavelengths: NDArray | None = None,
 ) -> NDArray:
     if wavelengths is None:
         wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
+
+    if csv is None:
+        return np.ones_like(wavelengths.value)
+
+    if isinstance(csv, float):
+        return np.ones_like(wavelengths.value) * csv
+
+    assert isinstance(csv, (str, Path))
 
     data: pd.DataFrame = pd.read_csv(csv, names=["wavelength", "QE"], skiprows=1)
     wave_QE_data = data["wavelength"]
@@ -343,13 +363,18 @@ def SNR(
 
 
 def guiding_efficiency(
-    csv: Path | str,
+    curve: Path | str | float = 0.05,
     wavelengths: NDArray | None = None,
 ) -> NDArray:
     if wavelengths is None:
         wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
 
-    data: pd.DataFrame = pd.read_csv(csv, names=["wavelength", "efficiency"])
+    if isinstance(curve, float):
+        return np.ones_like(wavelengths.value) * curve
+
+    assert isinstance(curve, (str, Path))
+
+    data: pd.DataFrame = pd.read_csv(curve, names=["wavelength", "efficiency"])
     wave_data = data["wavelength"]
     efficiency = data["efficiency"]
 
@@ -366,7 +391,9 @@ def simulate_image(
     telescope_diameter: float | ScalarQuantity = 0.8 * u.meter,
     secondary_diameter: float | ScalarQuantity = 0.2 * u.meter,
     telescope_num_mirrors: int = 3,
+    telescope_mirror_reflectivity: Path | str | float = 0.9,
     guide_focal_ratio: float = 3.5,
+    guiding_split: Path | str | float = 0.05,
     detector: Detector = detectors[0],
     image_size: int = 44,
     centroid_ROI: int = 30,
@@ -407,10 +434,6 @@ def simulate_image(
     if isinstance(fibre_size, int | float):
         fibre_size *= u.micron
 
-    mirror_R: Path = DATA_PATH / "ASA_Protected_Enhanced_Aluminium.csv"
-    guiding_split: Path = DATA_PATH / "Tafelmeier_6_final.csv"
-    QE: Path = DATA_PATH / "IMX265_QE.csv"
-
     wavelengths: ArrayQuantity = np.linspace(380, 950, 100) * u.nm
 
     plate_scale: ScalarQuantity = (
@@ -430,21 +453,32 @@ def simulate_image(
     exposure: NDArray = cv2.filter2D(exposure, -1, psf)
 
     _photon_flux = photon_flux(
-        magnitude=magnitude, wavelengths=wavelengths, temperature=blackbody_temperature
+        magnitude=magnitude,
+        wavelengths=wavelengths,
+        temperature=blackbody_temperature,
     )
 
-    _telescope_efficiency = telescope_efficiency(
-        wavelengths=wavelengths, num_mirrors=telescope_num_mirrors, csv=mirror_R
+    _telescope_efficiency = mirror_reflectivity(
+        wavelengths=wavelengths,
+        num_mirrors=telescope_num_mirrors,
+        csv=telescope_mirror_reflectivity,
     )
 
-    _guiding_efficiency = guiding_efficiency(csv=guiding_split, wavelengths=wavelengths)
+    _guiding_efficiency = guiding_efficiency(
+        curve=guiding_split,
+        wavelengths=wavelengths,
+    )
 
-    _detector_QE = detector_QE(wavelengths=wavelengths, csv=QE)
+    _detector_QE = detector_QE(
+        wavelengths=wavelengths,
+        csv=detector.QE,
+    )
 
     flux = (
         _photon_flux
         * telescope_area(
-            telescope_diameter=telescope_diameter, secondary_diameter=secondary_diameter
+            telescope_diameter=telescope_diameter,
+            secondary_diameter=secondary_diameter,
         )
         * _telescope_efficiency
         * _guiding_efficiency
@@ -460,7 +494,10 @@ def simulate_image(
         dark_noise=detector.dark_noise,
     )
 
-    read: NDArray = read_noise(num_pixels=image_size, noise_level=detector.read_noise)
+    read: NDArray = read_noise(
+        num_pixels=image_size,
+        noise_level=detector.read_noise,
+    )
 
     exposure += dark + read
 
@@ -481,7 +518,10 @@ def simulate_image(
         )
         ax.add_artist(fibre)
 
-    cenx, ceny = compute_centroid(image=exposure, ROI_size=centroid_ROI)
+    cenx, ceny = compute_centroid(
+        image=exposure,
+        ROI_size=centroid_ROI,
+    )
 
     ax.plot(
         cenx,
@@ -493,7 +533,9 @@ def simulate_image(
         label=f"Computed centroid: ({cenx:.2f}, {ceny:.2f})",
     )
 
-    xs, ys = square_coordinates(w=centroid_ROI)
+    xs, ys = square_coordinates(
+        w=centroid_ROI,
+    )
     ax.plot(
         image_size / 2 + xs,
         image_size / 2 + ys,
@@ -617,6 +659,31 @@ with settings_column:
             key="telescope_num_mirrors",
         )
 
+        st.selectbox(
+            "Mirror coating",
+            options=[*[coating.name for coating in mirror_coatings], "Custom"],
+            index=0,
+            width=400,
+            key="telescope_mirror_coating",
+        )
+
+        if st.session_state.get("telescope_mirror_coating", "Custom") != "Custom":
+            coating: Path = next(
+                c
+                for c in mirror_coatings
+                if c.name == st.session_state["telescope_mirror_coating"]
+            )
+
+            st.session_state["telescope_mirror_reflectivity"] = coating
+
+        else:
+            st.file_uploader(
+                "Upload mirror reflectivity curve (CSV)",
+                type=["csv"],
+                key="telescope_mirror_reflectivity",
+                help="CSV file with two columns: wavelength (nm) and reflectivity (0-1)",
+            )
+
     with st.expander("Guide system"):
         st.number_input(
             "Guide system focal ratio",
@@ -659,13 +726,6 @@ with settings_column:
             detector: Detector = next(
                 d for d in detectors if d.name == st.session_state["detector_preset"]
             )
-
-            st.session_state["detector_pixel_size"] = detector.pixel_size.to(u.um)
-            st.session_state["detector_gain"] = detector.gain.to(1 / u.photon)
-            st.session_state["detector_dark_noise"] = detector.dark_noise.to(
-                u.electron / u.second
-            )
-            st.session_state["detector_read_noise"] = detector.read_noise.to(u.electron)
 
         else:
             custom_pixel_size: float = st.number_input(
@@ -710,19 +770,29 @@ with settings_column:
                 u.electron / u.second
             )
 
-        # if not st.session_state.get("custom_qe", False):
-        #     st.number_input(
-        #         "Quantum efficiency (flat)",
-        #         min_value=0.0,
-        #         value=0.9,
-        #         max_value=1.0,
-        #         key="detector_qe",
-        #     )
+            if not st.session_state.get("custom_qe", False):
+                st.number_input(
+                    "Quantum efficiency (flat)",
+                    min_value=0.0,
+                    value=0.8,
+                    max_value=1.0,
+                    key="detector_qe",
+                )
 
-        # st.toggle("Upload QE curve?", key="custom_qe")
+            st.toggle("Upload QE curve?", key="custom_qe")
 
-        # if st.session_state.get("custom_qe", False):
-        #     st.file_upload("QE curve")
+            if st.session_state.get("custom_qe", False):
+                st.warning("Not implemented yet! Using flat QE of 0.8 for now.")
+                st.session_state["detector_qe"] = 0.8
+
+            detector: Detector = Detector(
+                name="Custom",
+                pixel_size=st.session_state["detector_pixel_size"],
+                gain=st.session_state["detector_gain"],
+                dark_noise=st.session_state["detector_dark_noise"],
+                read_noise=st.session_state["detector_read_noise"],
+                QE=st.session_state.get("detector_qe", None),
+            )
 
     st_quantity_input(
         "Exposure time",
@@ -731,6 +801,16 @@ with settings_column:
         default_unit="s",
         possible_units=["ms", "s", "m"],
         key="exposure_time",
+    )
+
+    st.number_input(
+        "Guiding split (fraction of light to guide camera)",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.05,
+        step=0.01,
+        width=200,
+        key="guiding_split",
     )
 
     st.number_input(
@@ -784,9 +864,8 @@ fig: plt.Figure = simulate_image(
     secondary_diameter=st.session_state["telescope_secondary_diameter"],
     telescope_num_mirrors=st.session_state["telescope_num_mirrors"],
     guide_focal_ratio=st.session_state["guide_focal_ratio"],
-    detector=next(
-        d for d in detectors if d.name == st.session_state["detector_preset"]
-    ),
+    guiding_split=st.session_state["guiding_split"],
+    detector=detector,
     image_size=st.session_state["image_size"],
     centroid_ROI=st.session_state["centroid_ROI"],
     fibre_size=st.session_state.get("fibre_size", None),
