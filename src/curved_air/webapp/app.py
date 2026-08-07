@@ -72,6 +72,11 @@ pages: list = [
         title="Solid Angle & Étendue",
         icon="📐",
     ),
+    st.Page(
+        page=APP_PATH / "pages" / "instrument_transmission.py",
+        title="Instrument Transmission",
+        icon="📈",
+    ),
 ]
 
 nav = st.navigation(pages={"Curved Air: Optical Design Tools": pages})
