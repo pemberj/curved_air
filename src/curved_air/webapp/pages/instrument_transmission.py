@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import streamlit as st
 from astropy import units as u
 from astropy.units import Quantity
 from matplotlib import pyplot as plt
@@ -27,7 +28,6 @@ def transmission_plot(
     min_wl: Quantity = 370 * u.nm,
     max_wl: Quantity = 950 * u.nm,
     num_wls: int = 200,
-    save: bool = False,
 ) -> plt.Figure:
     """
     Generate a plot of the progressive transmission of the MARVEL spectrograph, i.e.
@@ -78,14 +78,14 @@ def transmission_plot(
         peak_efficiency=0.75,
     )
 
-    blaze_efficiencies: dict[int, tuple[list[int | float], list[int | float]]] = (
+    blaze_efficiencies: dict[int, tuple[Quantity, list[float]]] = (
         echelle.blaze_efficiency()
-    )
+    )  # ty:ignore[invalid-assignment]
 
     for _m, (wl, be) in blaze_efficiencies.items():
-        R_T: NDArray = np.interp(x=(wl * u.um), xp=master_wls, fp=running_transmission)
+        R_T: NDArray = np.interp(x=wl, xp=master_wls, fp=running_transmission)
         ax.fill_between(
-            x=wl,
+            x=wl.to(u.um).value,
             y1=0,
             y2=R_T * be,
             color="k",
@@ -100,13 +100,6 @@ def transmission_plot(
 
     ax.set_xlabel("Wavelength (microns)")
     ax.set_ylabel("Transmission")
-
-    if save:
-        for ext in ["png", "pdf"]:
-            plt.savefig(f"2ES_transmission.{ext}")
-
-    else:
-        plt.show()
 
     return fig
 
@@ -220,13 +213,14 @@ def main() -> None:
         None,
     ]
 
-    transmission_plot(
+    fig: plt.Figure = transmission_plot(
         Ts=Ts,
         min_wl=0.37 * u.um,
         max_wl=0.92 * u.um,
         num_wls=500,
-        save=False,
     )
+
+    st.pyplot(fig)
 
     # total: tuple[np.ndarray, np.ndarray] = total_transmission(
     #     min_wl=0.37 * u.um,
