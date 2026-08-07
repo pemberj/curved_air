@@ -103,6 +103,7 @@ with cols[0]:
         step=1.0,
         possible_units=["cm", "m", "km"],
         default_unit="m",
+        key="fibre_length",
     )
 
 

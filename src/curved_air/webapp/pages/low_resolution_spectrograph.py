@@ -225,6 +225,7 @@ with st.sidebar:
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             help="""The diameter of the collimated beam at the disperser.""",
+            key="beam_diameter",
         )
 
         f_coll: ScalarQuantity = st_quantity_input(

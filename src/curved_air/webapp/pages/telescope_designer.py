@@ -138,6 +138,7 @@ with cols[0]:
         step=1.0,
         possible_units=["mm", "cm", "m"],
         default_unit="mm",
+        key="back_focal_distance",
         help="Distance from the secondary vertex to the final focus.",
     )
 

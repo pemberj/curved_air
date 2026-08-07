@@ -156,6 +156,7 @@ with st.sidebar:
                     max_value=89.0,
                     value=grating.blaze_angle.to(u.deg).value,
                     step=0.1,
+                    width=300,
                     key="grating_blaze_angle",
                     help="""The blaze angle of the echelle grating, in degrees. This is
                     the angle of illumination under which the grating is designed for
@@ -195,6 +196,7 @@ with st.sidebar:
                 min_value=0.0,
                 value=0.3,
                 step=0.1,
+                width=300,
                 key="grating_gamma_angle",
                 help="""The gamma (out-of-plane) angle under which the echelle grating
                     is used, in degrees.""",
@@ -537,7 +539,7 @@ with st.sidebar:
             max_value=20.0,
             value=3.85,
             step=0.05,
-            width=200,
+            width=300,
             help="""The native focal ratio of the slit, i.e. the focal ratio of the beam
             entering the spectrograph, at which the slit appears to be the same size as
             the physical slit dimensions above.""",
