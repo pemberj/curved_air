@@ -80,7 +80,7 @@ def transmission_plot(
 
     blaze_efficiencies: dict[int, tuple[Quantity, list[float]]] = (
         echelle.blaze_efficiency()
-    )  # ty:ignore[invalid-assignment]
+    )
 
     for _m, (wl, be) in blaze_efficiencies.items():
         R_T: NDArray = np.interp(x=wl, xp=master_wls, fp=running_transmission)
