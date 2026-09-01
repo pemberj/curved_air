@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, overload
 import numpy as np
 from astropy import units as u
 from astropy.units import Quantity
+from numpy.typing import NDArray
 
 from curved_air.glass import Glass, GlassCatalogue
 from curved_air.other import Air
@@ -1448,8 +1449,13 @@ def _refract(
             except TypeError:
                 _n_1: Any = n_1
 
-        elif isinstance(n_1, float | np.ndarray):
+        elif isinstance(n_1, float | np.ndarray | list):
             _n_1: Any = n_1
+
+        else:
+            raise TypeError(
+                f"n_1 must be a float, np.ndarray, or callable. Got {type(n_1)}"
+            )
 
         if callable(n_2):
             try:
@@ -1457,8 +1463,13 @@ def _refract(
             except TypeError:
                 _n_2: Any = n_2
 
-        elif isinstance(n_2, float | np.ndarray):
+        elif isinstance(n_2, float | np.ndarray | list):
             _n_2: Any = n_2
+
+        else:
+            raise TypeError(
+                f"n_2 must be a float, np.ndarray, or callable. Got {type(n_2)}"
+            )
 
     # By this point, _n_1 and _n_2 should be either floats, ints, or
     # lists/arrays of such
