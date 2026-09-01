@@ -47,9 +47,6 @@ def example_three_element_adc() -> tuple[ADC3, dict] | None:
         criterion="PTV",  # Can also use "RMS", "RSS", "max_abs"
     )
 
-    print(ADC3.prism_stack)
-    return None
-
     # Run optimization
     print("Starting three-element ADC optimization...")
     results = adc.optimise(plot=True, num_samples=30)
@@ -80,6 +77,49 @@ def example_three_element_adc() -> tuple[ADC3, dict] | None:
         print(f"  Message: {results['optimization_message']}")
 
     return adc, results
+
+
+def example_staged_material_search() -> tuple[list[ADC3], list[dict]]:
+    """
+    Example: staged material search for 3-element ADCs.
+
+    1) Optimize all 2-glass combinations.
+    2) Keep the best top_n_pairs.
+    3) For each retained pair, test every third glass and re-optimize ADC3.
+    """
+
+    catalogue: GlassCatalogue = GlassCatalogue("Schott").filter(
+        min_wl=390 * u.nm,
+        max_wl=950 * u.nm,
+        min_transmission=0.995,
+    )
+    glasses: list[Glass] = list(catalogue.values())
+
+    adc3s, results = ADC3.optimise_materials_staged(
+        glasses=glasses,
+        min_wl=390 * u.nm,
+        max_wl=950 * u.nm,
+        D_telescope=0.8 * u.m,
+        D_ADC=15 * u.mm,
+        z_max=65 * u.deg,
+        criterion="RMS",
+        top_n_pairs=20,
+        num_samples_pairs=20,
+        num_samples_adc3=20,
+        max_residuals=25 * u.mas,
+        allow_repeated_glasses=False,
+    )
+
+    print(f"Found {len(adc3s)} ADC3 solutions")
+    if results:
+        best = results[0]
+        print(
+            "Best combination: "
+            + f"{best['Glass 1']}, {best['Glass 2']}, {best['Glass 3']} "
+            + f"with criterion metric {best['Criterion metric (mas)']:.3f} mas"
+        )
+
+    return adc3s, results
 
 
 def understand_parameters() -> None:
@@ -119,3 +159,4 @@ def understand_parameters() -> None:
 
 if __name__ == "__main__":
     example_three_element_adc()
+    # example_staged_material_search()
