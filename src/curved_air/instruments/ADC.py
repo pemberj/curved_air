@@ -22,18 +22,7 @@ from curved_air.other import Air, Model
 
 @dataclass
 class PrismStack:
-    """
-    TODO:
-    - [ ] Add method effective_refractive_index(), to return the effective
-    refractive index of the PrismStack. How to define this? Take the angle
-    between front and back surfaces? But what if that angle is zero? Refractive
-    index is effectively infinite... Need to have an "effective apex angle" in
-    there as well somewhere... Take the average of absolute apex angles of each
-    of the components? Need to think about the best way to define this so that
-    it generalises well, but this method will be SO USEFUL in optimising -> you
-    can then just match this (or a scaled/offset version) to any desired
-    refractive index vector, and drive the difference to be small.
-    """
+    """ """
 
     prism_list: list[Prism] = field(default_factory=list)
     entrance_medium: Model = field(default_factory=Air)
@@ -128,11 +117,10 @@ class PrismStack:
         incidence_angle: ScalarQuantity = 0 * u.deg,
     ) -> Quantity:
         """
-        This method traces the dispersion of light through a compound prism and
-        returns the wavelengths at which the prism does not deviate the light.
-        These zero-deviation wavelengths are interesting in design for
-        astronomical ADCs, and may be a fast way to check that a design is
-        working the way it should.
+        This method traces the dispersion of light through a compound prism and returns
+        the wavelengths at which the prism does not deviate the light. These
+        zero-deviation wavelengths are interesting in design for astronomical ADCs, and
+        may be a fast way to check that a design is working the way it should.
         """
 
         if isinstance(min_wl, Quantity) and isinstance(max_wl, Quantity):
@@ -152,6 +140,8 @@ class PrismStack:
             )
 
         out_angles: ArrayQuantity = self.trace(wls=wls, incidence_angle=incidence_angle)
+        # Find the wavelengths where the output angle changes sign, indicating a
+        # zero-deviation point in between
         zwls: ArrayQuantity = wls[
             np.where(
                 np.array(out_angles.value)[:-1] / np.array(out_angles.value)[1:] < 0
@@ -294,7 +284,7 @@ class ADC:
 
             epsilon = (g1.refractive_index(wl_0) - 1) / (g2.refractive_index(wl_0) - 1)
 
-            delta_air = (  # vvvvvvvvvv   Should this be tan(z_max)?
+            delta_air: ArrayQuantity = (  # vvvvvvvvvv   Should this be tan(z_max)?
                 self.beam_comp
                 * self.z_max
                 * (
@@ -303,7 +293,7 @@ class ADC:
                 )
             ).si.to(u.degree)
 
-            delta_ADC = (
+            delta_ADC: ArrayQuantity = (
                 g1.refractive_index(wls)
                 - epsilon * g2.refractive_index(wls)
                 + epsilon
