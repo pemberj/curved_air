@@ -332,6 +332,7 @@ def ciddor(
     h: float = 0.0,
     x_c: float = 450.0,
 ) -> float | NDArray[np.floating]:
+) -> float | NDArray[np.floating]:
     """
     A wrapper for the `ref_index.ciddor` function from the `ref_index` library.
     Takes input parameters with astropy.units units.
@@ -356,6 +357,9 @@ def ciddor(
         return np.array(
             [ciddor(wavelength=wl, T=T, p=p, h=h, x_c=x_c) for wl in wavelength]
         )
+        return np.array(
+            [ciddor(wavelength=wl, T=T, p=p, h=h, x_c=x_c) for wl in wavelength]
+        )
 
     if not T.isscalar:
         assert p.isscalar, (
@@ -364,8 +368,14 @@ def ciddor(
         return np.array(
             [ciddor(wavelength=wavelength, T=iT, p=p, h=h, x_c=x_c) for iT in T]
         )
+        return np.array(
+            [ciddor(wavelength=wavelength, T=iT, p=p, h=h, x_c=x_c) for iT in T]
+        )
 
     if not p.isscalar:
+        return np.array(
+            [ciddor(wavelength=wavelength, T=T, p=ip, h=h, x_c=x_c) for ip in p]
+        )
         return np.array(
             [ciddor(wavelength=wavelength, T=T, p=ip, h=h, x_c=x_c) for ip in p]
         )
@@ -377,6 +387,15 @@ def ciddor(
     assert 0 <= h <= 1
     assert 0 <= x_c <= 2_000  # noqa: PLR2004
 
+    return float(
+        ref_index.ciddor(
+            wave=wavelength.to("nm").value,
+            t=T_C.value,
+            p=p.to("Pa").value,
+            rh=h * 100,
+            co2=x_c,
+            # warn = True, # Doesn't work - bug in package code
+        )
     return float(
         ref_index.ciddor(
             wave=wavelength.to("nm").value,
@@ -419,6 +438,7 @@ def edlen(
     p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
     h: float = 0.0,
 ) -> float | NDArray[np.floating]:
+) -> float | NDArray[np.floating]:
     """
     A wrapper for the `ref_index.edlen` function from the `ref_index` library.
     Takes input parameters with astropy.units units.
@@ -444,14 +464,17 @@ def edlen(
             "Only one array input is allowed, not both wavelength and pressure"
         )
         return np.array([edlen(wl, T=T, p=p, h=h) for wl in wavelength])
+        return np.array([edlen(wl, T=T, p=p, h=h) for wl in wavelength])
 
     if not T.isscalar:
         assert p.isscalar, (
             "Only one array input is allowed, not both temperature amd pressure"
         )
         return np.array([edlen(wavelength, T=iT, p=p, h=h) for iT in T])
+        return np.array([edlen(wavelength, T=iT, p=p, h=h) for iT in T])
 
     if not p.isscalar:
+        return np.array([edlen(wavelength, T=T, p=ip, h=h) for ip in p])
         return np.array([edlen(wavelength, T=T, p=ip, h=h) for ip in p])
 
     assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
@@ -460,6 +483,14 @@ def edlen(
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
     assert 0 <= h <= 1
 
+    return float(
+        ref_index.edlen(
+            wave=wavelength.to("nm").value,
+            t=T_C.value,
+            p=p.to("Pa").value,
+            rh=h * 100,
+            # warn = True, # Doesn't work - bug in package code
+        )
     return float(
         ref_index.edlen(
             wave=wavelength.to("nm").value,
@@ -575,10 +606,6 @@ class Linear(Model):
     b: float = 1
 
     def __post_init__(self) -> None:
-
-        assert isinstance(self.m, Quantity)
-        assert self.m.unit.is_equivalent(u.um**-1), "m must have units of 1/wavelength"
-
         def f(wls: Quantity) -> float | NDArray:
             return self.m * wls + self.b
 
@@ -603,9 +630,9 @@ class Constant(Model):
                 if isinstance(_wls, Quantity):
                     if _wls.isscalar:
                         return self.c
-                    return np.ones_like(_wls).value * self.c
+                    return np.ones_like(_wls) * self.c
                 if isinstance(_wls, NDArray | list):
-                    return np.ones_like(_wls).value * self.c
+                    return np.ones_like(_wls) * self.c
                 return self.c
 
             super().__init__(function=f)
