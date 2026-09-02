@@ -801,18 +801,18 @@ def test() -> None:
 
     gc = GlassCatalogue(["Schott", "Ohara"])
 
-    g1 = gc["K10"]
-    g2 = gc["S-FPL51"]
-
-    p1: Prism = Prism(glass=g1, apex_angle=2 * u.deg)
-    p2: Prism = Prism(glass=g2, apex_angle=-2 * u.deg)
-
-    stack: PrismStack = PrismStack(prism_list=[p1, p2])
+    stack: PrismStack = PrismStack(
+        prism_list=[
+            Prism(glass=gc["K10"], apex_angle=2 * u.deg),
+            Prism(glass=gc["S-FPL51"], apex_angle=-2 * u.deg),
+            Prism(glass=gc["F2"], apex_angle=2 * u.deg),
+            Prism(glass=gc["N-BK7"], apex_angle=-2 * u.deg),
+        ]
+    )
     # target_dispersion = Linear(m=0.1 / u.um, b=0)
-    # target_dispersion = Linear(m=-2 / u.um, b=0)
-    # target_dispersion = Linear(m=-1 / u.um, b=0)
+    target_dispersion = Linear(m=-1 / u.um, b=0)
     # target_dispersion = Constant(c=1)
-    target_dispersion = Air()
+    # target_dispersion = Air()
 
     # print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
 
