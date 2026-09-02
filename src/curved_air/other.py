@@ -571,10 +571,14 @@ class Linear(Model):
     A simple linear model - linear refractive index as a function of wavelength
     """
 
-    m: float = 0
+    m: ScalarQuantity = 0 / u.um
     b: float = 1
 
     def __post_init__(self) -> None:
+
+        assert isinstance(self.m, Quantity)
+        assert self.m.unit.is_equivalent(u.um**-1), "m must have units of 1/wavelength"
+
         def f(wls: Quantity) -> float | NDArray:
             return self.m * wls + self.b
 
@@ -599,9 +603,9 @@ class Constant(Model):
                 if isinstance(_wls, Quantity):
                     if _wls.isscalar:
                         return self.c
-                    return np.ones_like(_wls) * self.c
+                    return np.ones_like(_wls).value * self.c
                 if isinstance(_wls, NDArray | list):
-                    return np.ones_like(_wls) * self.c
+                    return np.ones_like(_wls).value * self.c
                 return self.c
 
             super().__init__(function=f)
