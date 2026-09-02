@@ -55,7 +55,9 @@ with st.expander("About this tool", expanded=False):
     )
 
 
-with st.sidebar:
+cols = st.columns([1, 2, 2])
+
+with cols[0]:
     mode: str | None = st.segmented_control(
         "Calculation mode",
         options=["Magnitude -> FoV", "FoV -> Magnitude"],
@@ -182,9 +184,7 @@ def region_results_dataframe(
     return pd.DataFrame(rows)
 
 
-cols = st.columns([1, 1])
-
-with cols[0]:
+with cols[1]:
     if mode == "Magnitude -> FoV":
         required_area: ScalarQuantity = required_field_area(
             magnitude=target_magnitude,
@@ -304,7 +304,7 @@ with cols[0]:
     st.plotly_chart(fig, width="stretch")
 
 
-with cols[1]:
+with cols[2]:
     st.subheader("Sky-regime comparison", anchor=False)
     st.dataframe(results_df, hide_index=True, width="stretch")
 
