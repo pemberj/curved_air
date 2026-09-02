@@ -246,18 +246,7 @@ class PrismStack:
                 stack_curve = stack_curve - stack_reference
                 target_curve = target_curve - target_reference
 
-                stack_scale = np.max(np.abs(stack_curve))
-                target_scale = np.max(np.abs(target_curve))
-
-                if (
-                    not np.isfinite(stack_scale)
-                    or not np.isfinite(target_scale)
-                    or stack_scale == 0
-                    or target_scale == 0
-                ):
-                    return finite_penalty
-
-                residuals = (stack_curve / stack_scale) - (target_curve / target_scale)
+                residuals = stack_curve - target_curve
 
                 if not np.all(np.isfinite(residuals)):
                     return finite_penalty
@@ -819,13 +808,13 @@ def test() -> None:
     p2: Prism = Prism(glass=g2, apex_angle=-2 * u.deg)
 
     stack: PrismStack = PrismStack(prism_list=[p1, p2])
-    # target_dispersion = Linear(m=-3, b=0)
-    # target_dispersion = Linear(m=-2, b=0)
-    # target_dispersion = Linear(m=-1.6, b=0)
+    # target_dispersion = Linear(m=0.1 / u.um, b=0)
+    # target_dispersion = Linear(m=-2 / u.um, b=0)
+    # target_dispersion = Linear(m=-1 / u.um, b=0)
     # target_dispersion = Constant(c=1)
     target_dispersion = Air()
 
-    print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
+    # print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
 
     stack.match_target_dispersion(
         min_wl=380 * u.nm,
@@ -835,8 +824,11 @@ def test() -> None:
 
     print(stack.summary)
 
-    fig = plt.figure()
-    ax = fig.gca()
+    _fig, axs = plt.subplots(
+        2, 1, figsize=(8, 6), tight_layout=True, sharex=True, height_ratios=[2, 1]
+    )
+
+    ax = axs[0]
 
     wls = np.linspace(0.38, 0.95, 100) * u.um
 
@@ -847,7 +839,7 @@ def test() -> None:
 
     ax.plot(
         wls,
-        traced_angles / np.max(np.abs(traced_angles)),
+        traced_angles,  # / np.max(np.abs(traced_angles)),
         label="Output angle (zeroed)",
     )
 
@@ -859,9 +851,20 @@ def test() -> None:
     # plot the target dispersion curve for comparison
     ax.plot(
         wls,
-        target_angles / np.max(np.abs(target_angles)),
+        target_angles,  # / np.max(np.abs(target_angles)),
         label="Target dispersion (zeroed)",
     )
+
+    ax.legend()
+
+    ax = axs[1]
+    ax.plot(
+        wls,
+        traced_angles.to(u.deg).value - target_angles,
+        label="Residuals (traced - target)",
+    )
+
+    ax.legend()
 
     plt.show()
 
