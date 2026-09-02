@@ -65,13 +65,96 @@ class Detector:
 
 
 detectors: list[Detector] = [
+    # CMOS detectors commonly used in astronomical guide/imaging cameras
     Detector(
-        name="Sony IMX265",
+        name="Sony IMX265 (CMOS)",
         pixel_size=3.45 * u.micron,
         gain=1 / u.photon,
         dark_noise=3.2 * u.electron / u.second,
         read_noise=2.2 * u.electron,
         QE=DATA_PATH / "IMX265_QE.csv",
+    ),
+    Detector(
+        name="Sony IMX174 (CMOS)",
+        pixel_size=5.86 * u.micron,
+        gain=0.9 / u.photon,
+        dark_noise=4.0 * u.electron / u.second,
+        read_noise=3.5 * u.electron,
+        QE=0.76,
+    ),
+    Detector(
+        name="Sony IMX178 (CMOS)",
+        pixel_size=2.4 * u.micron,
+        gain=0.9 / u.photon,
+        dark_noise=2.0 * u.electron / u.second,
+        read_noise=2.1 * u.electron,
+        QE=0.8,
+    ),
+    Detector(
+        name="Sony IMX290 (CMOS)",
+        pixel_size=2.9 * u.micron,
+        gain=1.0 / u.photon,
+        dark_noise=0.8 * u.electron / u.second,
+        read_noise=1.5 * u.electron,
+        QE=0.8,
+    ),
+    Detector(
+        name="Sony IMX462 (CMOS)",
+        pixel_size=2.9 * u.micron,
+        gain=1.0 / u.photon,
+        dark_noise=0.7 * u.electron / u.second,
+        read_noise=1.2 * u.electron,
+        QE=0.82,
+    ),
+    Detector(
+        name="Sony IMX585 (CMOS)",
+        pixel_size=2.9 * u.micron,
+        gain=1.0 / u.photon,
+        dark_noise=0.5 * u.electron / u.second,
+        read_noise=1.1 * u.electron,
+        QE=0.91,
+    ),
+    # CCD detectors seen in legacy astronomical guider/imager systems
+    Detector(
+        name="Kodak KAF-8300 (CCD)",
+        pixel_size=5.4 * u.micron,
+        gain=0.45 / u.photon,
+        dark_noise=0.02 * u.electron / u.second,
+        read_noise=9.0 * u.electron,
+        QE=0.55,
+    ),
+    Detector(
+        name="Sony ICX825 (CCD)",
+        pixel_size=6.45 * u.micron,
+        gain=0.7 / u.photon,
+        dark_noise=0.01 * u.electron / u.second,
+        read_noise=6.5 * u.electron,
+        QE=0.77,
+    ),
+    Detector(
+        name="Sony ICX674 (CCD)",
+        pixel_size=4.54 * u.micron,
+        gain=0.7 / u.photon,
+        dark_noise=0.01 * u.electron / u.second,
+        read_noise=6.0 * u.electron,
+        QE=0.77,
+    ),
+    # sCMOS detectors used in high-end astronomical acquisition/guiding
+    Detector(
+        name="Gpixel GSENSE2020BSI (sCMOS)",
+        pixel_size=6.5 * u.micron,
+        gain=0.95 / u.photon,
+        dark_noise=0.2 * u.electron / u.second,
+        read_noise=1.6 * u.electron,
+        QE=0.95,
+    ),
+    Detector(
+        name="Gpixel GSENSE4040BSI (sCMOS)",
+        pixel_size=9.0 * u.micron,
+        gain=0.95 / u.photon,
+        dark_noise=0.15 * u.electron / u.second,
+        read_noise=1.3 * u.electron,
+        QE=0.95,
     ),
 ]
 
@@ -751,18 +834,43 @@ with settings_column:
             )
 
     with st.expander("Detector", expanded=True):
-        st.selectbox(
-            "Detector",
-            options=[*[detector.name for detector in detectors], "Custom"],
-            index=0,
-            width=200,
-            key="detector_preset",
-        )
+        select, info = st.columns([1, 2])
+
+        with select:
+            st.selectbox(
+                "Detector",
+                options=[*[detector.name for detector in detectors], "Custom"],
+                index=0,
+                width=400,
+                key="detector_preset",
+            )
 
         if st.session_state.get("detector_preset", "Custom") != "Custom":
             detector: Detector = next(
                 d for d in detectors if d.name == st.session_state["detector_preset"]
             )
+
+            with info:
+                subcols = cycle(st.columns(5))
+                with next(subcols):
+                    st.metric("Pixel Size", value=f"{detector.pixel_size.to(u.um):.3g}")
+                with next(subcols):
+                    st.metric("Gain", value=f"{detector.gain.value:.2g}")
+                with next(subcols):
+                    st.metric(
+                        "Dark Noise",
+                        value=f"{detector.dark_noise.to(u.electron / u.s).value:.3g}e$^-$/s",
+                    )
+                with next(subcols):
+                    st.metric(
+                        "Read Noise",
+                        value=f"{detector.read_noise.to(u.electron).value:.3g}e$^-$",
+                    )
+                with next(subcols):
+                    if isinstance(detector.QE, (str, Path)):
+                        st.metric("Quantum Efficiency", "From file")
+                    else:
+                        st.metric("Quantum Efficiency", value=f"{detector.QE}")
 
         else:
             cols = cycle(st.columns(3))
