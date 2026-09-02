@@ -75,6 +75,7 @@ def mirror(
     file: Path,
     name: str,
     num_reflections: int = 1,
+    scale_factor: float = 1.0,
     smooth: bool = True,
 ) -> Transmission:
     assert file.exists(), f"File {file} does not exist"
@@ -90,13 +91,14 @@ def mirror(
     return Transmission(
         name=name,
         wavelengths=wavelengths.to(u.um),
-        transmissions=efficiencies,
+        transmissions=efficiencies * scale_factor,
     )
 
 
 def zemax(
-    file: Path,
     name: str,
+    file: Path,
+    scale_factor: float = 1.0,
 ) -> Transmission:
     """
     Load transmission data exported from Zemax, single configuration only.
@@ -129,12 +131,17 @@ def zemax(
     wavelengths: np.ndarray = np.array(wavelengths) * u.um
     transmissions: np.ndarray = np.array(transmissions)
 
-    return Transmission(name=name, wavelengths=wavelengths, transmissions=transmissions)
+    return Transmission(
+        name=name,
+        wavelengths=wavelengths,
+        transmissions=transmissions * scale_factor,
+    )
 
 
 def zemax_multi(
-    files: Path | list[Path],
     name: str,
+    files: Path | list[Path],
+    scale_factor: float = 1.0,
 ) -> Transmission:
     if isinstance(files, Path):
         files: list[Path] = list(files.glob("*.txt"))
@@ -172,7 +179,7 @@ def zemax_multi(
     return Transmission(
         name=name,
         wavelengths=wavelengths,
-        transmissions=transmissions,
+        transmissions=transmissions * scale_factor,
     )
 
 
@@ -180,6 +187,7 @@ def from_file(
     name: str,
     file: Path,
     wavelength_unit: u.Unit = u.nm,
+    scale_factor: float = 1.0,
 ) -> Transmission:
     wavelengths, transmissions = np.transpose(np.genfromtxt(file))
     wavelengths: Quantity = wavelengths * wavelength_unit
@@ -187,7 +195,7 @@ def from_file(
     return Transmission(
         name=name,
         wavelengths=wavelengths,
-        transmissions=transmissions,
+        transmissions=transmissions * scale_factor,
     )
 
 
@@ -196,6 +204,8 @@ def glass(
     wavelengths: ArrayQuantity,
     glass: Glass,
     thickness: ScalarQuantity,
+    reference_thickness: ScalarQuantity = 10 * u.mm,
+    scale_factor: float = 1.0,
 ) -> Transmission:
     """
     Compute the transmission of a glass component, given the glass type and thickness.
@@ -203,15 +213,15 @@ def glass(
 
     transmissions: list[float] = [glass.transmission(wl=wl) for wl in wavelengths]
 
-    # Assuming 10mm is the thickness for which the transmission is given! Should check...
-    transmissions: np.ndarray = (
-        np.array(transmissions) ** (thickness.to(u.mm).value) / 10
+    transmissions: NDArray = (
+        np.array(transmissions) ** (thickness.to(u.mm).value)
+        / reference_thickness.to(u.mm).value
     )
 
     return Transmission(
         name=name,
         wavelengths=wavelengths,
-        transmissions=transmissions,
+        transmissions=transmissions * scale_factor,
     )
 
 
@@ -252,7 +262,7 @@ def savitzky_golay(
 
 
 def transmission_plot(
-    Ts: list[Transmission | None],
+    Ts: list[Transmission | EchelleGrating | None],
     min_wl: Quantity = 370 * u.nm,
     max_wl: Quantity = 950 * u.nm,
     num_wls: int = 200,
@@ -271,11 +281,12 @@ def transmission_plot(
     fig: plt.Figure = plt.figure(figsize=(7, 9), tight_layout=True)
     ax: plt.Axes = fig.gca()
 
-    def plot_transmission(
+    def _plot_transmission(
         ax: plt.Axes,
         T: Transmission,
         running_transmission: NDArray,
     ) -> np.ndarray:
+        print(type(T))
         x: NDArray = master_wls
         y: NDArray = running_transmission * T.T(wl=master_wls)
 
@@ -288,37 +299,45 @@ def transmission_plot(
     for T in Ts:
         if T is None:
             continue
-        print(f"Computing {T.name} transmission...")
-        running_transmission: NDArray = plot_transmission(
+        if isinstance(T, EchelleGrating):
+            continue
+        assert isinstance(T, Transmission), f"Expected Transmission, got {type(T)}"
+        running_transmission: NDArray = _plot_transmission(
             ax=ax, T=T, running_transmission=running_transmission
         )
 
-    # Plot the echelle blaze function last
-    print("Computing blaze function of echelle orders...")
-    ax.plot(0, 0, color="k", alpha=0.25, label="Echelle (blaze peaks flat 75%)")
-    echelle: EchelleGrating = EchelleGrating(
-        catalogue_number="",
-        groove_frequency=31.6 / u.mm,
-        blaze_angle=76 * u.deg,
-        gamma_angle=0.55 * u.deg,
-        min_wl=0.375 * u.um,
-        max_wl=0.9 * u.um,
-        peak_efficiency=0.75,
-    )
-
-    blaze_efficiencies: dict[int, tuple[Quantity, list[float]]] = (
-        echelle.blaze_efficiency()
-    )
-
-    for _m, (wl, be) in blaze_efficiencies.items():
-        R_T: NDArray = np.interp(x=wl, xp=master_wls, fp=running_transmission)
-        ax.fill_between(
-            x=wl.to(u.um).value,
-            y1=0,
-            y2=R_T * be,
-            color="k",
-            alpha=0.25,
+    if any(isinstance(T, EchelleGrating) for T in Ts):
+        # Make sure there is only one EchelleGrating in the list
+        assert sum(isinstance(T, EchelleGrating) for T in Ts) == 1, (
+            "There can only be one EchelleGrating in the list"
         )
+        echelle: EchelleGrating = next(T for T in Ts if isinstance(T, EchelleGrating))
+
+        # Plot nothing for the echelle, but add a legend entry for it
+        ax.plot(0, 0, color="k", alpha=0.25, label="Echelle (blaze peaks flat 75%)")
+        # echelle: EchelleGrating = EchelleGrating(
+        #     catalogue_number="",
+        #     groove_frequency=31.6 / u.mm,
+        #     blaze_angle=76 * u.deg,
+        #     gamma_angle=0.55 * u.deg,
+        #     min_wl=0.375 * u.um,
+        #     max_wl=0.9 * u.um,
+        #     peak_efficiency=0.75,
+        # )
+
+        blaze_efficiencies: dict[int, tuple[Quantity, list[float]]] = (
+            echelle.blaze_efficiency()
+        )
+
+        for _m, (wl, be) in blaze_efficiencies.items():
+            R_T: NDArray = np.interp(x=wl, xp=master_wls, fp=running_transmission)
+            ax.fill_between(
+                x=wl.to(u.um).value,
+                y1=0,
+                y2=R_T * be,
+                color="k",
+                alpha=0.25,
+            )
 
     ax.legend(loc="upper right")
 
