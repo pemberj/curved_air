@@ -72,6 +72,11 @@ pages: list = [
         title="Solid Angle & Étendue",
         icon="📐",
     ),
+    st.Page(
+        page=APP_PATH / "pages" / "keplerian_orbits.py",
+        title="Keplerian Orbits",
+        icon="🪐",
+    ),
 ]
 
 nav = st.navigation(pages={"Curved Air: Optical Design Tools": pages})
