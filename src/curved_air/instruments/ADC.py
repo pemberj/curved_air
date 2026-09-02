@@ -94,6 +94,9 @@ class PrismStack:
             if rays.isscalar:
                 rays = [rays.value] * rays.unit
 
+            if rays.isscalar:
+                rays = [rays.value] * rays.unit
+
             if debug_level > 0:
                 print(f"Refracting through a {prism.glass} prism of {prism.apex_angle}")
 
@@ -243,7 +246,18 @@ class PrismStack:
                 stack_curve = stack_curve - stack_reference
                 target_curve = target_curve - target_reference
 
-                residuals = stack_curve - target_curve
+                stack_scale = np.max(np.abs(stack_curve))
+                target_scale = np.max(np.abs(target_curve))
+
+                if (
+                    not np.isfinite(stack_scale)
+                    or not np.isfinite(target_scale)
+                    or stack_scale == 0
+                    or target_scale == 0
+                ):
+                    return finite_penalty
+
+                residuals = (stack_curve / stack_scale) - (target_curve / target_scale)
 
                 if not np.all(np.isfinite(residuals)):
                     return finite_penalty
@@ -798,20 +812,20 @@ def test() -> None:
 
     gc = GlassCatalogue(["Schott", "Ohara"])
 
-    stack: PrismStack = PrismStack(
-        prism_list=[
-            Prism(glass=gc["K10"], apex_angle=2 * u.deg),
-            Prism(glass=gc["S-FPL51"], apex_angle=-2 * u.deg),
-            Prism(glass=gc["F2"], apex_angle=2 * u.deg),
-            Prism(glass=gc["N-BK7"], apex_angle=-2 * u.deg),
-        ]
-    )
-    # target_dispersion = Linear(m=0.1 / u.um, b=0)
-    target_dispersion = Linear(m=-1 / u.um, b=0)
-    # target_dispersion = Constant(c=1)
-    # target_dispersion = Air()
+    g1 = gc["K10"]
+    g2 = gc["S-FPL51"]
 
-    # print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
+    p1: Prism = Prism(glass=g1, apex_angle=2 * u.deg)
+    p2: Prism = Prism(glass=g2, apex_angle=-2 * u.deg)
+
+    stack: PrismStack = PrismStack(prism_list=[p1, p2])
+    # target_dispersion = Linear(m=-3, b=0)
+    # target_dispersion = Linear(m=-2, b=0)
+    # target_dispersion = Linear(m=-1.6, b=0)
+    # target_dispersion = Constant(c=1)
+    target_dispersion = Air()
+
+    print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
 
     stack.match_target_dispersion(
         min_wl=380 * u.nm,
@@ -821,11 +835,8 @@ def test() -> None:
 
     print(stack.summary)
 
-    _fig, axs = plt.subplots(
-        2, 1, figsize=(8, 6), tight_layout=True, sharex=True, height_ratios=[2, 1]
-    )
-
-    ax = axs[0]
+    fig = plt.figure()
+    ax = fig.gca()
 
     wls = np.linspace(0.38, 0.95, 100) * u.um
 
@@ -836,7 +847,7 @@ def test() -> None:
 
     ax.plot(
         wls,
-        traced_angles,  # / np.max(np.abs(traced_angles)),
+        traced_angles / np.max(np.abs(traced_angles)),
         label="Output angle (zeroed)",
     )
 
@@ -848,20 +859,9 @@ def test() -> None:
     # plot the target dispersion curve for comparison
     ax.plot(
         wls,
-        target_angles,  # / np.max(np.abs(target_angles)),
+        target_angles / np.max(np.abs(target_angles)),
         label="Target dispersion (zeroed)",
     )
-
-    ax.legend()
-
-    ax = axs[1]
-    ax.plot(
-        wls,
-        traced_angles.to(u.deg).value - target_angles,
-        label="Residuals (traced - target)",
-    )
-
-    ax.legend()
 
     plt.show()
 
