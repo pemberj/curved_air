@@ -12,6 +12,8 @@ from scipy.optimize import minimize
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from numpy.typing import NDArray
+
     from curved_air.glass import Glass
     from curved_air.optics.dispersers import Prism
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
@@ -89,6 +91,9 @@ class PrismStack:
                 wavelength=wls,
             )
 
+            if rays.isscalar:
+                rays = [rays.value] * rays.unit
+
             if debug_level > 0:
                 print(f"Refracting through a {prism.glass} prism of {prism.apex_angle}")
 
@@ -154,6 +159,147 @@ class PrismStack:
             return zwls[0]
 
         raise ValueError("No zero-deviation wavelengths found in the given range.")
+
+    def match_target_dispersion(
+        self,
+        min_wl: ScalarQuantity | float = 0.38 * u.um,
+        max_wl: ScalarQuantity | float = 0.95 * u.um,
+        target_dispersion: Model | type[Model] = Air,
+    ) -> PrismStack:
+        """Fit prism apex angles to a target dispersion curve.
+
+        The optimisation is intentionally simple: it compares the effective dispersion
+        from the `trace` method against the target model on a wavelength grid, removes
+        the zero-point offset at the middle of the band, and normalises both curves
+        before minimising their RMS difference.
+        """
+
+        if not self.prism_list:
+            raise ValueError("Cannot optimise an empty PrismStack.")
+
+        if isinstance(min_wl, Quantity) and isinstance(max_wl, Quantity):
+            wls: ArrayQuantity = (
+                np.linspace(min_wl.to(u.um).value, max_wl.to(u.um).value, 100) * u.um
+            )
+        elif isinstance(min_wl, int | float) and isinstance(max_wl, int | float):
+            wls = np.linspace(min_wl, max_wl, 100) * u.um
+        else:
+            raise TypeError(
+                "min_wl and max_wl parameters must be int, float, or astropy.units.quantity.Quantity with appropriate units."
+            )
+
+        if isinstance(target_dispersion, Model):
+            target_model: Model = target_dispersion
+        else:
+            try:
+                target_model: Model = target_dispersion()
+            except Exception as e:
+                raise TypeError(
+                    "target_dispersion must be an instance of Model or a subclass of Model."
+                ) from e
+
+        initial_angles_deg: list[float] = [
+            prism.apex_angle.to(u.deg).value for prism in self.prism_list
+        ]
+        reference_index: int = len(wls) // 2
+        finite_penalty: float = 1e9
+        angle_limit_deg: float = 60
+
+        def objective(angle_values_deg: list[float] | NDArray[np.float64]) -> float:
+            original_angles_deg: list[float] = [
+                prism.apex_angle.to(u.deg).value for prism in self.prism_list
+            ]
+            trial_angles_deg = np.asarray(angle_values_deg, dtype=float)
+
+            try:
+                if not np.all(np.isfinite(trial_angles_deg)):
+                    return finite_penalty
+
+                if np.any(np.abs(trial_angles_deg) >= angle_limit_deg):
+                    return finite_penalty
+
+                for prism, angle_value in zip(
+                    self.prism_list, trial_angles_deg, strict=True
+                ):
+                    prism.apex_angle = angle_value * u.deg
+
+                stack_curve: NDArray[np.float64] = np.asarray(
+                    self.trace(wls=wls).to(u.deg).value,
+                    dtype=float,
+                )
+                target_curve: NDArray[np.float64] = np.asarray(
+                    target_model.refractive_index(wls),
+                    dtype=float,
+                )
+
+                if not np.all(np.isfinite(stack_curve)) or not np.all(
+                    np.isfinite(target_curve)
+                ):
+                    return finite_penalty
+
+                stack_reference = float(stack_curve[reference_index])
+                target_reference = float(target_curve[reference_index])
+
+                stack_curve = stack_curve - stack_reference
+                target_curve = target_curve - target_reference
+
+                stack_scale = np.max(np.abs(stack_curve))
+                target_scale = np.max(np.abs(target_curve))
+
+                if (
+                    not np.isfinite(stack_scale)
+                    or not np.isfinite(target_scale)
+                    or stack_scale == 0
+                    or target_scale == 0
+                ):
+                    return finite_penalty
+
+                residuals = (stack_curve / stack_scale) - (target_curve / target_scale)
+
+                if not np.all(np.isfinite(residuals)):
+                    return finite_penalty
+
+                return float(np.sqrt(np.mean(np.square(residuals))))
+            except Exception:
+                return finite_penalty
+            finally:
+                # Reset the prism angles to their original values
+                for prism, angle in zip(
+                    self.prism_list, original_angles_deg, strict=True
+                ):
+                    prism.apex_angle = angle * u.deg
+
+        result = minimize(
+            objective,
+            x0=initial_angles_deg,
+            method="Powell",
+            bounds=[(-angle_limit_deg, angle_limit_deg)] * len(self.prism_list),
+            options={"maxiter": 200, "xtol": 1e-4, "ftol": 1e-6},
+        )
+
+        if not result.success:
+            raise ValueError(f"Unable to optimise prism angles: {result.message}")
+
+        for prism, angle_value in zip(self.prism_list, result.x, strict=True):
+            prism.apex_angle = angle_value * u.deg
+
+        return self
+
+    @property
+    def summary(self) -> str:
+        summary_lines: list[str] = [
+            f"PrismStack with {len(self.prism_list)} prisms:",
+            f"  Entrance medium: {self.entrance_medium}",
+        ]
+
+        for i, prism in enumerate(self.prism_list, start=1):
+            summary_lines.append(
+                f"  Prism {i}: Glass = {prism.glass}, Apex angle = {prism.apex_angle:.3f}, n_d = {prism.glass.n(0.5893 * u.um):.6f}"
+            )
+
+        summary_lines.append(f"  Exit medium: {self.exit_medium}")
+
+        return "\n".join(summary_lines)
 
 
 @dataclass
@@ -651,3 +797,74 @@ class ADC:
             + f"alpha = {self.alpha:.3f}, "
             + ")"
         )
+
+
+def test() -> None:
+    from curved_air.glass import GlassCatalogue  # noqa: PLC0415
+    from curved_air.optics.dispersers import Prism  # noqa: PLC0415
+    from curved_air.other import Constant, Linear  # noqa: PLC0415, F401
+
+    gc = GlassCatalogue(["Schott", "Ohara"])
+
+    g1 = gc["K10"]
+    g2 = gc["S-FPL51"]
+
+    p1: Prism = Prism(glass=g1, apex_angle=2 * u.deg)
+    p2: Prism = Prism(glass=g2, apex_angle=-2 * u.deg)
+
+    stack: PrismStack = PrismStack(prism_list=[p1, p2])
+    # target_dispersion = Linear(m=-3, b=0)
+    # target_dispersion = Linear(m=-2, b=0)
+    # target_dispersion = Linear(m=-1.6, b=0)
+    # target_dispersion = Constant(c=1)
+    target_dispersion = Air()
+
+    print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
+
+    stack.match_target_dispersion(
+        min_wl=380 * u.nm,
+        max_wl=950 * u.nm,
+        target_dispersion=target_dispersion,
+    )
+
+    print(stack.summary)
+
+    fig = plt.figure()
+    ax = fig.gca()
+
+    wls = np.linspace(0.38, 0.95, 100) * u.um
+
+    traced_angles = (
+        stack.trace(wls, incidence_angle=0 * u.deg)
+        - stack.trace(wls, incidence_angle=0 * u.deg)[len(wls) // 2]
+    )
+
+    ax.plot(
+        wls,
+        traced_angles / np.max(np.abs(traced_angles)),
+        label="Output angle (zeroed)",
+    )
+
+    target_angles = (
+        target_dispersion.refractive_index(wls)
+        - target_dispersion.refractive_index(wls)[len(wls) // 2]
+    )
+
+    # plot the target dispersion curve for comparison
+    ax.plot(
+        wls,
+        target_angles / np.max(np.abs(target_angles)),
+        label="Target dispersion (zeroed)",
+    )
+
+    plt.show()
+
+    # adc: ADC = ADC(prism_stack=stack)
+
+    # results: dict | None = adc.optimise(plot=True)
+
+    # print(results)
+
+
+if __name__ == "__main__":
+    test()
