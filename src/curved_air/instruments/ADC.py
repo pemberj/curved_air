@@ -294,9 +294,10 @@ class ADC:
 
             epsilon = (g1.refractive_index(wl_0) - 1) / (g2.refractive_index(wl_0) - 1)
 
-            delta_air = (  # vvvvvvvvvv   Should this be tan(z_max)?
+            delta_air: ArrayQuantity = (
                 self.beam_comp
-                * self.z_max
+                * np.tan(self.z_max)
+                * u.radian
                 * (
                     self.air_model.refractive_index(wls)
                     - self.air_model.refractive_index(wl_0)
@@ -448,13 +449,14 @@ class ADC:
             ADC_index,
             "k--",
             label="2 $\\times$ ("
-            + f"$n_1 - {self.epsilon:.5g}n_2 {self.epsilon - 1:+.3g}$) "
-            + f"{self.alpha / 2:.3g}",
+            + f"$n_1(\\lambda) - {self.epsilon:.5g}n_2(\\lambda) {self.epsilon - 1:+.3g}$) "
+            + f"$\\times$ {self.alpha / 2:.3g}",
         )
 
         d_air: ScalarQuantity = (
             self.beam_comp
-            * self.z_max
+            * np.tan(self.z_max)
+            * u.radian
             * (
                 self.air_model.refractive_index(wls)
                 - self.air_model.refractive_index(self.wl_0)
@@ -467,7 +469,8 @@ class ADC:
             wls,
             d_air,
             "r-",
-            label="$\\frac{D_{tel}}{D_{ADC}}$ ($n_{air} - n_{air}$("
+            alpha=0.75,
+            label="$\\frac{D_{tel}}{D_{ADC}}$ ($n_{air}(\\lambda) - n_{air}$("
             + f"{(self.wl_0.to(u.nm)):.0f})) $\\times$ "
             + f"tan({self.z_max:.0f})",
         )
