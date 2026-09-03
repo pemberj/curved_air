@@ -371,7 +371,7 @@ with config:
 
             planet.mass: ScalarQuantity = st_quantity_input(
                 "Mass",
-                possible_units=["M_earth", "M_jup", "M_sun", "kg"],
+                possible_units=["kg", "M_earth", "M_jup", "M_sun"],
                 value=planet.mass.to(u.M_earth).value,
                 min_value=0.01,
                 step=0.1,
@@ -473,6 +473,7 @@ with plot:
                     x=time.to(u.yr).value,
                     y=system.radial_velocity_planet(planet, time).to(u.m / u.s).value,
                     mode="lines",
+                    opacity=0.5,
                     name=f"{planet.name}" if planet.name else f"Planet {index + 1}",
                 )
             )
@@ -493,7 +494,15 @@ with plot:
                 y=(system.radial_velocity(observation_times) + noise)
                 .to(u.m / u.s)
                 .value,
+                error_y={
+                    "type": "data",
+                    "array": [st.session_state.get("measurement_precision", 1.0)]
+                    * len(observation_times),
+                    "color": "gray",
+                    "visible": True,
+                },
                 mode="markers",
+                marker={"color": "gray", "size": 6},
                 name="Simulated observations",
             )
         )
