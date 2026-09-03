@@ -415,6 +415,15 @@ class ADC:
         return PTV.to(u.mas)
 
     @property
+    def residuals_max_abs(self) -> ScalarQuantity:
+        assert self.residuals_function is not None
+        max_abs: float = max(
+            np.abs(self.residuals_function(wls=self.wls(100)).to(u.mas).value)
+        )
+
+        return max_abs * u.mas
+
+    @property
     def apex_angles(self) -> list[ScalarQuantity] | None:
         return [p.apex_angle for p in self.prism_stack.prism_list]
 
