@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from itertools import cycle
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,6 +15,7 @@ from matplotlib import pyplot as plt
 
 from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
+from curved_air.optics.dispersers import Prism
 from curved_air.plotting import plot_style
 from curved_air.utils import st_quantity_input
 
@@ -178,7 +180,12 @@ with st.sidebar:
 # Create and optimise ADC
 try:
     adc = ADC(
-        prism_stack=PrismStack([glass1, glass2]),
+        prism_stack=PrismStack(
+            [
+                Prism(glass=glass1, apex_angle=0.0 * u.deg),
+                Prism(glass=glass2, apex_angle=0.0 * u.deg),
+            ]
+        ),
         min_wl=min_wl,
         max_wl=max_wl.to(u.nm),
         D_telescope=D_telescope,
@@ -194,12 +201,11 @@ with st.spinner("Optimising ADC..."):
     adc.optimise()
 
 # Summary
-cols: Iterable = iter(
+cols: Iterable = cycle(
     st.columns(
-        6,
-        gap="xxsmall",
+        4,
+        gap="small",
         vertical_alignment="top",
-        border=True,
         width="stretch",
     )
 )
@@ -207,7 +213,8 @@ cols: Iterable = iter(
 with next(cols):
     st.metric(
         "Airmass",
-        f"{1 / np.cos(z_max.to(u.rad).value):.3f}",
+        f"{1 / np.cos(z_max.to(u.rad).value):.3g}",
+        border=True,
         help="""The airmass at the maximum zenith angle. This is calculated using the
         standard airmass formula (1/cos(z_max)).""",
     )
@@ -215,7 +222,8 @@ with next(cols):
 with next(cols):
     st.metric(
         "PTV",
-        f"{adc.residuals_PTV:.3f}",
+        f"{adc.residuals_PTV:.3g}",
+        border=True,
         help="""The PTV (Peak-to-Valley) residuals of the ADC. This is the maximum
         deviation from the ideal dispersion correction across all wavelengths in the
         spectrum **projected on sky**.""",
@@ -224,7 +232,8 @@ with next(cols):
 with next(cols):
     st.metric(
         "RMS",
-        f"{adc.residuals_RMS:.3f}",
+        f"{adc.residuals_RMS:.3g}",
+        border=True,
         help="""The RMS (Root Mean Square) residuals of the ADC. This is the root-mean-
         square deviation from the ideal dispersion correction across all wavelengths in
         the spectrum **projected on sky**.""",
@@ -232,30 +241,25 @@ with next(cols):
 
 with next(cols):
     st.metric(
-        "Apex angle $\\alpha$",
-        f"{adc.first_apex_angle:.2f}",
-        help="""The required apex angle of the ADC.""",
-    )
-
-with next(cols):
-    st.metric(
-        "Compound angle $\\beta$",
-        f"{adc.beta:.2f}",
-        help="""The compound angle of the ADC. This is the angle at which the ADC is
-        rotated relative to the telescope axis, and is used to correct for atmospheric
-        dispersion in the spectrograph. It is calculated based on the required apex
-        angle and the spectral resolution of the spectrograph.""",
-    )
-
-with next(cols):
-    st.metric(
         "Zero-deviation wavelength",
         f"{adc.wl_0:.2f}",
+        border=True,
         help="""The zero-deviation wavelength of the ADC. This is the wavelength at
         which the ADC does not deviate an incoming beam. """,
     )
 
+for i, p in enumerate(adc.prism_stack.prism_list, start=1):
+    with next(cols):
+        st.metric(
+            f"Prism {i} apex angle",
+            f"{abs(p.apex_angle):.3f}",
+            border=True,
+            help=f"""The apex angle of prism {i} in the ADC. This
+            is the angle at which the prism is rotated to achieve the optimal dispersion
+            correction.""",
+        )
+
 with st.container(horizontal_alignment="center"), st.spinner("Plotting..."):
     # st.pyplot(adc.plot(show=False), width=1000)
-    figure: plt.Figure = adc.plot(show=False)
+    figure: plt.Figure = adc.plot(show=False, layout=False)
     st.pyplot(figure, width=1000)
