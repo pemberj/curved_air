@@ -119,7 +119,7 @@ class PrismStack:
         max_wl: ScalarQuantity | float = 1.50 * u.um,
         num_wls: int = 100,
         incidence_angle: ScalarQuantity = 0 * u.deg,
-    ) -> Quantity:
+    ) -> ScalarQuantity | ArrayQuantity | None:
         """
         This method traces the dispersion of light through a compound prism and returns
         the wavelengths at which the prism does not deviate the light. These
@@ -157,7 +157,8 @@ class PrismStack:
         if len(zwls) == 1:
             return zwls[0]
 
-        raise ValueError("No zero-deviation wavelengths found in the given range.")
+        return None
+        # raise ValueError("No zero-deviation wavelengths found in the given range.")
 
     def compute_last_apex_angle(self, wl_0: ScalarQuantity) -> ScalarQuantity:
         """Return the final prism apex angle required for zero deviation at wl_0.
