@@ -81,7 +81,7 @@ class PrismStack:
         if wls.isscalar:
             ray_angle_global: ScalarQuantity = incidence_angle
         else:
-            ray_angle_global: ArrayQuantity = incidence_angle * np.ones_like(wls)
+            ray_angle_global: ArrayQuantity = incidence_angle * np.ones(wls.shape)
 
         previous_material: Model = self.entrance_medium
 
