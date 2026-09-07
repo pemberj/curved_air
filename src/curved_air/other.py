@@ -21,6 +21,8 @@ from numpy.typing import NDArray
 
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
+ONE_ATMOSPHERE: ScalarQuantity = 101_325 * u.Pa
+
 _balmer_lines: dict[str, ScalarQuantity] = {
     "H$\\alpha$": 656.279 * u.nm,
     "H$\\beta$": 486.135 * u.nm,
@@ -288,20 +290,20 @@ Original paper: Ciddor 1996, https://doi.org/10.1364/AO.35.001566
 @overload
 def ciddor(
     wl: ScalarQuantity,
-    T: ScalarQuantity,
-    p: ScalarQuantity,
-    h: float = 0.0,
-    x_c: float = 450,
+    T: ScalarQuantity | None = None,
+    p: ScalarQuantity | None = None,
+    h: float | None = None,
+    x_c: float | None = None,
 ) -> float: ...
 
 
 @overload
 def ciddor(
     wl: ArrayQuantity,
-    T: ScalarQuantity,
-    p: ScalarQuantity,
-    h: float = 0.0,
-    x_c: float = 450,
+    T: ScalarQuantity | None = None,
+    p: ScalarQuantity | None = None,
+    h: float | None = None,
+    x_c: float | None = None,
 ) -> list[float]: ...
 
 
@@ -309,28 +311,28 @@ def ciddor(
 def ciddor(
     wl: ScalarQuantity,
     T: ArrayQuantity,
-    p: ScalarQuantity,
-    h: float = 0.0,
-    x_c: float = 450,
+    p: ScalarQuantity | None = None,
+    h: float | None = None,
+    x_c: float | None = None,
 ) -> list[float]: ...
 
 
 @overload
 def ciddor(
     wl: ScalarQuantity,
-    T: ScalarQuantity,
     p: ArrayQuantity,
-    h: float = 0.0,
-    x_c: float = 450,
+    T: ArrayQuantity | None = None,
+    h: float | None = None,
+    x_c: float | None = None,
 ) -> list[float]: ...
 
 
 def ciddor(
-    wl: ScalarQuantity | ArrayQuantity = 0.6328 * u.um,
-    T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
-    p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
-    h: float = 0.0,
-    x_c: float = 450.0,
+    wl: ScalarQuantity | ArrayQuantity = 632.8 * u.nm,
+    T: ScalarQuantity | ArrayQuantity | None = None,
+    p: ScalarQuantity | ArrayQuantity | None = None,
+    h: float | None = None,
+    x_c: float | None = None,
 ) -> float | list[float]:
     """
     A wrapper for the `ref_index.ciddor` function from the `ref_index` library.
@@ -339,6 +341,15 @@ def ciddor(
     First checks the validity of input parameters and then passes them into the
     `ref_index.ciddor` function.
     """
+
+    if T is None:
+        T: ScalarQuantity = 25 * u.deg_C
+    if p is None:
+        p: ScalarQuantity = ONE_ATMOSPHERE
+    if h is None:
+        h: float = 0.0
+    if x_c is None:
+        x_c: float = 450.0
 
     if isinstance(wl, float):
         print("No units provided for wavelength. Assuming microns.")
@@ -395,9 +406,9 @@ def ciddor(
 @overload
 def edlen(
     wl: ScalarQuantity,
-    T: ScalarQuantity,
-    p: ScalarQuantity,
-    h: float = 0.0,
+    T: ScalarQuantity | None = None,
+    p: ScalarQuantity | None = None,
+    h: float | None = None,
     x_c: float | None = None,
 ) -> float: ...
 
@@ -405,9 +416,9 @@ def edlen(
 @overload
 def edlen(
     wl: ArrayQuantity,
-    T: ScalarQuantity,
-    p: ScalarQuantity,
-    h: float = 0.0,
+    T: ScalarQuantity | None = None,
+    p: ScalarQuantity | None = None,
+    h: float | None = None,
     x_c: float | None = None,
 ) -> list[float]: ...
 
@@ -416,8 +427,8 @@ def edlen(
 def edlen(
     wl: ScalarQuantity,
     T: ArrayQuantity,
-    p: ScalarQuantity,
-    h: float = 0.0,
+    p: ScalarQuantity | None = None,
+    h: float | None = None,
     x_c: float | None = None,
 ) -> list[float]: ...
 
@@ -425,18 +436,18 @@ def edlen(
 @overload
 def edlen(
     wl: ScalarQuantity,
-    T: ScalarQuantity,
     p: ArrayQuantity,
-    h: float = 0.0,
+    T: ScalarQuantity | None = None,
+    h: float | None = None,
     x_c: float | None = None,
 ) -> list[float]: ...
 
 
 def edlen(
-    wl: ScalarQuantity | ArrayQuantity = 656 * u.nm,
-    T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
-    p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
-    h: float = 0.0,
+    wl: ScalarQuantity | ArrayQuantity = 632.8 * u.nm,
+    T: ScalarQuantity | ArrayQuantity | None = None,
+    p: ScalarQuantity | ArrayQuantity | None = None,
+    h: float | None = None,
     x_c: float | None = None,
 ) -> float | list[float]:
     """
@@ -446,6 +457,13 @@ def edlen(
     First checks the validity of input parameters and then passes them into the
     `ref_index.edlen` function.
     """
+
+    if T is None:
+        T: ScalarQuantity = 25 * u.deg_C
+    if p is None:
+        p: ScalarQuantity = ONE_ATMOSPHERE
+    if h is None:
+        h: float = 0.0
 
     if x_c is not None:
         print("Warning: x_c parameter is not used in the Edlen formula. Ignoring it.")
@@ -523,9 +541,9 @@ def zemax(
 
 
 def zemax(
-    wl: ScalarQuantity | ArrayQuantity = 656 * u.nm,
-    T: ScalarQuantity | ArrayQuantity = 15 * u.deg_C,
-    p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
+    wl: ScalarQuantity | ArrayQuantity = 632.8 * u.nm,
+    T: ScalarQuantity | ArrayQuantity | None = None,
+    p: ScalarQuantity | ArrayQuantity | None = None,
     h: float | None = None,
     x_c: float | None = None,
 ) -> float | NDArray[np.floating]:
@@ -534,6 +552,11 @@ def zemax(
 
     formula from F. Kophlrausch, Praktiche Physik, 1968, Vol. 1, Page 408
     """
+
+    if T is None:
+        T: ScalarQuantity = 25 * u.deg_C
+    if p is None:
+        p: ScalarQuantity = ONE_ATMOSPHERE
 
     if h is not None:
         print("Warning: h parameter is not used in the Zemax formula. Ignoring it.")
@@ -545,8 +568,7 @@ def zemax(
 
     T: float = T.to(u.deg_C, equivalencies=u.temperature()).value
 
-    relative_pressure: Quantity = p.to(u.Pa) / (101_325 * u.Pa)
-    P: float = relative_pressure.value
+    relative_pressure: float = (p / ONE_ATMOSPHERE).to(u.dimensionless_unscaled).value
 
     n_ref: float = (
         1
@@ -558,7 +580,7 @@ def zemax(
         * 1e-8
     )
 
-    return 1 + ((n_ref - 1) * P) / (1 + (T - 15) * 3.4785e-3)
+    return 1 + ((n_ref - 1) * relative_pressure) / (1 + (T - 15) * 3.4785e-3)
 
 
 air_refractive_index_formulae: dict[str, Callable] = {
