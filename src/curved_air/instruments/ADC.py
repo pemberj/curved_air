@@ -86,7 +86,7 @@ class PrismStack:
         previous_material: Model = self.entrance_medium
 
         # Placeholder
-        surface_tilt: ScalarQuantity = 0 * u.degree
+        surface_tilt: ScalarQuantity = 0 * u.deg
 
         assert isinstance(ray_angle_global, Quantity)
 
