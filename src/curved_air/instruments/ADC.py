@@ -335,7 +335,7 @@ class ADC:
     z_max: ScalarQuantity = 65 * u.degree
     criterion: str = "PTV"  # "RMS", "RSS", "PTV", "max_abs"
 
-    alphas: ScalarQuantity | None = None
+    alphas: list[ScalarQuantity] | None = None
     wl_0: ScalarQuantity | None = None
 
     residuals_function: Callable | None = None
@@ -352,6 +352,25 @@ class ADC:
                 p.min_wl: ScalarQuantity = self.min_wl
             if p.max_wl is None:
                 p.max_wl: ScalarQuantity = self.max_wl
+
+        if self.alphas is None:
+            self.alphas: list[ScalarQuantity] = [
+                p.apex_angle for p in self.prism_stack.prism_list[:-1]
+            ]
+
+        if self.wl_0 is None:
+            potential_wl_0: ScalarQuantity | ArrayQuantity | None = (
+                self.prism_stack.zero_deviation_wavelengths(
+                    min_wl=self.min_wl, max_wl=self.max_wl
+                )
+            )
+            if isinstance(potential_wl_0, Quantity):
+                if potential_wl_0.isscalar:
+                    self.wl_0: ScalarQuantity = potential_wl_0
+                else:
+                    self.wl_0: ScalarQuantity = potential_wl_0[0]
+            else:
+                self.wl_0: None = None
 
     @property
     def g1(self) -> Prism | Glass:
