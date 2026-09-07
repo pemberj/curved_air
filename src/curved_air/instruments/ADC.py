@@ -568,7 +568,7 @@ class ADC:
                 self.beam_comp
                 * (np.tan(self.z_max) * u.radian)
                 * (
-                    self.air_model.refractive_index(wls)
+                    np.array(self.air_model.refractive_index(wls))
                     - self.air_model.refractive_index(wl_0)
                 )
             ).si.to(u.degree)
@@ -733,7 +733,7 @@ class ADC:
             self.beam_comp
             * (np.tan(self.z_max) * u.radian).to(u.deg)
             * (
-                self.air_model.refractive_index(wls)
+                np.array(self.air_model.refractive_index(wls))
                 - self.air_model.refractive_index(self.wl_0)
             ),
             "r-",
