@@ -1368,7 +1368,7 @@ def _refract(
             except TypeError:
                 _n_1: Any = n_1
 
-        elif isinstance(n_1, float | np.ndarray | list):
+        elif isinstance(n_1, int | float | np.ndarray | list):
             _n_1: Any = n_1
 
         else:
