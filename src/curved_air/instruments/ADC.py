@@ -36,26 +36,32 @@ class PrismStack:
     def trace(
         self,
         wls: ScalarQuantity,
-        incidence_angle: ScalarQuantity,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ScalarQuantity: ...
 
     @overload
     def trace(
         self,
         wls: ScalarQuantity,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ScalarQuantity: ...
 
     @overload
     def trace(
         self,
         wls: ArrayQuantity | None,
-        incidence_angle: ScalarQuantity,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ArrayQuantity: ...
 
     @overload
     def trace(
         self,
         wls: ArrayQuantity | None,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ArrayQuantity: ...
 
     def trace(
@@ -73,45 +79,81 @@ class PrismStack:
             wls: ArrayQuantity = [0.4861, 0.5893, 0.6563] * u.um
 
         if wls.isscalar:
-            rays: ScalarQuantity = incidence_angle
+            ray_angle_global: ScalarQuantity = incidence_angle
         else:
-            rays: ArrayQuantity = incidence_angle * np.ones(len(wls))
+            ray_angle_global: ArrayQuantity = incidence_angle * np.ones_like(wls)
 
         previous_material: Model = self.entrance_medium
-        previous_angle: ScalarQuantity = 0 * u.degree
 
-        assert isinstance(rays, Quantity)
+        # Placeholder
+        surface_tilt: ScalarQuantity = 0 * u.degree
+
+        assert isinstance(ray_angle_global, Quantity)
 
         for _n, prism in enumerate(self.prism_list):
-            rays: Quantity = _refract(
-                n_1=previous_material.refractive_index(wls),
-                n_2=prism.refractive_index,
-                theta_in=rays - previous_angle,
-                wavelength=wls,
-            )
-
-            if rays.isscalar:
-                rays = [rays.value] * rays.unit
+            # The ray angle must be expressed relative to the local prism-surface normal,
+            # not in the previous local frame. Keep the global ray angle and the current
+            # interface orientation separately so the refraction is always evaluated at the
+            # correct local incidence angle.
+            theta_in_local: Quantity = (ray_angle_global - surface_tilt).to(u.deg)
 
             if debug_level > 0:
-                print(f"Refracting through a {prism.glass} prism of {prism.apex_angle}")
+                print(
+                    f"Refracting at interface between {previous_material} and {prism.glass} with surface tilt {surface_tilt.to(u.deg).value} deg"
+                )
+                print(f"  Global ray angle: {ray_angle_global.to(u.deg).value} deg")
+                print(f"  Surface tilt: {surface_tilt.to(u.deg).value} deg")
+                print(f"  Local incidence: {theta_in_local.to(u.deg).value} deg")
 
+            ray_angle_global: Quantity = (
+                _refract(
+                    n_1=previous_material.refractive_index(wls),
+                    n_2=prism.refractive_index,
+                    theta_in=theta_in_local,
+                    wavelength=wls,
+                )
+                + surface_tilt
+            )
+
+            # After refraction inside this prism, the ray is referenced to the prism's
+            # exit face. The next interface normal is the current face normal plus the
+            # prism apex angle.
+            surface_tilt = surface_tilt + prism.apex_angle
             previous_material: Glass = prism.glass
-            previous_angle: Quantity = [
-                r.to(u.deg).value + prism.apex_angle.to(u.deg).value for r in rays
-            ] * u.deg
 
-            # print(rays.to("degree"))
+            if debug_level > 0:
+                print(
+                    f"  Refracted global angle: {ray_angle_global.to(u.deg).value} deg"
+                )
+                print(f"  Exit-face tilt: {surface_tilt.to(u.deg).value} deg")
 
-        # Refract through the last surface into the exit medium
-        rays: Quantity = _refract(
+            if ray_angle_global.isscalar:
+                ray_angle_global = [ray_angle_global.value] * ray_angle_global.unit
+
+        # Refract through the last surface into the exit medium using the final
+        # interface normal orientation.
+
+        theta_in_local: ScalarQuantity = (ray_angle_global - surface_tilt).to(u.deg)
+
+        ray_angle_global: Quantity = _refract(
             n_1=previous_material.refractive_index(wls),
             n_2=self.exit_medium.refractive_index(wls),
-            theta_in=(rays - prism.apex_angle).to(u.deg),
+            theta_in=theta_in_local,
             wavelength=wls,
         )
 
-        return rays.to(u.degree)
+        if debug_level > 0:
+            print(
+                f"Refracting into exit medium {self.exit_medium} with surface tilt "
+                f"{surface_tilt.to(u.deg).value} deg"
+            )
+            print(f"  Local incidence: {theta_in_local.to(u.deg).value} deg")
+            print(f"  Final global ray angle: {ray_angle_global.to(u.deg).value} deg")
+
+        if len(ray_angle_global) == 1:
+            return ray_angle_global[0].to(u.degree)
+
+        return ray_angle_global.to(u.degree)
 
     def zero_deviation_wavelengths(
         self,
