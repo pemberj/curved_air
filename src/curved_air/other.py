@@ -287,7 +287,7 @@ Original paper: Ciddor 1996, https://doi.org/10.1364/AO.35.001566
 
 @overload
 def ciddor(
-    wavelength: ScalarQuantity,
+    wl: ScalarQuantity,
     T: ScalarQuantity,
     p: ScalarQuantity,
     h: float = 0.0,
@@ -297,7 +297,7 @@ def ciddor(
 
 @overload
 def ciddor(
-    wavelength: ArrayQuantity,
+    wl: ArrayQuantity,
     T: ScalarQuantity,
     p: ScalarQuantity,
     h: float = 0.0,
@@ -307,7 +307,7 @@ def ciddor(
 
 @overload
 def ciddor(
-    wavelength: ScalarQuantity,
+    wl: ScalarQuantity,
     T: ArrayQuantity,
     p: ScalarQuantity,
     h: float = 0.0,
@@ -317,7 +317,7 @@ def ciddor(
 
 @overload
 def ciddor(
-    wavelength: ScalarQuantity,
+    wl: ScalarQuantity,
     T: ScalarQuantity,
     p: ArrayQuantity,
     h: float = 0.0,
@@ -326,12 +326,12 @@ def ciddor(
 
 
 def ciddor(
-    wavelength: ScalarQuantity | ArrayQuantity = 0.6328 * u.um,
+    wl: ScalarQuantity | ArrayQuantity = 0.6328 * u.um,
     T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
     p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
     h: float = 0.0,
     x_c: float = 450.0,
-) -> float | NDArray[np.floating]:
+) -> float | list[float]:
     """
     A wrapper for the `ref_index.ciddor` function from the `ref_index` library.
     Takes input parameters with astropy.units units.
@@ -340,37 +340,31 @@ def ciddor(
     `ref_index.ciddor` function.
     """
 
-    if isinstance(wavelength, float):
+    if isinstance(wl, float):
         print("No units provided for wavelength. Assuming microns.")
-        wavelength *= u.um
+        wl *= u.um
 
-    assert isinstance(wavelength, Quantity)
+    assert isinstance(wl, Quantity)
 
-    if not wavelength.isscalar:
+    if not wl.isscalar:
         assert T.isscalar, (
             "Only one array input is allowed, not both wavelength and temperature"
         )
         assert p.isscalar, (
             "Only one array input is allowed, not both wavelength and pressure"
         )
-        return np.array(
-            [ciddor(wavelength=wl, T=T, p=p, h=h, x_c=x_c) for wl in wavelength]
-        )
+        return [ciddor(wl=wl, T=T, p=p, h=h, x_c=x_c) for wl in wl]
 
     if not T.isscalar:
         assert p.isscalar, (
             "Only one array input is allowed, not both temperature amd pressure"
         )
-        return np.array(
-            [ciddor(wavelength=wavelength, T=iT, p=p, h=h, x_c=x_c) for iT in T]
-        )
+        return [ciddor(wl=wl, T=iT, p=p, h=h, x_c=x_c) for iT in T]
 
     if not p.isscalar:
-        return np.array(
-            [ciddor(wavelength=wavelength, T=T, p=ip, h=h, x_c=x_c) for ip in p]
-        )
+        return [ciddor(wl=wl, T=T, p=ip, h=h, x_c=x_c) for ip in p]
 
-    assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
+    assert 0.3 <= wl.to("um").value <= 1.7  # noqa: PLR2004
     T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
     assert -40 <= T_C.value <= 100  # noqa: PLR2004
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
@@ -379,7 +373,7 @@ def ciddor(
 
     return float(
         ref_index.ciddor(
-            wave=wavelength.to("nm").value,
+            wave=wl.to("nm").value,
             t=T_C.value,
             p=p.to("Pa").value,
             rh=h * 100,
@@ -391,34 +385,51 @@ def ciddor(
 
 @overload
 def edlen(
-    wavelength: ScalarQuantity, T: ScalarQuantity, p: ScalarQuantity, h: float = 0.0
+    wl: ScalarQuantity,
+    T: ScalarQuantity,
+    p: ScalarQuantity,
+    h: float = 0.0,
+    x_c: float | None = None,
 ) -> float: ...
 
 
 @overload
 def edlen(
-    wavelength: ArrayQuantity, T: ScalarQuantity, p: ScalarQuantity, h: float = 0.0
+    wl: ArrayQuantity,
+    T: ScalarQuantity,
+    p: ScalarQuantity,
+    h: float = 0.0,
+    x_c: float | None = None,
 ) -> list[float]: ...
 
 
 @overload
 def edlen(
-    wavelength: ScalarQuantity, T: ArrayQuantity, p: ScalarQuantity, h: float = 0.0
+    wl: ScalarQuantity,
+    T: ArrayQuantity,
+    p: ScalarQuantity,
+    h: float = 0.0,
+    x_c: float | None = None,
 ) -> list[float]: ...
 
 
 @overload
 def edlen(
-    wavelength: ScalarQuantity, T: ScalarQuantity, p: ArrayQuantity, h: float = 0.0
+    wl: ScalarQuantity,
+    T: ScalarQuantity,
+    p: ArrayQuantity,
+    h: float = 0.0,
+    x_c: float | None = None,
 ) -> list[float]: ...
 
 
 def edlen(
-    wavelength: ScalarQuantity | ArrayQuantity = 656 * u.nm,
+    wl: ScalarQuantity | ArrayQuantity = 656 * u.nm,
     T: ScalarQuantity | ArrayQuantity = 10 * u.deg_C,
     p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
     h: float = 0.0,
-) -> float | NDArray[np.floating]:
+    x_c: float | None = None,
+) -> float | list[float]:
     """
     A wrapper for the `ref_index.edlen` function from the `ref_index` library.
     Takes input parameters with astropy.units units.
@@ -427,13 +438,16 @@ def edlen(
     `ref_index.edlen` function.
     """
 
-    if isinstance(wavelength, float):
+    if x_c is not None:
+        print("Warning: x_c parameter is not used in the Edlen formula. Ignoring it.")
+
+    if isinstance(wl, float):
         print("Not units provided for wavelength. Assuming microns")
-        wavelength *= u.um
+        wl *= u.um
 
-    assert isinstance(wavelength, Quantity)
+    assert isinstance(wl, Quantity)
 
-    if not wavelength.isscalar:
+    if not wl.isscalar:
         # lowmask: np.ndarray = np.array(wavelength.to("um").value) >= 0.3  # noqa: PLR2004
         # highmask: np.ndarray = np.array(wavelength.to("um").value) <= 1.7  # noqa: PLR2004
         # assert np.all(lowmask) and np.all(highmask)
@@ -443,18 +457,18 @@ def edlen(
         assert p.isscalar, (
             "Only one array input is allowed, not both wavelength and pressure"
         )
-        return np.array([edlen(wl, T=T, p=p, h=h) for wl in wavelength])
+        return [edlen(wl, T=T, p=p, h=h) for wl in wl]
 
     if not T.isscalar:
         assert p.isscalar, (
             "Only one array input is allowed, not both temperature amd pressure"
         )
-        return np.array([edlen(wavelength, T=iT, p=p, h=h) for iT in T])
+        return [edlen(wl=wl, T=iT, p=p, h=h) for iT in T]
 
     if not p.isscalar:
-        return np.array([edlen(wavelength, T=T, p=ip, h=h) for ip in p])
+        return [edlen(wl=wl, T=T, p=ip, h=h) for ip in p]
 
-    assert 0.3 <= wavelength.to("um").value <= 1.7  # noqa: PLR2004
+    assert 0.3 <= wl.to("um").value <= 1.7  # noqa: PLR2004
     T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
     assert -40 <= T_C.value <= 100  # noqa: PLR2004
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
@@ -462,7 +476,7 @@ def edlen(
 
     return float(
         ref_index.edlen(
-            wave=wavelength.to("nm").value,
+            wave=wl.to("nm").value,
             t=T_C.value,
             p=p.to("Pa").value,
             rh=h * 100,
@@ -548,29 +562,66 @@ class Model:
     A generic model material, acts as a base class for more specific materials
     """
 
-    tabulated: np.ndarray | None = None
+    tabulated: NDArray | None = None
     function: Callable | None = None
 
-    @overload
-    def refractive_index(self, wl: ScalarQuantity) -> float: ...
+    temperature: Quantity | None = None
+    pressure: Quantity | None = None
+    humidity: float | None = None
+    carbon_dioxide: float | None = None
 
     @overload
-    def refractive_index(self, wl: ArrayQuantity) -> np.ndarray: ...
+    def refractive_index(
+        self,
+        wl: ScalarQuantity,
+        T: Quantity | None = None,
+        p: Quantity | None = None,
+        h: float | None = None,
+        x_c: float | None = None,
+    ) -> float: ...
 
     @overload
-    def refractive_index(self, wl: None) -> Callable: ...
+    def refractive_index(
+        self,
+        wl: ArrayQuantity | list[ScalarQuantity],
+        T: ScalarQuantity | None = None,
+        p: ScalarQuantity | None = None,
+        h: float | None = None,
+        x_c: float | None = None,
+    ) -> list[float]: ...
 
     @overload
-    def refractive_index(self) -> Callable: ...
+    def refractive_index(
+        self,
+        wl: None,
+        T: ScalarQuantity | None = None,
+        p: ScalarQuantity | None = None,
+        h: float | None = None,
+        x_c: float | None = None,
+    ) -> Callable: ...
 
     def refractive_index(
         self,
-        wl: Quantity | None = None,
-    ) -> Callable | np.ndarray | float:
+        wl: ScalarQuantity | list[ScalarQuantity] | ArrayQuantity | None = None,
+        T: ScalarQuantity | None = None,
+        p: ScalarQuantity | None = None,
+        h: float | None = None,
+        x_c: float | None = None,
+    ) -> Callable | float | list[float]:
+
+        if self.temperature is not None and T is None:
+            T: ScalarQuantity = self.temperature
+        if self.pressure is not None and p is None:
+            p: ScalarQuantity = self.pressure
+        if self.humidity is not None and h is None:
+            h: float = self.humidity
+        if self.carbon_dioxide is not None and x_c is None:
+            x_c: float = self.carbon_dioxide
+
         if self.function:
             if wl is None:
                 return self.function
-            return self.function(wl)
+            return self.function(wl, T=T, p=p, h=h, x_c=x_c)
 
         if self.tabulated:
             if wl is None:
@@ -592,7 +643,7 @@ class Model:
 
     def n(self, wl: Quantity | None = None) -> Callable | float:
         if wl:
-            return self.refractive_index(wl)
+            return self.refractive_index(wl, T=None, p=None, h=None, x_c=None)
 
         return self.refractive_index
 
@@ -600,7 +651,7 @@ class Model:
     def n_D(self) -> float:
         wl_D: Quantity = 587.6 * u.nm
 
-        return self.n(wl_D)
+        return self.n(wl=wl_D)
 
 
 @dataclass
@@ -614,18 +665,35 @@ class Air(Model):
     """
 
     air_model: str = "ciddor"
-    temperature: float | None = None
-    pressure: float | None = None
+    function: Callable | None = None
+
+    temperature: ScalarQuantity | None = None
+    pressure: ScalarQuantity | None = None
     humidity: float | None = None
-    altitude: float | None = None
+    carbon_dioxide: float | None = None
 
     def __post_init__(self) -> None:
         if self.air_model:
             f: Callable = air_refractive_index_formulae[self.air_model]
-            super().__init__(function=f)
+            super().__init__(
+                temperature=self.temperature,
+                pressure=self.pressure,
+                humidity=self.humidity,
+                carbon_dioxide=self.carbon_dioxide,
+                function=f,
+            )
 
         else:
-            super().__init__()
+            assert self.function is not None, (
+                "Either air_model or function must be provided"
+            )
+            super().__init__(
+                temperature=self.temperature,
+                pressure=self.pressure,
+                humidity=self.humidity,
+                carbon_dioxide=self.carbon_dioxide,
+                function=self.function,
+            )
 
 
 @dataclass
