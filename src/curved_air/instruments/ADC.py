@@ -619,8 +619,6 @@ class ADC:
 
         assert isinstance(self.alphas, list)
         assert all(isinstance(alpha, Quantity) for alpha in self.alphas)
-
-        assert isinstance(self.epsilon, float)
         assert isinstance(self.wl_0, Quantity)
 
         if layout and len(self.prism_stack.prism_list) > 2:  # noqa: PLR2004
