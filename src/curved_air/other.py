@@ -471,7 +471,70 @@ def edlen(
     )
 
 
-air_refractive_index_formulae: dict[str, Callable] = {"ciddor": ciddor, "edlen": edlen}
+@overload
+def zemax(
+    wl: ScalarQuantity,
+    T: ScalarQuantity,
+    p: ScalarQuantity,
+    h: float | None = None,
+    x_c: float | None = None,
+) -> float: ...
+
+
+@overload
+def zemax(
+    wl: ArrayQuantity,
+    T: ScalarQuantity,
+    p: ScalarQuantity,
+    h: float | None = None,
+    x_c: float | None = None,
+) -> list[float]: ...
+
+
+def zemax(
+    wl: ScalarQuantity | ArrayQuantity = 656 * u.nm,
+    T: ScalarQuantity | ArrayQuantity = 15 * u.deg_C,
+    p: ScalarQuantity | ArrayQuantity = 101_325 * u.Pa,
+    h: float | None = None,
+    x_c: float | None = None,
+) -> float | NDArray[np.floating]:
+    """
+    Zemax definition of the refractive index of air
+
+    formula from F. Kophlrausch, Praktiche Physik, 1968, Vol. 1, Page 408
+    """
+
+    if h is not None:
+        print("Warning: h parameter is not used in the Zemax formula. Ignoring it.")
+
+    if x_c is not None:
+        print("Warning: x_c parameter is not used in the Zemax formula. Ignoring it.")
+
+    wl: float = wl.to(u.um).value
+
+    T: float = T.to(u.deg_C, equivalencies=u.temperature()).value
+
+    relative_pressure: Quantity = p.to(u.Pa) / (101_325 * u.Pa)
+    P: float = relative_pressure.value
+
+    n_ref: float = (
+        1
+        + (
+            6432.8
+            + ((2949810 * wl**2) / (146 * wl**2 - 1))
+            + ((25540 * wl**2) / (41 * wl**2 - 1))
+        )
+        * 1e-8
+    )
+
+    return 1 + ((n_ref - 1) * P) / (1 + (T - 15) * 3.4785e-3)
+
+
+air_refractive_index_formulae: dict[str, Callable] = {
+    "ciddor": ciddor,
+    "edlen": edlen,
+    "zemax": zemax,
+}
 
 
 """
