@@ -12,6 +12,7 @@ from astropy import units as u
 from astropy.modeling.models import BlackBody
 from astropy.units import Quantity
 from numpy.typing import NDArray
+from plotly import graph_objects as go
 
 from curved_air.plotting import plot_style
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
@@ -834,43 +835,65 @@ with settings_column:
             )
 
     with st.expander("Detector", expanded=True):
-        select, info = st.columns([1, 2])
-
-        with select:
-            st.selectbox(
-                "Detector",
-                options=[*[detector.name for detector in detectors], "Custom"],
-                index=0,
-                width=400,
-                key="detector_preset",
-            )
+        st.selectbox(
+            "Detector",
+            options=[*[detector.name for detector in detectors], "Custom"],
+            index=0,
+            width=400,
+            key="detector_preset",
+        )
 
         if st.session_state.get("detector_preset", "Custom") != "Custom":
             detector: Detector = next(
                 d for d in detectors if d.name == st.session_state["detector_preset"]
             )
 
-            with info:
-                subcols = cycle(st.columns(5))
-                with next(subcols):
-                    st.metric("Pixel Size", value=f"{detector.pixel_size.to(u.um):.3g}")
-                with next(subcols):
-                    st.metric("Gain", value=f"{detector.gain.value:.2g}")
-                with next(subcols):
-                    st.metric(
-                        "Dark Noise",
-                        value=f"{detector.dark_noise.to(u.electron / u.s).value:.3g}e$^-$/s",
-                    )
-                with next(subcols):
-                    st.metric(
-                        "Read Noise",
-                        value=f"{detector.read_noise.to(u.electron).value:.3g}e$^-$",
-                    )
-                with next(subcols):
-                    if isinstance(detector.QE, (str, Path)):
-                        st.metric("Quantum Efficiency", "From file")
-                    else:
-                        st.metric("Quantum Efficiency", value=f"{detector.QE}")
+            subcols = cycle(st.columns(5))
+            with next(subcols):
+                st.metric("Pixel Size", value=f"{detector.pixel_size.to(u.um):.3g}")
+            with next(subcols):
+                st.metric("Gain", value=f"{detector.gain.value:.2g}")
+            with next(subcols):
+                st.metric(
+                    "Dark Noise",
+                    value=f"{detector.dark_noise.to(u.electron / u.s).value:.3g}e$^-$/s",
+                )
+            with next(subcols):
+                st.metric(
+                    "Read Noise",
+                    value=f"{detector.read_noise.to(u.electron).value:.3g}e$^-$",
+                )
+            with next(subcols):
+                if isinstance(detector.QE, (str, Path)):
+                    st.metric("Quantum Efficiency", "From file")
+
+                    with st.popover("Show QE Curve"):
+                        # Display a small plot of the QE curve
+
+                        wavelengths: ArrayQuantity = np.linspace(380, 950, 30) * u.nm
+                        QE: NDArray[np.floating] = detector_QE(
+                            detector.QE, wavelengths=wavelengths
+                        )
+
+                        fig: go.Figure = go.Figure()  # go figure!
+                        fig.add_trace(
+                            trace=go.Scatter(
+                                x=wavelengths.to(u.nm).value,
+                                y=QE,
+                                mode="lines",
+                            )
+                        )
+
+                        fig.update_layout(
+                            title=f"{detector.name}",
+                            xaxis_title="Wavelength (nm)",
+                            yaxis_title="Quantum Efficiency",
+                        )
+
+                        st.plotly_chart(fig)
+
+                else:
+                    st.metric("Quantum Efficiency", value=f"{detector.QE}")
 
         else:
             cols = cycle(st.columns(3))
