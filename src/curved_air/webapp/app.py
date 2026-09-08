@@ -73,8 +73,8 @@ pages: list = [
         icon="📐",
     ),
     st.Page(
-        page=APP_PATH / "pages" / "guiding_simulator.py",
-        title="Guiding Simulator",
+        page=APP_PATH / "pages" / "guide_image_simulator.py",
+        title="Guide Image Simulator",
         icon="✨",
     ),
     st.Page(
