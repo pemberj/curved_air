@@ -763,7 +763,6 @@ with settings_column:
                 key="telescope_mirror_coating",
             )
 
-        with next(cols):
             if st.session_state.get("telescope_mirror_coating", "Custom") != "Custom":
                 coating: Path = next(
                     c
@@ -772,6 +771,31 @@ with settings_column:
                 )
 
                 st.session_state["telescope_mirror_reflectivity"] = coating
+
+                with st.popover("Show mirror reflectivity curve"):
+                    # Display a small plot of the mirror reflectivity curve
+
+                    wavelengths: ArrayQuantity = np.linspace(380, 950, 30) * u.nm
+                    reflectivity: NDArray[np.floating] = mirror_reflectivity(
+                        coating, wavelengths=wavelengths
+                    )
+
+                    fig: go.Figure = go.Figure()
+                    fig.add_trace(
+                        trace=go.Scatter(
+                            x=wavelengths.to(u.nm).value,
+                            y=reflectivity,
+                            mode="lines",
+                        )
+                    )
+
+                    fig.update_layout(
+                        title=f"{coating.name}",
+                        xaxis_title="Wavelength (nm)",
+                        yaxis_title="Reflectivity",
+                    )
+
+                    st.plotly_chart(fig)
 
             else:
                 st.file_uploader(
@@ -875,7 +899,7 @@ with settings_column:
                             detector.QE, wavelengths=wavelengths
                         )
 
-                        fig: go.Figure = go.Figure()  # go figure!
+                        fig: go.Figure = go.Figure()
                         fig.add_trace(
                             trace=go.Scatter(
                                 x=wavelengths.to(u.nm).value,
