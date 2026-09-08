@@ -707,6 +707,31 @@ with settings_column:
                 key="stellar_temperature",
             )
 
+        with st.popover("Show blackbody spectrum"):
+            wavelengths: ArrayQuantity = np.linspace(380, 950, 30) * u.nm
+            blackbody_flux: NDArray = photon_flux(
+                magnitude=st.session_state.get("stellar_magnitude", 10.0) * u.mag,
+                wavelengths=wavelengths,
+                temperature=st.session_state.get("stellar_temperature", 5777) * u.K,
+            )
+
+            fig: go.Figure = go.Figure()
+            fig.add_trace(
+                trace=go.Scatter(
+                    x=wavelengths.to(u.nm).value,
+                    y=blackbody_flux,
+                    mode="lines",
+                )
+            )
+
+            fig.update_layout(
+                title=f"Blackbody spectrum T={st.session_state.get('stellar_temperature', 5777)} K",
+                xaxis_title="Wavelength (nm)",
+                yaxis_title="Blackbody flux (photons/s/m²)",
+            )
+
+            st.plotly_chart(fig)
+
     with st.expander("Seeing", expanded=True):
         cols = cycle(st.columns([2, 1]))
 
