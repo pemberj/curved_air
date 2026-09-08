@@ -686,7 +686,7 @@ st.divider()
 settings_column, output_column = st.columns(2)
 
 with settings_column:
-    with st.expander("Object", expanded=True):
+    with st.expander("Target", expanded=True):
         cols = cycle(st.columns(2))
 
         with next(cols):
