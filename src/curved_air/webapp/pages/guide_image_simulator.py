@@ -886,7 +886,7 @@ with settings_column:
     with st.expander("Detector", expanded=True):
         st.selectbox(
             "Detector",
-            options=[*[detector.name for detector in detectors], "Custom"],
+            options=[*[d.name for d in detectors], "Custom"],
             index=0,
             width=400,
             key="detector_preset",
@@ -896,6 +896,7 @@ with settings_column:
             detector: Detector = next(
                 d for d in detectors if d.name == st.session_state["detector_preset"]
             )
+            st.session_state["detector"] = detector
 
             subcols = cycle(st.columns(5))
             with next(subcols):
@@ -945,6 +946,16 @@ with settings_column:
                     st.metric("Quantum Efficiency", value=f"{detector.QE}")
 
         else:
+            if "detector" not in st.session_state:
+                st.session_state["detector"] = Detector(
+                    name="Custom",
+                    pixel_size=3.45 * u.micron,
+                    gain=1.0 / u.photon,
+                    dark_noise=3.2 * u.electron / u.second,
+                    read_noise=2.2 * u.electron,
+                    QE=0.8,
+                )
+
             cols = cycle(st.columns(3))
 
             with next(cols):
@@ -958,7 +969,7 @@ with settings_column:
                 custom_pixel_size: float = st.number_input(
                     "Pixel size (µm)",
                     min_value=0.0,
-                    value=3.45,
+                    value=st.session_state.detector.pixel_size.to(u.micron).value,
                     step=0.01,
                     width=200,
                 )
@@ -967,7 +978,7 @@ with settings_column:
                 custom_gain: float = st.number_input(
                     "Gain (e¯/photon)",
                     min_value=0.0,
-                    value=1.0,
+                    value=st.session_state.detector.gain.to(1 / u.photon).value,
                     step=0.1,
                     width=200,
                 )
@@ -976,7 +987,7 @@ with settings_column:
                 custom_read_noise: float = st.number_input(
                     "Read noise (e¯)",
                     min_value=0.0,
-                    value=2.2,
+                    value=st.session_state.detector.read_noise.to(u.electron).value,
                     step=0.1,
                     width=200,
                 )
@@ -985,7 +996,9 @@ with settings_column:
                 custom_dark_noise: float = st.number_input(
                     "Dark noise (e¯/s)",
                     min_value=0.0,
-                    value=3.2,
+                    value=st.session_state.detector.dark_noise.to(
+                        u.electron / u.second
+                    ).value,
                     step=0.1,
                     width=200,
                 )
@@ -996,7 +1009,10 @@ with settings_column:
                 custom_qe = st.number_input(
                     "Quantum efficiency (flat)",
                     min_value=0.0,
-                    value=0.8,
+                    value=st.session_state.detector.QE
+                    if isinstance(st.session_state.detector.QE, (int, float))
+                    else 0.8,
+                    step=0.01,
                     max_value=1.0,
                     width=200,
                     disabled=st.session_state.get("custom_qe", False),
