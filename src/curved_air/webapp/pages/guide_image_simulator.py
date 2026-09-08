@@ -663,9 +663,16 @@ with st.expander("About this tool", expanded=False):
     """
     This tool generates simulated images for a telescope guiding system.
 
-    You can use this tool to evaluate guiding speeds for objects of different
-    brightness, for telescopes of different size, with different efficiency through the
-    optical system, for different guide image exposure times, etc.
+    You can use this tool for top-level design and specification of a guiding system,
+    given target stars of different spectral type and brightness. The script takes into
+    account the telescope size, number of mirrors, mirror coating, focal ratio,
+    detector, and other parameters to compute a simulated image of a star on the guide
+    detector. The simulated image is displayed with an overlay showing the true and
+    computed centroid of the star image.
+
+    Currently this tool only simulates with a set wavelength range of 380-950 nm. Please
+    get in contact if you would like to see this configurable to extend to other
+    bandpasses.
 
     All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
