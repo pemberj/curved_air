@@ -20,7 +20,7 @@ from astropy.units import Quantity
 from numpy.typing import NDArray
 
 from curved_air.glass import Glass, GlassCatalogue
-from curved_air.other import Air
+from curved_air.other import Air, Model
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -448,6 +448,8 @@ class CrossDisperser(Disperser):
 class Prism(CrossDisperser):
     glass: Glass = field(default_factory=Glass)
     apex_angle: ScalarQuantity = 60 * u.deg
+    entrance_medium: Model = field(default_factory=Air)
+    exit_medium: Model = field(default_factory=Air)
 
     def __post_init__(self) -> None:
         if self.glass.name == "_default_":
@@ -566,33 +568,30 @@ class Prism(CrossDisperser):
     ) -> Quantity:
         if incidence_angle is None:
             assert isinstance(self.incidence_angle, Quantity)
-            incidence_angle: ScalarQuantity = self.incidence_angle
+            incidence_angle = self.incidence_angle
 
         assert isinstance(wl, Quantity)
         assert isinstance(field_angle, Quantity)
 
         if not wl.isscalar:
-            wl: ArrayQuantity = wl.value.flatten() * wl.unit
+            wl = wl.value.flatten() * wl.unit
             wl_size: int = len(wl)
         else:
-            wl_size: int = 1
+            wl_size = 1
 
         if not incidence_angle.isscalar:
-            incidence_angle: ArrayQuantity = (
-                incidence_angle.value.flatten() * incidence_angle.unit
-            )
+            incidence_angle = incidence_angle.value.flatten() * incidence_angle.unit
             incidence_angle_size: int = len(incidence_angle)
         else:
-            incidence_angle_size: int = 1
+            incidence_angle_size = 1
 
         if not field_angle.isscalar:
-            field_angle: ArrayQuantity = field_angle.value.flatten() * field_angle.unit
+            field_angle = field_angle.value.flatten() * field_angle.unit
             field_angle_size: int = len(field_angle)
         else:
-            field_angle_size: int = 1
+            field_angle_size = 1
 
         if any([wl_size > 1, incidence_angle_size > 1, field_angle_size > 1]):
-            # Ensure all inputs are arrays of the same length, OR scalars
             if wl_size > 1:
                 assert all(
                     [
@@ -621,62 +620,48 @@ class Prism(CrossDisperser):
                     ]
                 )
 
-            # Then broadcast scalars to arrays in the full size
             if wl_size == 1:
-                wl: ArrayQuantity = (
+                wl = (
                     np.full(max(incidence_angle_size, field_angle_size), wl.value)
                     * wl.unit
                 )
 
             if incidence_angle_size == 1:
-                incidence_angle: ArrayQuantity = (
+                incidence_angle = (
                     np.full(max(wl_size, field_angle_size), incidence_angle.value)
                     * incidence_angle.unit
                 )
 
             if field_angle_size == 1:
-                field_angle: ArrayQuantity = (
+                field_angle = (
                     np.full(max(wl_size, incidence_angle_size), field_angle.value)
                     * field_angle.unit
                 )
 
             return [
-                self.deviation_angle(wl=w, incidence_angle=i, field_angle=f).value
+                self.deviation_angle(wl=w, incidence_angle=i, field_angle=f)
+                .to(u.deg)
+                .value
                 for w, i, f in zip(wl, incidence_angle, field_angle, strict=False)
             ] * u.deg
 
-        # Otherwise, all inputs are scalars
-        i: ScalarQuantity = incidence_angle  # shorthand
-        if field_angle.value != 0:
-            effective_apex_angle: ScalarQuantity = self.effective_apex_angle(
-                field_angle=field_angle
-            )
-
-            _self = Prism(
-                glass=self.glass,
-                apex_angle=effective_apex_angle,
-                incidence_angle=self.incidence_angle,
-            )
-
-            return (
-                i
-                - _self.apex_angle
-                + np.arcsin(
-                    _self.glass.n(wl)
-                    * np.sin(
-                        _self.apex_angle - np.arcsin(np.sin(i) / _self.glass.n(wl))
-                    )
-                )
-            )
-
-        return (
-            i
-            - self.apex_angle
-            + np.arcsin(
-                self.glass.n(wl)
-                * np.sin(self.apex_angle - np.arcsin(np.sin(i) / self.glass.n(wl)))
-            )
+        # scalar path with explicit entrance/glass/exit media
+        i = incidence_angle
+        apex = (
+            self.effective_apex_angle(field_angle=field_angle)
+            if field_angle.value != 0
+            else self.apex_angle
         )
+
+        n_in = float(np.atleast_1d(self.entrance_medium.refractive_index(wl))[0])
+        n_glass = float(np.atleast_1d(self.glass.refractive_index(wl))[0])
+        n_out = float(np.atleast_1d(self.exit_medium.refractive_index(wl))[0])
+
+        r1 = np.arcsin((n_in / n_glass) * np.sin(i))
+        i2 = apex - r1
+        e2 = np.arcsin((n_glass / n_out) * np.sin(i2))
+
+        return (i + e2 - apex).to(u.deg)
 
     @overload
     def exitance_angle(
@@ -746,12 +731,10 @@ class Prism(CrossDisperser):
         self,
         wl: ScalarQuantity = 0.6328 * u.um,
     ) -> ScalarQuantity:
-        minimum_deviation_angle: Quantity = (
-            2 * np.arcsin(self.glass.n(wl) * np.sin(self.apex_angle / 2))
-            - self.apex_angle
-        )
-
-        return minimum_deviation_angle.to(u.deg)
+        return self.deviation_angle(
+            wl=wl,
+            incidence_angle=self.minimum_deviation_incidence_angle(wl=wl),
+        ).to(u.deg)
 
     @overload
     def minimum_deviation_incidence_angle(
@@ -770,11 +753,31 @@ class Prism(CrossDisperser):
         wl: Quantity = 632.8 * u.nm,
     ) -> Quantity:
         """
-        Calculate the incidence angle that provides the minimum deviation condition for
-        the prism at a given wavelength.
+        Calculate the incidence angle that gives minimum deviation for the current
+        entrance/glass/exit media configuration.
         """
+        if not wl.isscalar:
+            return [
+                self.minimum_deviation_incidence_angle(iwl).to(u.deg).value
+                for iwl in wl
+            ] * u.deg
 
-        return (self.apex_angle + self.minimum_deviation_angle(wl)) / 2
+        incidence_grid = np.linspace(0.01, 89.0, 3000) * u.deg
+        deviations = np.array(
+            [
+                self.deviation_angle(wl=wl, incidence_angle=i).to(u.deg).value
+                for i in incidence_grid
+            ]
+        )
+
+        finite = np.isfinite(deviations)
+        if not np.any(finite):
+            raise ValueError(
+                "No valid incidence angle found for this wavelength/media."
+            )
+
+        idx = np.argmin(deviations[finite])
+        return incidence_grid[finite][idx].to(u.deg)
 
     def effective_apex_angle(
         self,
@@ -924,7 +927,7 @@ class Prism(CrossDisperser):
         previous_angle: ScalarQuantity = 0 * u.degree
 
         rays: Quantity = _refract(
-            n_1=Air().refractive_index(wls),
+            n_1=self.entrance_medium.refractive_index(wls),
             n_2=self.refractive_index,
             theta_in=rays - previous_angle,
             wavelength=wls,
@@ -936,7 +939,7 @@ class Prism(CrossDisperser):
         # Refract through the last surface into the exit medium
         rays: Quantity = _refract(
             n_1=self.refractive_index(wls),
-            n_2=Air().refractive_index(wls),
+            n_2=self.exit_medium.refractive_index(wls),
             theta_in=(rays - self.apex_angle).to(u.deg),
             wavelength=wls,
         )

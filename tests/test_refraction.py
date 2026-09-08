@@ -57,7 +57,12 @@ def test_prism() -> None:
 
     wl: ScalarQuantity = 0.55 * u.um
 
-    prism = Prism(glass=gc["F2"], apex_angle=60 * u.deg)
+    prism = Prism(
+        glass=gc["F2"],
+        apex_angle=60 * u.deg,
+        entrance_medium=Air(air_model="zemax"),
+        exit_medium=Air(air_model="zemax"),
+    )
 
     incidence_angle: ScalarQuantity = prism.minimum_deviation_incidence_angle(wl=wl)
 
@@ -70,8 +75,8 @@ def test_prism() -> None:
 
     target: ScalarQuantity = 30 * u.deg
 
-    assert np.isclose(angle.to(u.deg).value, target.to(u.deg).value, atol=1e-2), (
-        f"{angle=:.5g} =/= {target=:.5g}"
+    assert np.isclose(angle.to(u.deg).value, target.to(u.deg).value, atol=6e-5), (
+        f"{angle=:g} =/= {target=:g}"
     )
 
     angle: ScalarQuantity = prism.trace(
@@ -81,7 +86,7 @@ def test_prism() -> None:
 
     target: ScalarQuantity = -1 * incidence_angle
 
-    assert np.isclose(angle.to(u.deg).value, target.to(u.deg).value, atol=5e-2), (
+    assert np.isclose(angle.to(u.deg).value, target.to(u.deg).value, atol=2e-3), (
         f"{angle=:.5g} =/= {target=:.5g}"
     )
 
