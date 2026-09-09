@@ -277,8 +277,12 @@ st.header("Keplerian Signals", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     """
-    You can use this tool to visualise the radial velocity signals from planets on
-    Keplerian orbits.
+    This tool can be used to visualise the radial velocity signals corresponding to a
+    planetary system. You can add, remove, and edit planets in the system, and the
+    radial velocity signal will be updated in real-time. You can also simulate
+    observations on the total system radial velocity signal, which samples the signal at
+    random times and adds noise and error bars corresponding to a given measurement
+    precision.
 
     All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
