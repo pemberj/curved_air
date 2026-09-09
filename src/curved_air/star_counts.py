@@ -32,36 +32,17 @@ SkyRegion = Literal[
 class SkyRegionModel:
     label: SkyRegion
     density_scale: float
+    equivalent_coverage: float | None = None
 
 
 SKY_REGION_MODELS: tuple[SkyRegionModel, ...] = (
-    SkyRegionModel("All sky average", 1.00),
-    SkyRegionModel("Galactic plane |b| < 10°", 2.20),
-    SkyRegionModel("Low latitude 10° ≤ |b| < 20°", 1.55),
-    SkyRegionModel("Mid latitude 20° ≤ |b| < 40°", 1.00),
-    SkyRegionModel("High latitude 40° ≤ |b| < 60°", 0.62),
-    SkyRegionModel("Polar |b| ≥ 60°", 0.42),
+    SkyRegionModel("All sky average", 1.00, None),
+    SkyRegionModel("Galactic plane |b| < 10°", 2.20, 0.50),
+    SkyRegionModel("Low latitude 10° ≤ |b| < 20°", 1.55, 0.68),
+    SkyRegionModel("Mid latitude 20° ≤ |b| < 40°", 1.00, 0.95),
+    SkyRegionModel("High latitude 40° ≤ |b| < 60°", 0.62, 0.99),
+    SkyRegionModel("Polar |b| ≥ 60°", 0.42, 0.99),
 )
-
-DEFAULT_SKY_COVERAGE_TO_REGION: dict[int, SkyRegion] = {
-    50: "All sky average",
-    68: "Mid latitude 20° ≤ |b| < 40°",
-    95: "High latitude 40° ≤ |b| < 60°",
-    99: "Polar |b| ≥ 60°",
-}
-
-
-def sky_region_scale(region: SkyRegion) -> float:
-    for model in SKY_REGION_MODELS:
-        if model.label == region:
-            return model.density_scale
-    raise ValueError(f"Unknown sky region: {region}")
-
-
-def coverage_region(coverage_percent: int) -> SkyRegion:
-    if coverage_percent not in DEFAULT_SKY_COVERAGE_TO_REGION:
-        raise ValueError("Coverage must be one of 50, 68, 95, or 99 percent.")
-    return DEFAULT_SKY_COVERAGE_TO_REGION[coverage_percent]
 
 
 def base_cumulative_density(magnitude: float, band: Band = "G") -> float:
@@ -95,44 +76,15 @@ def base_cumulative_density(magnitude: float, band: Band = "G") -> float:
     return density
 
 
-def cumulative_density(
-    magnitude: float,
-    band: Band = "G",
-    region: SkyRegion = "All sky average",
-) -> float:
-    return base_cumulative_density(magnitude=magnitude, band=band) * sky_region_scale(
-        region
-    )
-
-
-def required_field_area(
-    magnitude: float,
-    band: Band = "G",
-    region: SkyRegion = "All sky average",
-) -> ScalarQuantity:
-    density: float = cumulative_density(magnitude=magnitude, band=band, region=region)
-    return (1 / density) * u.deg**2
-
-
-def equivalent_circular_diameter(area: ScalarQuantity) -> ScalarQuantity:
-    radius: ScalarQuantity = np.sqrt(area / np.pi)
-    return (2 * radius).to(u.arcmin)
-
-
-def area_from_circular_diameter(diameter: ScalarQuantity) -> ScalarQuantity:
-    radius: ScalarQuantity = diameter / 2
-    return (np.pi * radius**2).to(u.deg**2)
-
-
 def limiting_magnitude_for_area(
     area: ScalarQuantity,
     band: Band = "G",
-    region: SkyRegion = "All sky average",
+    region: SkyRegionModel = SKY_REGION_MODELS[0],
     magnitude_min: float = -2.0,
     magnitude_max: float = 18.0,
 ) -> float:
     target_density: float = (1 / area.to(u.deg**2)).value
-    scale: float = sky_region_scale(region)
+    scale: float = region.density_scale
     base_target_density = target_density / scale
 
     if band == "V":

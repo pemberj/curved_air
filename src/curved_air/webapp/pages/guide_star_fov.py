@@ -11,13 +11,10 @@ import streamlit as st
 from astropy import units as u
 
 from curved_air.star_counts import (
-    DEFAULT_SKY_COVERAGE_TO_REGION,
     SKY_REGION_MODELS,
-    coverage_region,
-    cumulative_density,
-    equivalent_circular_diameter,
+    SkyRegionModel,
+    base_cumulative_density,
     limiting_magnitude_for_area,
-    required_field_area,
 )
 from curved_air.utils import st_quantity_input
 
@@ -54,32 +51,57 @@ with st.expander("About this tool", expanded=False):
         """,
     )
 
-
-cols = st.columns([1, 2, 2])
+cols = st.columns([1, 3])
 
 with cols[0]:
     mode: str | None = st.segmented_control(
         "Calculation mode",
         options=["Magnitude -> FoV", "FoV -> Magnitude"],
         default="Magnitude -> FoV",
+        help="""Select whether you want to calculate the required field of view for a given magnitude limit, or the limiting magnitude for a given field of view.""",
     )
 
-    band: Literal["G", "V"] = st.selectbox(
+    band: Literal["G", "V"] = st.pills(
         "Photometric band",
         options=["G", "V"],
-        index=0,
+        selection_mode="single",
+        default="G",
+        required=True,
         help="G is the native model band. V is treated as slightly sparser than G.",
     )
 
-    coverage_percent: int = st.select_slider(
+    selected_model: SkyRegionModel = st.selectbox(
         "Sky coverage target",
-        options=list(DEFAULT_SKY_COVERAGE_TO_REGION.keys()),
-        value=95,
-        help="Maps to a conservative Galactic-latitude regime for that coverage level.",
+        options=SKY_REGION_MODELS,
+        format_func=lambda model: (
+            f"{model.label} (~{model.equivalent_coverage * 100:.0f}% coverage)"
+            if model.equivalent_coverage is not None
+            else model.label
+        ),
+        index=3,
     )
 
-    region: str = coverage_region(coverage_percent)
-    st.caption(f"Using density regime: {region}")
+    if selected_model.equivalent_coverage is not None:
+        st.metric(
+            "Equivalent coverage",
+            f"{selected_model.equivalent_coverage * 100:.0f}%",
+            help="Maps to a conservative Galactic-latitude regime for that coverage level.",
+        )
+    else:
+        st.caption(
+            "Using the all-sky average density regime. This is a rough estimate for the entire sky."
+        )
+
+    # coverage_percent: int = st.select_slider(
+    #     "Sky coverage target",
+    #     options=list(DEFAULT_SKY_COVERAGE_TO_REGION.keys()),
+    #     value=95,
+    #     help="Maps to a conservative Galactic-latitude regime for that coverage level.",
+    # )
+
+    # region: str = coverage_region(coverage_percent)
+    region: str = selected_model.label
+    # st.caption(f"Using density regime: {region}")
 
     st.divider()
 
@@ -90,6 +112,7 @@ with cols[0]:
             max_value=18.0,
             value=12.0,
             step=0.1,
+            width=200,
             format="%.3f",
         )
         input_area = None
@@ -119,8 +142,8 @@ with cols[0]:
                 min_value=0.0,
                 value=0.02,
                 step=0.005,
-                possible_units=["arcmin²", "deg²"],
-                default_unit="deg²",
+                possible_units=["arcmin^2", "deg^2"],
+                default_unit="deg^2",
                 key="guide_star_fov_area",
             )
         target_magnitude = 0.0
@@ -144,40 +167,49 @@ def region_results_dataframe(
     rows: list[dict[str, str | float]] = []
     for model in SKY_REGION_MODELS:
         if magnitude is not None:
-            req_area: ScalarQuantity = required_field_area(
-                magnitude=magnitude,
-                band=band_name,
-                region=model.label,
+            req_area: ScalarQuantity = (
+                1
+                / (
+                    base_cumulative_density(magnitude=magnitude, band=band_name)
+                    * model.density_scale
+                )
+            ) * u.deg**2
+
+            diameter: ScalarQuantity = (2 * np.sqrt(req_area / np.pi)).to(u.arcmin)
+
+            density: float = (
+                base_cumulative_density(magnitude=magnitude, band=band)
+                * model.density_scale
             )
-            diameter: ScalarQuantity = equivalent_circular_diameter(req_area)
-            density: float = cumulative_density(
-                magnitude, band=band_name, region=model.label
-            )
+
             rows.append(
                 {
                     "Sky regime": model.label,
-                    "Stars / deg²": density,
-                    "Required area (deg²)": req_area.to(u.deg**2).value,
+                    "Stars / deg^2": density,
+                    "Required area (deg^2)": req_area.to(u.deg**2).value,
                     "Equivalent diameter (arcmin)": diameter.to(u.arcmin).value,
                 }
             )
+
         else:
             assert area is not None
+
             limiting_mag: float = limiting_magnitude_for_area(
                 area=area,
                 band=band_name,
-                region=model.label,
+                region=model,
             )
-            density: float = cumulative_density(
-                magnitude=limiting_mag,
-                band=band_name,
-                region=model.label,
+
+            density: float = (
+                base_cumulative_density(magnitude=target_magnitude, band=band)
+                * model.density_scale
             )
+
             rows.append(
                 {
                     "Sky regime": model.label,
                     f"Limiting {band_name} mag": limiting_mag,
-                    "Stars / deg²": density,
+                    "Stars / deg^2": density,
                     "Expected stars in FoV": density * area.to(u.deg**2).value,
                 }
             )
@@ -186,23 +218,44 @@ def region_results_dataframe(
 
 with cols[1]:
     if mode == "Magnitude -> FoV":
-        required_area: ScalarQuantity = required_field_area(
-            magnitude=target_magnitude,
-            band=band,
-            region=region,
+        required_area: ScalarQuantity = (
+            1
+            / (
+                base_cumulative_density(magnitude=target_magnitude, band=band)
+                * selected_model.density_scale
+            )
+        ) * u.deg**2
+
+        required_diameter: ScalarQuantity = (2 * np.sqrt(required_area / np.pi)).to(
+            u.arcmin
         )
-        required_diameter: ScalarQuantity = equivalent_circular_diameter(required_area)
-        density: float = cumulative_density(target_magnitude, band=band, region=region)
+        density: float = (
+            base_cumulative_density(magnitude=target_magnitude, band=band)
+            * selected_model.density_scale
+        )
 
         subcols = st.columns(3)
         with subcols[0]:
-            st.metric("Surface density", f"{density:.3g} stars / deg²")
+            st.metric(
+                "Surface density",
+                f"{density:.3g} stars / deg$^2$",
+                help="""The expected number of stars per square degree that are at least
+                as bright as the target magnitude.""",
+            )
         with subcols[1]:
-            st.metric("Required area", f"{required_area.to(u.deg**2):.4g}")
+            st.metric(
+                "Required area",
+                f"{required_area.to(u.deg**2).value:.4e} deg$^2$",
+                help="""The required field of view area in which at least one star
+                brighter than the target magnitude is expected to always be present.""",
+            )
         with subcols[2]:
             st.metric(
                 "Equivalent circular diameter",
                 f"{required_diameter.to(u.arcmin):.4g}",
+                help="""The equivalent circular diameter of the required field of view
+                area. This is the circular diameter within which there is expected to be
+                at least one star brighter than the target magnitude present.""",
             )
 
         results_df = region_results_dataframe(
@@ -217,9 +270,18 @@ with cols[1]:
         fig = go.Figure()
         for model in SKY_REGION_MODELS:
             diameters_arcmin: list[ScalarQuantity] = [
-                equivalent_circular_diameter(
-                    area=required_field_area(
-                        magnitude=mag, band=band, region=model.label
+                (
+                    2
+                    * np.sqrt(
+                        (
+                            1
+                            / (
+                                base_cumulative_density(magnitude=mag, band=band)
+                                * model.density_scale
+                            )
+                        )
+                        * u.deg**2
+                        / np.pi
                     )
                 )
                 .to(u.arcmin)
@@ -234,9 +296,23 @@ with cols[1]:
                     name=model.label,
                 )
             )
+        fig.add_trace(
+            go.Scatter(
+                x=[target_magnitude],
+                y=[required_diameter.to(u.arcmin).value],
+                mode="markers",
+                name=f"Magnitude {target_magnitude:.3g} (), {required_diameter.to(u.arcmin):.4g}",
+                marker={
+                    "size": 20,
+                    "symbol": "x",
+                    "color": "white",
+                    "line": {"width": 2, "color": "black"},
+                },
+            )
+        )
 
         fig.update_layout(
-            title="Required circular FoV diameter vs magnitude",
+            title="Required circular FoV diameter as a function of magnitude",
             xaxis_title=f"Magnitude limit ({band})",
             yaxis_title="Equivalent diameter (arcmin)",
             legend_title="Sky regime",
@@ -246,24 +322,38 @@ with cols[1]:
         limiting_mag: float = limiting_magnitude_for_area(
             area=input_area,
             band=band,
-            region=region,
+            region=selected_model,
         )
-        density: float = cumulative_density(
-            magnitude=limiting_mag, band=band, region=region
+        density: float = (
+            base_cumulative_density(magnitude=target_magnitude, band=band)
+            * selected_model.density_scale
         )
-        input_diameter_equivalent: ScalarQuantity = equivalent_circular_diameter(
-            area=input_area
-        )
+        input_diameter_equivalent: ScalarQuantity = (
+            2 * np.sqrt(input_area / np.pi)
+        ).to(u.arcmin)
 
         subcols = st.columns(3)
         with subcols[0]:
-            st.metric(f"Limiting {band} magnitude", f"{limiting_mag:.3f}")
+            st.metric(
+                f"Limiting {band} magnitude",
+                f"{limiting_mag:.3f}",
+                help="""The brightest magnitude limit for which at least one star is
+                expected to always appear in the field of view.""",
+            )
         with subcols[1]:
-            st.metric("FoV area", f"{input_area.to(u.deg**2):.4g}")
+            st.metric(
+                "FoV area",
+                f"{input_area.to(u.deg**2):.4g}",
+                help="""The field of view area within which at least one star brighter
+                than the limiting magnitude is expected to always be present.""",
+            )
         with subcols[2]:
             st.metric(
                 "Equivalent circular diameter",
                 f"{input_diameter_equivalent.to(u.arcmin):.4g}",
+                help="""The equivalent circular diameter of the field of view area. This
+                is the circular diameter within which there is expected to be at least
+                one star brighter than the limiting magnitude present.""",
             )
 
         st.caption(
@@ -280,7 +370,8 @@ with cols[1]:
         fig = go.Figure()
         for model in SKY_REGION_MODELS:
             expected_counts = [
-                cumulative_density(mag, band=band, region=model.label)
+                base_cumulative_density(magnitude=mag, band=band)
+                * model.density_scale
                 * input_area.to(u.deg**2).value
                 for mag in magnitudes
             ]
@@ -303,15 +394,17 @@ with cols[1]:
 
     st.plotly_chart(fig, width="stretch")
 
+    st.divider()
 
-with cols[2]:
     st.subheader("Sky-regime comparison", anchor=False)
     st.dataframe(results_df, hide_index=True, width="stretch")
 
-    st.subheader("Model notes", anchor=False)
-    """
-    - The model uses cumulative stellar surface density and the criterion $N = \\Sigma A \ge 1$.
-    - The sky-coverage selector maps to a conservative Galactic-latitude regime rather than a strict all-sky proof.
-    - `G` is the native model band. `V` is approximated as a modestly sparser distribution.
-    - This is most suitable for rapid acquisition or guide-camera trade studies.
-    """
+    st.divider()
+
+    with st.expander("Model notes", expanded=True):
+        """
+        - The model uses cumulative stellar surface density and the criterion $N = \\Sigma A \\ge 1$.
+        - The sky-coverage selector maps to a conservative Galactic-latitude regime rather than a strict all-sky proof.
+        - `G` is the native model band. `V` is approximated as a modestly sparser distribution.
+        - This is most suitable for rapid acquisition or guide-camera trade studies.
+        """
