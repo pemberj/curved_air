@@ -12,28 +12,18 @@ from scipy.optimize import minimize
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from numpy.typing import NDArray
+
     from curved_air.glass import Glass
-    from curved_air.optics.dispersers import Prism
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
-from curved_air.optics.dispersers import _refract
+from curved_air.optics.dispersers import Prism, _refract
 from curved_air.other import Air, Model
 
 
 @dataclass
 class PrismStack:
-    """
-    TODO:
-    - [ ] Add method effective_refractive_index(), to return the effective
-    refractive index of the PrismStack. How to define this? Take the angle
-    between front and back surfaces? But what if that angle is zero? Refractive
-    index is effectively infinite... Need to have an "effective apex angle" in
-    there as well somewhere... Take the average of absolute apex angles of each
-    of the components? Need to think about the best way to define this so that
-    it generalises well, but this method will be SO USEFUL in optimising -> you
-    can then just match this (or a scaled/offset version) to any desired
-    refractive index vector, and drive the difference to be small.
-    """
+    """ """
 
     prism_list: list[Prism] = field(default_factory=list)
     entrance_medium: Model = field(default_factory=Air)
@@ -46,26 +36,32 @@ class PrismStack:
     def trace(
         self,
         wls: ScalarQuantity,
-        incidence_angle: ScalarQuantity,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ScalarQuantity: ...
 
     @overload
     def trace(
         self,
         wls: ScalarQuantity,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ScalarQuantity: ...
 
     @overload
     def trace(
         self,
         wls: ArrayQuantity | None,
-        incidence_angle: ScalarQuantity,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ArrayQuantity: ...
 
     @overload
     def trace(
         self,
         wls: ArrayQuantity | None,
+        incidence_angle: ScalarQuantity = 0 * u.deg,
+        debug_level: float = 0,
     ) -> ArrayQuantity: ...
 
     def trace(
@@ -83,42 +79,81 @@ class PrismStack:
             wls: ArrayQuantity = [0.4861, 0.5893, 0.6563] * u.um
 
         if wls.isscalar:
-            rays: ScalarQuantity = incidence_angle
+            ray_angle_global: ScalarQuantity = incidence_angle
         else:
-            rays: ArrayQuantity = incidence_angle * np.ones(len(wls))
+            ray_angle_global: ArrayQuantity = incidence_angle * np.ones(wls.shape)
 
         previous_material: Model = self.entrance_medium
-        previous_angle: ScalarQuantity = 0 * u.degree
 
-        assert isinstance(rays, Quantity)
+        # Placeholder
+        surface_tilt: ScalarQuantity = 0 * u.deg
+
+        assert isinstance(ray_angle_global, Quantity)
 
         for _n, prism in enumerate(self.prism_list):
-            rays: Quantity = _refract(
-                n_1=previous_material.refractive_index(wls),
-                n_2=prism.refractive_index,
-                theta_in=rays - previous_angle,
-                wavelength=wls,
-            )
+            # The ray angle must be expressed relative to the local prism-surface normal,
+            # not in the previous local frame. Keep the global ray angle and the current
+            # interface orientation separately so the refraction is always evaluated at the
+            # correct local incidence angle.
+            theta_in_local: Quantity = (ray_angle_global - surface_tilt).to(u.deg)
 
             if debug_level > 0:
-                print(f"Refracting through a {prism.glass} prism of {prism.apex_angle}")
+                print(
+                    f"Refracting at interface between {previous_material} and {prism.glass} with surface tilt {surface_tilt.to(u.deg).value} deg"
+                )
+                print(f"  Global ray angle: {ray_angle_global.to(u.deg).value} deg")
+                print(f"  Surface tilt: {surface_tilt.to(u.deg).value} deg")
+                print(f"  Local incidence: {theta_in_local.to(u.deg).value} deg")
 
+            ray_angle_global: Quantity = (
+                _refract(
+                    n_1=previous_material.refractive_index(wls),
+                    n_2=prism.refractive_index,
+                    theta_in=theta_in_local,
+                    wavelength=wls,
+                )
+                + surface_tilt
+            )
+
+            # After refraction inside this prism, the ray is referenced to the prism's
+            # exit face. The next interface normal is the current face normal plus the
+            # prism apex angle.
+            surface_tilt = surface_tilt + prism.apex_angle
             previous_material: Glass = prism.glass
-            previous_angle: Quantity = [
-                r.to(u.deg).value + prism.apex_angle.to(u.deg).value for r in rays
-            ] * u.deg
 
-            # print(rays.to("degree"))
+            if debug_level > 0:
+                print(
+                    f"  Refracted global angle: {ray_angle_global.to(u.deg).value} deg"
+                )
+                print(f"  Exit-face tilt: {surface_tilt.to(u.deg).value} deg")
 
-        # Refract through the last surface into the exit medium
-        rays: Quantity = _refract(
+            if ray_angle_global.isscalar:
+                ray_angle_global = [ray_angle_global.value] * ray_angle_global.unit
+
+        # Refract through the last surface into the exit medium using the final
+        # interface normal orientation.
+
+        theta_in_local: ScalarQuantity = (ray_angle_global - surface_tilt).to(u.deg)
+
+        ray_angle_global: Quantity = _refract(
             n_1=previous_material.refractive_index(wls),
             n_2=self.exit_medium.refractive_index(wls),
-            theta_in=(rays - prism.apex_angle).to(u.deg),
+            theta_in=theta_in_local,
             wavelength=wls,
         )
 
-        return rays.to(u.degree)
+        if debug_level > 0:
+            print(
+                f"Refracting into exit medium {self.exit_medium} with surface tilt "
+                f"{surface_tilt.to(u.deg).value} deg"
+            )
+            print(f"  Local incidence: {theta_in_local.to(u.deg).value} deg")
+            print(f"  Final global ray angle: {ray_angle_global.to(u.deg).value} deg")
+
+        if len(ray_angle_global) == 1:
+            return ray_angle_global[0].to(u.degree)
+
+        return ray_angle_global.to(u.degree)
 
     def zero_deviation_wavelengths(
         self,
@@ -126,13 +161,12 @@ class PrismStack:
         max_wl: ScalarQuantity | float = 1.50 * u.um,
         num_wls: int = 100,
         incidence_angle: ScalarQuantity = 0 * u.deg,
-    ) -> Quantity:
+    ) -> ScalarQuantity | ArrayQuantity | None:
         """
-        This method traces the dispersion of light through a compound prism and
-        returns the wavelengths at which the prism does not deviate the light.
-        These zero-deviation wavelengths are interesting in design for
-        astronomical ADCs, and may be a fast way to check that a design is
-        working the way it should.
+        This method traces the dispersion of light through a compound prism and returns
+        the wavelengths at which the prism does not deviate the light. These
+        zero-deviation wavelengths are interesting in design for astronomical ADCs, and
+        may be a fast way to check that a design is working the way it should.
         """
 
         if isinstance(min_wl, Quantity) and isinstance(max_wl, Quantity):
@@ -152,6 +186,8 @@ class PrismStack:
             )
 
         out_angles: ArrayQuantity = self.trace(wls=wls, incidence_angle=incidence_angle)
+        # Find the wavelengths where the output angle changes sign, indicating a
+        # zero-deviation point in between
         zwls: ArrayQuantity = wls[
             np.where(
                 np.array(out_angles.value)[:-1] / np.array(out_angles.value)[1:] < 0
@@ -163,7 +199,172 @@ class PrismStack:
         if len(zwls) == 1:
             return zwls[0]
 
-        raise ValueError("No zero-deviation wavelengths found in the given range.")
+        return None
+        # raise ValueError("No zero-deviation wavelengths found in the given range.")
+
+    def compute_last_apex_angle(self, wl_0: ScalarQuantity) -> ScalarQuantity:
+        """Return the final prism apex angle required for zero deviation at wl_0.
+
+        This uses the apex angles already stored on the Prism objects in the stack,
+        and solves for the last prism's angle so that
+            sum_i (n_i(wl_0) - 1) * alpha_i = 0.
+        """
+        if len(self.prism_list) < 2:  # noqa: PLR2004
+            raise ValueError(
+                "At least two prisms are required to solve for a final angle."
+            )
+
+        if not isinstance(wl_0, Quantity):
+            raise TypeError("wl_0 must be an astropy Quantity with a wavelength unit.")
+
+        refractivity_sum: ScalarQuantity = 0 * u.deg
+        for prism in self.prism_list[:-1]:
+            refractivity_sum += (
+                prism.glass.refractive_index(wl_0) - 1
+            ) * prism.apex_angle.to(u.deg)
+
+        last_refractivity: float = self.prism_list[-1].glass.refractive_index(wl_0) - 1
+        if np.isclose(last_refractivity, 0.0):
+            raise ValueError(
+                "The final prism has zero refractivity at wl_0; no finite apex angle can "
+                "satisfy the zero-deviation condition."
+            )
+
+        self.prism_list[-1].apex_angle = (-refractivity_sum / last_refractivity).to(
+            u.deg
+        )
+
+        return self.prism_list[-1].apex_angle
+
+    def match_target_dispersion(
+        self,
+        min_wl: ScalarQuantity | float = 0.38 * u.um,
+        max_wl: ScalarQuantity | float = 0.95 * u.um,
+        target_dispersion: Model | type[Model] = Air,
+    ) -> PrismStack:
+        """Fit prism apex angles to a target dispersion curve.
+
+        The optimisation is intentionally simple: it compares the effective dispersion
+        from the `trace` method against the target model on a wavelength grid, removes
+        the zero-point offset at the middle of the band, and normalises both curves
+        before minimising their RMS difference.
+        """
+
+        if not self.prism_list:
+            raise ValueError("Cannot optimise an empty PrismStack.")
+
+        if isinstance(min_wl, Quantity) and isinstance(max_wl, Quantity):
+            wls: ArrayQuantity = (
+                np.linspace(min_wl.to(u.um).value, max_wl.to(u.um).value, 100) * u.um
+            )
+        elif isinstance(min_wl, int | float) and isinstance(max_wl, int | float):
+            wls = np.linspace(min_wl, max_wl, 100) * u.um
+        else:
+            raise TypeError(
+                "min_wl and max_wl parameters must be int, float, or astropy.units.quantity.Quantity with appropriate units."
+            )
+
+        if isinstance(target_dispersion, Model):
+            target_model: Model = target_dispersion
+        else:
+            try:
+                target_model: Model = target_dispersion()
+            except Exception as e:
+                raise TypeError(
+                    "target_dispersion must be an instance of Model or a subclass of Model."
+                ) from e
+
+        initial_angles_deg: list[float] = [
+            prism.apex_angle.to(u.deg).value for prism in self.prism_list
+        ]
+        reference_index: int = len(wls) // 2
+        finite_penalty: float = 1e9
+        angle_limit_deg: float = 60
+
+        def objective(angle_values_deg: list[float] | NDArray[np.float64]) -> float:
+            original_angles_deg: list[float] = [
+                prism.apex_angle.to(u.deg).value for prism in self.prism_list
+            ]
+            trial_angles_deg = np.asarray(angle_values_deg, dtype=float)
+
+            try:
+                if not np.all(np.isfinite(trial_angles_deg)):
+                    return finite_penalty
+
+                if np.any(np.abs(trial_angles_deg) >= angle_limit_deg):
+                    return finite_penalty
+
+                for prism, angle_value in zip(
+                    self.prism_list, trial_angles_deg, strict=True
+                ):
+                    prism.apex_angle = angle_value * u.deg
+
+                stack_curve: NDArray[np.float64] = np.asarray(
+                    self.trace(wls=wls).to(u.deg).value,
+                    dtype=float,
+                )
+                target_curve: NDArray[np.float64] = np.asarray(
+                    target_model.refractive_index(wls),
+                    dtype=float,
+                )
+
+                if not np.all(np.isfinite(stack_curve)) or not np.all(
+                    np.isfinite(target_curve)
+                ):
+                    return finite_penalty
+
+                stack_reference = float(stack_curve[reference_index])
+                target_reference = float(target_curve[reference_index])
+
+                stack_curve = stack_curve - stack_reference
+                target_curve = target_curve - target_reference
+
+                residuals = stack_curve - target_curve
+
+                if not np.all(np.isfinite(residuals)):
+                    return finite_penalty
+
+                return float(np.sqrt(np.mean(np.square(residuals))))
+            except Exception:
+                return finite_penalty
+            finally:
+                # Reset the prism angles to their original values
+                for prism, angle in zip(
+                    self.prism_list, original_angles_deg, strict=True
+                ):
+                    prism.apex_angle = angle * u.deg
+
+        result = minimize(
+            objective,
+            x0=initial_angles_deg,
+            method="Powell",
+            bounds=[(-angle_limit_deg, angle_limit_deg)] * len(self.prism_list),
+            options={"maxiter": 200, "xtol": 1e-4, "ftol": 1e-6},
+        )
+
+        if not result.success:
+            raise ValueError(f"Unable to optimise prism angles: {result.message}")
+
+        for prism, angle_value in zip(self.prism_list, result.x, strict=True):
+            prism.apex_angle = angle_value * u.deg
+
+        return self
+
+    @property
+    def summary(self) -> str:
+        summary_lines: list[str] = [
+            f"PrismStack with {len(self.prism_list)} prisms:",
+            f"  Entrance medium: {self.entrance_medium}",
+        ]
+
+        for i, prism in enumerate(self.prism_list, start=1):
+            summary_lines.append(
+                f"  Prism {i}: Glass = {prism.glass}, Apex angle = {prism.apex_angle:.3f}, n_d = {prism.glass.n(0.5893 * u.um):.6f}"
+            )
+
+        summary_lines.append(f"  Exit medium: {self.exit_medium}")
+
+        return "\n".join(summary_lines)
 
 
 @dataclass
@@ -177,11 +378,42 @@ class ADC:
     z_max: ScalarQuantity = 65 * u.degree
     criterion: str = "PTV"  # "RMS", "RSS", "PTV", "max_abs"
 
-    alpha: ScalarQuantity | None = None
-    beta: ScalarQuantity | None = None
+    alphas: list[ScalarQuantity] | None = None
     wl_0: ScalarQuantity | None = None
 
     residuals_function: Callable | None = None
+
+    debug_level: int = 0
+
+    def __post_init__(self) -> None:
+        for p in self.prism_stack.prism_list:
+            if not isinstance(p, Prism):
+                raise TypeError(
+                    f"All elements of prism_stack must be instances of Prism, but got {type(p)}"
+                )
+            if p.min_wl is None:
+                p.min_wl: ScalarQuantity = self.min_wl
+            if p.max_wl is None:
+                p.max_wl: ScalarQuantity = self.max_wl
+
+        if self.alphas is None:
+            self.alphas: list[ScalarQuantity] = [
+                p.apex_angle for p in self.prism_stack.prism_list[:-1]
+            ]
+
+        if self.wl_0 is None:
+            potential_wl_0: ScalarQuantity | ArrayQuantity | None = (
+                self.prism_stack.zero_deviation_wavelengths(
+                    min_wl=self.min_wl, max_wl=self.max_wl
+                )
+            )
+            if isinstance(potential_wl_0, Quantity):
+                if potential_wl_0.isscalar:
+                    self.wl_0: ScalarQuantity = potential_wl_0
+                else:
+                    self.wl_0: ScalarQuantity = potential_wl_0[0]
+            else:
+                self.wl_0: None = None
 
     @property
     def g1(self) -> Prism | Glass:
@@ -244,6 +476,19 @@ class ADC:
 
         return PTV.to(u.mas)
 
+    @property
+    def residuals_max_abs(self) -> ScalarQuantity:
+        assert self.residuals_function is not None
+        max_abs: float = max(
+            np.abs(self.residuals_function(wls=self.wls(100)).to(u.mas).value)
+        )
+
+        return max_abs * u.mas
+
+    @property
+    def apex_angles(self) -> list[ScalarQuantity] | None:
+        return [p.apex_angle for p in self.prism_stack.prism_list]
+
     def optimise(
         self,
         plot: bool = False,
@@ -256,19 +501,18 @@ class ADC:
 
         TODO:
 
-        - [ ] Instead of computing residuals based on the difference between
+        - [x] Instead of computing residuals based on the difference between
         refractive indices, actually trace rays through the ADC
 
-        - [ ] Allow to match different target dispersion???
+        - [x] Allow to match different target dispersion??? - Now in PrismStack.match_target_dispersion()
 
         - [ ] Allow optimising without compound angle?
         """
 
-        if len(self.prism_stack.prism_list) != 2:  # noqa: PLR2004
-            raise NotImplementedError(
-                "This method is only implemented for "
-                + "two-component compound prisms."
-            )
+        # if len(self.prism_stack.prism_list) != 2:  # noqa: PLR2004
+        #     raise NotImplementedError(
+        #         "This method is only implemented for two-component compound prisms."
+        #     )
 
         g1: Prism = self.prism_stack.prism_list[0]
         g2: Prism = self.prism_stack.prism_list[1]
@@ -278,42 +522,70 @@ class ADC:
         # Find a linear combination of refractive index curves that best match
         # the refractive index of air, in which the apex angles of the two prism
         def residuals(
-            x: tuple[float, float] = (1, 0.6328),  # alpha, wl_0 - no units!
+            x: tuple[float, ...] = (1, 0.6328),  # alpha, wl_0 - no units!
             wls: ArrayQuantity = wls,
             return_residuals: bool = False,
-            verbose: bool = False,
+            verbose: bool = self.debug_level > 0,
         ) -> Quantity | float:
-            # Fully parameterised by alpha and wl_0
-            alpha, wl_0 = x
 
-            alpha: ScalarQuantity = alpha * u.degree
+            # Save olf apex angles?
+            old_apex_angles: list[ScalarQuantity] = [
+                prism.apex_angle for prism in self.prism_stack.prism_list
+            ]
+
+            # Fully parameterised by alpha and wl_0
+            *alphas, wl_0 = x
+
+            if any(np.isnan(a) for a in alphas) or np.isnan(wl_0):
+                return np.inf
+
+            assert len(alphas) == len(self.prism_stack.prism_list) - 1
+
+            alphas: list[ScalarQuantity] = [a * u.degree for a in alphas]
+
             wl_0: ScalarQuantity = wl_0 * u.um
 
             if verbose:
-                print(f"Trying: {alpha = }, {wl_0 = }")
+                print(f"Trying: {alphas = }, {wl_0 = }")
 
-            epsilon = (g1.refractive_index(wl_0) - 1) / (g2.refractive_index(wl_0) - 1)
+            for prism, angle in zip(
+                self.prism_stack.prism_list[:-1], alphas, strict=True
+            ):
+                prism.apex_angle: ScalarQuantity = angle
+
+            last_apex_angle: ScalarQuantity = self.prism_stack.compute_last_apex_angle(
+                wl_0=wl_0
+            )
+
+            if last_apex_angle > 60 * u.deg or last_apex_angle < -60 * u.deg:
+                if verbose:
+                    print(
+                        f"Last apex angle {last_apex_angle:.3f} is out of bounds, skipping."
+                    )
+                return np.inf
 
             delta_air: ArrayQuantity = (
                 self.beam_comp
-                * np.tan(self.z_max)
-                * u.radian
+                * (np.tan(self.z_max) * u.radian)
                 * (
-                    self.air_model.refractive_index(wls)
+                    np.array(self.air_model.refractive_index(wls))
                     - self.air_model.refractive_index(wl_0)
                 )
             ).si.to(u.degree)
 
-            delta_ADC = (
-                g1.refractive_index(wls)
-                - epsilon * g2.refractive_index(wls)
-                + epsilon
-                - 1
-            ) * alpha
+            delta_ADC: ArrayQuantity = self.prism_stack.trace(
+                wls=wls
+            ) - 1 * self.prism_stack.trace(wls=wl_0)
 
-            residuals = (delta_ADC - delta_air) * u.radian
+            residuals: ArrayQuantity = delta_ADC - delta_air
             # Put it back in equivalent on-sky angle
-            residuals /= self.z_max * self.beam_comp
+            residuals /= np.tan(self.z_max) * self.beam_comp
+
+            # Reset prism angles?
+            for prism, angle in zip(
+                self.prism_stack.prism_list, old_apex_angles, strict=True
+            ):
+                prism.apex_angle: ScalarQuantity = angle
 
             if return_residuals:
                 return residuals.to(u.mas)
@@ -330,43 +602,47 @@ class ADC:
             return np.nan
 
         try:
-            result = minimize(
-                fun=residuals,
-                x0=[1.0, np.median(wls.to(u.um).value)],
-                bounds=[  # min  # max
-                    (-np.inf, np.inf),
-                    (0.4, 1.5),  # um
-                ],
-            )
+            x0: list[float] = [1.0] * (len(self.prism_stack.prism_list) - 1) + [
+                np.median(wls.to(u.um).value)
+            ]
 
-            alpha_fit, wl_0_fit = result.x
+            bounds: list[tuple[float, float]] = [(-np.inf, np.inf)] * (
+                len(self.prism_stack.prism_list) - 1
+            ) + [(0.4, 1.5)]
+
+            result = minimize(fun=residuals, x0=x0, bounds=bounds)
+
+            *alphas_fit, wl_0_fit = result.x
 
         except Exception as e:
-            raise ValueError("Unable to converge on a solution") from e
+            raise e
+
+        self.alphas: list[ScalarQuantity] = [a * u.degree for a in alphas_fit]
+        self.wl_0: ScalarQuantity = wl_0_fit * u.um
 
         # residuals_PTV = residuals(x = result.x)
         # residuals_curve = residuals(x = result.x, return_residuals=True)
 
         def residuals_function(wls: ArrayQuantity = wls) -> Quantity | float:
-            assert isinstance(self.alpha, Quantity)
-            assert isinstance(self.wl_0, Quantity)
-            return residuals(
-                x=(self.alpha.to(u.degree).value, self.wl_0.to(u.um).value),
-                wls=wls,
-                return_residuals=True,
+
+            assert isinstance(self.alphas, list)
+
+            x = tuple(
+                [a.to(u.degree).value for a in self.alphas] + [self.wl_0.to(u.um).value]
             )
+
+            return residuals(x=x, wls=wls, return_residuals=True)
 
         self.residuals_function: Callable = residuals_function
 
         # Solve for individual prism apex angle from fitted constant
-        self.first_apex_angle: ScalarQuantity = alpha_fit * u.degree / 2
-        epsilon_fit: float = (g1.refractive_index(wl_0_fit) - 1) / (
-            g2.refractive_index(wl_0_fit) - 1
-        )
-        self.second_apex_angle: ScalarQuantity = epsilon_fit * self.first_apex_angle
 
-        self.alpha: ScalarQuantity = alpha_fit * u.degree
-        self.beta: ScalarQuantity = self.second_apex_angle - self.first_apex_angle
+        for prism, angle in zip(
+            self.prism_stack.prism_list[:-1], alphas_fit, strict=True
+        ):
+            prism.apex_angle: ScalarQuantity = angle * u.degree
+        self.prism_stack.compute_last_apex_angle(wl_0=wl_0_fit * u.um)
+
         self.wl_0: ScalarQuantity = wl_0_fit * u.um
 
         results: dict[str, Any] = {
@@ -378,11 +654,7 @@ class ADC:
             "z_max": self.z_max,
             "min_wl": self.min_wl,
             "max_wl": self.max_wl,
-            "first_apex_angle": self.first_apex_angle,
-            "second_apex_angle": self.second_apex_angle,
-            "alpha_fit": self.alpha,
             "wl_0_fit": self.wl_0,
-            "epsilon_fit": self.epsilon,
             "residuals_rms": self.residuals_RMS,
             "residuals_rss": self.residuals_RSS,
             "residuals_ptv": self.residuals_PTV,
@@ -400,9 +672,16 @@ class ADC:
         layout: bool = True,
         show: bool = True,
     ) -> plt.Figure:
-        assert isinstance(self.alpha, Quantity)
-        assert isinstance(self.epsilon, float)
+        """
+        Plot the optical properties, performance, and layout of the ADC
+        """
+
+        assert isinstance(self.alphas, list)
+        assert all(isinstance(alpha, Quantity) for alpha in self.alphas)
         assert isinstance(self.wl_0, Quantity)
+
+        if layout and len(self.prism_stack.prism_list) > 2:  # noqa: PLR2004
+            layout = False
 
         wls: ArrayQuantity = self.wls(n=num_samples)
 
@@ -427,8 +706,8 @@ class ADC:
         # Plot refractive indices of the two glasses
         ax: plt.Axes = axs[0]
 
-        ax.plot(wls, self.g1.n(wls), label=f"{self.g1.name}")
-        ax.plot(wls, self.g2.n(wls), label=f"{self.g2.name}")
+        for p in self.prism_stack.prism_list:
+            ax.plot(wls, p.glass.n(wls), label=f"{p.glass.name}")
 
         ax.set_xticklabels([])
         # ax.ticklabel_format(axis="y", useOffset=1.00000000001)
@@ -438,36 +717,25 @@ class ADC:
         # Plot scaled difference against the normalised refractivity of air
         ax: plt.Axes = axs[1]
 
-        ADC_index: ScalarQuantity = self.alpha * (
-            self.g1.n(wls) - self.epsilon * self.g2.n(wls) + self.epsilon - 1
+        traced_angles = self.prism_stack.trace(wls=wls) - self.prism_stack.trace(
+            wls=self.wl_0
         )
-
-        ADC_index: ScalarQuantity = ADC_index.to(u.degree)
 
         ax.plot(
             wls,
-            ADC_index,
+            traced_angles.to(u.deg),
             "k--",
-            label="2 $\\times$ ("
-            + f"$n_1(\\lambda) - {self.epsilon:.5g}n_2(\\lambda) {self.epsilon - 1:+.3g}$) "
-            + f"$\\times$ {self.alpha / 2:.3g}",
+            label="Traced ray angles through ADC",
         )
-
-        d_air: ScalarQuantity = (
-            self.beam_comp
-            * np.tan(self.z_max)
-            * u.radian
-            * (
-                self.air_model.refractive_index(wls)
-                - self.air_model.refractive_index(self.wl_0)
-            )
-        )
-
-        d_air: ScalarQuantity = d_air.to(u.degree)
 
         ax.plot(
             wls,
-            d_air,
+            self.beam_comp
+            * (np.tan(self.z_max) * u.radian).to(u.deg)
+            * (
+                np.array(self.air_model.refractive_index(wls))
+                - self.air_model.refractive_index(self.wl_0)
+            ),
             "r-",
             alpha=0.75,
             label="$\\frac{D_{tel}}{D_{ADC}}$ ($n_{air}(\\lambda) - n_{air}$("
@@ -490,7 +758,7 @@ class ADC:
             ax = axs[2]
             ax.plot(
                 wls,
-                residuals_curve,
+                residuals_curve.to(u.mas),
                 label="Residuals"
                 + "\nRMS: "
                 + f"{self.residuals_RMS:.2f}"
@@ -664,3 +932,88 @@ class ADC:
             + f"alpha = {self.alpha:.3f}, "
             + ")"
         )
+
+
+def test() -> None:
+    from curved_air.glass import GlassCatalogue  # noqa: PLC0415
+    from curved_air.optics.dispersers import Prism  # noqa: PLC0415
+    from curved_air.other import Constant, Linear  # noqa: PLC0415, F401
+
+    gc = GlassCatalogue(["Schott", "Ohara"])
+
+    stack: PrismStack = PrismStack(
+        prism_list=[
+            Prism(glass=gc["K10"], apex_angle=2 * u.deg),
+            Prism(glass=gc["S-FPL51"], apex_angle=-2 * u.deg),
+            Prism(glass=gc["F2"], apex_angle=2 * u.deg),
+            Prism(glass=gc["N-BK7"], apex_angle=-2 * u.deg),
+        ]
+    )
+    # target_dispersion = Linear(m=0.1 / u.um, b=0)
+    target_dispersion = Linear(m=-1 / u.um, b=0)
+    # target_dispersion = Constant(c=1)
+    # target_dispersion = Air()
+
+    # print(target_dispersion.refractive_index(wl=np.linspace(0.38, 0.95, 100) * u.um))
+
+    stack.match_target_dispersion(
+        min_wl=380 * u.nm,
+        max_wl=950 * u.nm,
+        target_dispersion=target_dispersion,
+    )
+
+    print(stack.summary)
+
+    _fig, axs = plt.subplots(
+        2, 1, figsize=(8, 6), tight_layout=True, sharex=True, height_ratios=[2, 1]
+    )
+
+    ax = axs[0]
+
+    wls = np.linspace(0.38, 0.95, 100) * u.um
+
+    traced_angles = (
+        stack.trace(wls, incidence_angle=0 * u.deg)
+        - stack.trace(wls, incidence_angle=0 * u.deg)[len(wls) // 2]
+    )
+
+    ax.plot(
+        wls,
+        traced_angles,  # / np.max(np.abs(traced_angles)),
+        label="Output angle (zeroed)",
+    )
+
+    target_angles = (
+        target_dispersion.refractive_index(wls)
+        - target_dispersion.refractive_index(wls)[len(wls) // 2]
+    )
+
+    # plot the target dispersion curve for comparison
+    ax.plot(
+        wls,
+        target_angles,  # / np.max(np.abs(target_angles)),
+        label="Target dispersion (zeroed)",
+    )
+
+    ax.legend()
+
+    ax = axs[1]
+    ax.plot(
+        wls,
+        traced_angles.to(u.deg).value - target_angles,
+        label="Residuals (traced - target)",
+    )
+
+    ax.legend()
+
+    plt.show()
+
+    # adc: ADC = ADC(prism_stack=stack)
+
+    # results: dict | None = adc.optimise(plot=True)
+
+    # print(results)
+
+
+if __name__ == "__main__":
+    test()
