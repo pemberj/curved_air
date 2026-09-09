@@ -358,9 +358,6 @@ def ciddor(
     assert isinstance(wl, Quantity)
 
     if not wl.isscalar:
-        assert T.isscalar, (
-            "Only one array input is allowed, not both wavelength and temperature"
-        )
         assert p.isscalar, (
             "Only one array input is allowed, not both wavelength and pressure"
         )
@@ -382,15 +379,6 @@ def ciddor(
     assert 0 <= h <= 1
     assert 0 <= x_c <= 2_000  # noqa: PLR2004
 
-    return float(
-        ref_index.ciddor(
-            wave=wl.to("nm").value,
-            t=T_C.value,
-            p=p.to("Pa").value,
-            rh=h * 100,
-            co2=x_c,
-            # warn = True, # Doesn't work - bug in package code
-        )
     return float(
         ref_index.ciddor(
             wave=wl.to("nm").value,
@@ -481,9 +469,6 @@ def edlen(
         assert T.isscalar, (
             "Only one array input is allowed, not both wavelength and temperature"
         )
-        assert p.isscalar, (
-            "Only one array input is allowed, not both wavelength and pressure"
-        )
         return [edlen(wl, T=T, p=p, h=h) for wl in wl]
 
     if not T.isscalar:
@@ -501,14 +486,6 @@ def edlen(
     assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
     assert 0 <= h <= 1
 
-    return float(
-        ref_index.edlen(
-            wave=wl.to("nm").value,
-            t=T_C.value,
-            p=p.to("Pa").value,
-            rh=h * 100,
-            # warn = True, # Doesn't work - bug in package code
-        )
     return float(
         ref_index.edlen(
             wave=wl.to("nm").value,

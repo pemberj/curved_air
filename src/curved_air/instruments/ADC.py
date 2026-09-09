@@ -97,9 +97,6 @@ class PrismStack:
             # correct local incidence angle.
             theta_in_local: Quantity = (ray_angle_global - surface_tilt).to(u.deg)
 
-            if rays.isscalar:
-                rays = [rays.value] * rays.unit
-
             if debug_level > 0:
                 print(
                     f"Refracting at interface between {previous_material} and {prism.glass} with surface tilt {surface_tilt.to(u.deg).value} deg"
