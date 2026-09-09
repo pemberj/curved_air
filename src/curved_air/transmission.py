@@ -286,7 +286,7 @@ def transmission_plot(
         T: Transmission,
         running_transmission: NDArray,
     ) -> np.ndarray:
-        print(type(T))
+
         x: NDArray = master_wls
         y: NDArray = running_transmission * T.T(wl=master_wls)
 
