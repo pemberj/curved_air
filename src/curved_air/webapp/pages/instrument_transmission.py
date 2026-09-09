@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style
 from curved_air.transmission import (
+    MARVEL_TRANSMISSION,
     FlatTransmission,
     Transmission,
     from_file,
@@ -30,7 +31,9 @@ DATA_PATH: Path = Path(__file__).parent / ".." / ".." / "transmission_data"
 
 
 if not st.session_state.get("transmission_list", None):
-    st.session_state.transmission_list: list[Transmission | EchelleGrating | None] = []
+    st.session_state.transmission_list: list[Transmission | EchelleGrating | None] = (
+        MARVEL_TRANSMISSION
+    )
 
 
 st.set_page_config(

@@ -401,3 +401,56 @@ def total_transmission(
         plt.show()
 
     return master_wls.to(u.um).value, running_transmission
+
+
+MARVEL_TRANSMISSION: list[Transmission | EchelleGrating | None] = [
+    # Telescope
+    mirror(
+        file=next(iter(DATA_PATH.glob("ASA_Protected_Enhanced_Aluminium.csv"))),
+        name="Telescope mirrors (ASA)",
+        num_reflections=3,
+    ),
+    # Frontend
+    zemax(
+        file=DATA_PATH / "example_zemax" / "frontend.txt",
+        name="Frontend optics (incl. 5% split for guiding)",
+    ),
+    # FibreAperture
+    FlatTransmission(name="Fibre aperture loss", transmission=0.80),
+    # Fibre,
+    Transmission(
+        name="Fibre transmission & coupling from\ncircular to octagonal fibre",
+        wavelengths=np.array([390, 400, 500, 700, 920]) * u.nm,
+        transmissions=np.array(
+            [
+                0.91 ** (15 / 10) * 0.92,
+                0.920 ** (15 / 10) * 0.92,
+                0.963 ** (15 / 10) * 0.92,
+                0.987 ** (15 / 10) * 0.92,
+                0.991 ** (15 / 10) * 0.92,
+            ]
+        ),
+    ),
+    # Spectrograph,
+    zemax_multi(
+        files=list((DATA_PATH / "example_zemax_multi").glob("c[123456789].txt")),
+        name="Spectrograph, excluding echelle",
+    ),
+    # Detector,
+    from_file(
+        name="STA1600LN Detector QE",
+        file=next(iter(DATA_PATH.glob("STA1600LN*.txt"))),
+        wavelength_unit=u.nm,
+    ),
+    # Echelle,
+    EchelleGrating(
+        name="MARVEL nominal",
+        catalogue_number="53-*-417E",
+        groove_frequency=52.67 / u.mm,
+        blaze_angle=69.7 * u.deg,
+        gamma_angle=0.3 * u.deg,
+        min_wl=385 * u.nm,
+        max_wl=950 * u.nm,
+    ),
+    None,
+]
