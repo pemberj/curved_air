@@ -373,7 +373,10 @@ def total_transmission(
     for _T in T:
         if _T is None:
             continue
-        running_transmission *= T.T(wl=master_wls)
+        if isinstance(_T, EchelleGrating):
+            continue
+        assert isinstance(_T, Transmission), f"Expected Transmission, got {_T}"
+        running_transmission *= _T.T(wl=master_wls)
 
     # Account for echelle blaze function (flat at peak value only)
     # This will be used to add total system efficiency to PyEchelle, where the

@@ -15,6 +15,7 @@ from curved_air.transmission import (
     Transmission,
     from_file,
     mirror,
+    total_transmission,
     transmission_plot,
     # total_transmission,
     zemax,
@@ -669,6 +670,38 @@ def main() -> None:
 
             st.pyplot(fig)
 
+        total: tuple[np.ndarray, np.ndarray] = total_transmission(
+            T=st.session_state.transmission_list,
+            min_wl=0.37 * u.um,
+            max_wl=0.92 * u.um,
+            num_wls=500,
+            save=False,
+        )
+
+        with st.container(horizontal_alignment="center"):
+            st.download_button(
+                label="Download CSV",
+                data="\n".join(
+                    [
+                        "Wavelength (nm), Transmission",
+                        *[
+                            f"{wl:.5f}, {trans:.5f}"
+                            for wl, trans in zip(total[0], total[1], strict=True)
+                        ],
+                    ]
+                ),
+                file_name="total_transmission.csv",
+                mime="text/csv",
+            )
+
+            with st.container(width=300):
+                st.caption(
+                    """Exported CSV files have two columns: `Wavelength (nm)` and
+`Transmission`.
+
+Note: Echelle grating blaze functions are not included in the exported data."""
+                )
+
 
 def test() -> None:
     Telescope: Transmission = mirror(
@@ -739,21 +772,6 @@ def test() -> None:
     )
 
     st.pyplot(fig)
-
-    # total: tuple[np.ndarray, np.ndarray] = total_transmission(
-    #     min_wl=0.37 * u.um,
-    #     max_wl=0.92 * u.um,
-    #     num_wls=500,
-    #     save=False,
-    # )
-
-    # np.savetxt(
-    #     "2ES_total_transmission.csv",
-    #     np.transpose(total),
-    #     fmt="%.5f",
-    #     delimiter=",",
-    #     header="Wavelength (nm), Transmission",
-    # )
 
 
 if __name__ == "__main__":
