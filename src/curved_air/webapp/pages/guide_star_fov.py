@@ -19,7 +19,7 @@ from curved_air.star_counts import (
 from curved_air.utils import st_quantity_input
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
+    from numpy.typing import NDArray  # noqa: F401
 
     from curved_air.type_hinting import ScalarQuantity
 
@@ -61,7 +61,8 @@ with cols[0]:
         "Calculation mode",
         options=["Magnitude -> FoV", "FoV -> Magnitude"],
         default="Magnitude -> FoV",
-        help="""Select whether you want to calculate the required field of view for a given magnitude limit, or the limiting magnitude for a given field of view.""",
+        help="""Select whether you want to calculate the required field of view for a
+        given magnitude limit, or the limiting magnitude for a given field of view.""",
     )
 
     band: Literal["G", "V"] = st.pills(
@@ -88,23 +89,16 @@ with cols[0]:
         st.metric(
             "Equivalent coverage",
             f"{selected_model.equivalent_coverage * 100:.0f}%",
-            help="Maps to a conservative Galactic-latitude regime for that coverage level.",
+            help="""Maps to a conservative Galactic-latitude regime for that coverage
+            level.""",
         )
     else:
         st.caption(
-            "Using the all-sky average density regime. This is a rough estimate for the entire sky."
+            """Using the all-sky average density regime. This is a rough estimate for
+            the entire sky."""
         )
 
-    # coverage_percent: int = st.select_slider(
-    #     "Sky coverage target",
-    #     options=list(DEFAULT_SKY_COVERAGE_TO_REGION.keys()),
-    #     value=95,
-    #     help="Maps to a conservative Galactic-latitude regime for that coverage level.",
-    # )
-
-    # region: str = coverage_region(coverage_percent)
     region: str = selected_model.label
-    # st.caption(f"Using density regime: {region}")
 
     st.divider()
 
@@ -261,18 +255,20 @@ with cols[1]:
                 at least one star brighter than the target magnitude present.""",
             )
 
-        results_df = region_results_dataframe(
+        results_df: pd.DataFrame = region_results_dataframe(
             magnitude=target_magnitude,
             area=None,
             band_name=band,
         )
 
-        magnitudes = np.linspace(
+        magnitudes: NDArray = np.linspace(
             max(-2.0, target_magnitude - 3),
             min(18.0, target_magnitude + 3),
             150,
         )
+
         fig = go.Figure()
+
         for model in SKY_REGION_MODELS:
             diameters_arcmin: list[ScalarQuantity] = [
                 (
@@ -293,6 +289,7 @@ with cols[1]:
                 .value
                 for mag in magnitudes
             ]
+
             fig.add_trace(
                 go.Scatter(
                     x=magnitudes,
@@ -301,6 +298,7 @@ with cols[1]:
                     name=model.label,
                 )
             )
+
         fig.add_trace(
             go.Scatter(
                 x=[target_magnitude],
@@ -322,22 +320,27 @@ with cols[1]:
             yaxis_title="Equivalent diameter (arcmin)",
             legend_title="Sky regime",
         )
+
     else:
         assert input_area is not None
+
         limiting_mag: float = limiting_magnitude_for_area(
             area=input_area,
             band=band,
             region=selected_model,
         )
+
         density: float = (
             base_cumulative_density(magnitude=target_magnitude, band=band)
             * selected_model.density_scale
         )
+
         input_diameter_equivalent: ScalarQuantity = (
             2 * np.sqrt(input_area / np.pi)
         ).to(u.arcmin)
 
         subcols = st.columns(3)
+
         with subcols[0]:
             st.metric(
                 f"Limiting {band} magnitude",
@@ -345,6 +348,7 @@ with cols[1]:
                 help="""The brightest magnitude limit for which at least one star is
                 expected to always appear in the field of view.""",
             )
+
         with subcols[1]:
             st.metric(
                 "FoV area",
@@ -352,6 +356,7 @@ with cols[1]:
                 help="""The field of view area within which at least one star brighter
                 than the limiting magnitude is expected to always be present.""",
             )
+
         with subcols[2]:
             st.metric(
                 "Equivalent circular diameter",
@@ -362,16 +367,22 @@ with cols[1]:
             )
 
         st.caption(
-            f"Expected stars in selected regime: {density * input_area.to(u.deg**2).value:.3g}"
+            f"""Expected stars in selected regime:
+            {density * input_area.to(u.deg**2).value:.3g}"""
         )
 
-        results_df = region_results_dataframe(
+        results_df: pd.DataFrame = region_results_dataframe(
             magnitude=None,
             area=input_area,
             band_name=band,
         )
 
-        magnitudes: NDArray = np.linspace(-2.0, 18.0, 150)
+        magnitudes: NDArray = np.linspace(
+            max(-2.0, limiting_mag - 3),
+            min(18.0, limiting_mag + 3),
+            150,
+        )
+
         fig = go.Figure()
         for model in SKY_REGION_MODELS:
             expected_counts = [
@@ -413,4 +424,5 @@ with cols[1]:
     st.divider()
 
     st.subheader("Sky-regime comparison", anchor=False)
+
     st.dataframe(results_df, hide_index=True, width="stretch")
