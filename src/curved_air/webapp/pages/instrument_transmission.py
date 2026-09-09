@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+import streamlit as st
 from astropy import units as u
 from matplotlib import pyplot as plt
 
@@ -713,12 +714,14 @@ def test() -> None:
         None,
     ]
 
-    transmission_plot(
+    fig: plt.Figure = transmission_plot(
         Ts=Ts,
         min_wl=0.37 * u.um,
         max_wl=0.92 * u.um,
         num_wls=500,
     )
+
+    st.pyplot(fig)
 
     # total: tuple[np.ndarray, np.ndarray] = total_transmission(
     #     min_wl=0.37 * u.um,
