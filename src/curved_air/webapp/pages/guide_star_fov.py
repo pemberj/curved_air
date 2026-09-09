@@ -28,14 +28,17 @@ st.header("Guide Star Field of View", anchor=False)
 with st.expander("About this tool", expanded=False):
     """
     This tool estimates the field of view required so that a telescope pointing is
-    expected to contain at least one star brighter than a chosen magnitude limit.
+    expected to contain at least one star brighter than a chosen magnitude limit, or
+    vice-versa to estimate the brightest magnitude limit for which at least one star is
+    expected within a field of view of a particular angular size.
 
-    The reverse calculation is also available: for a chosen field of view, the tool
-    estimates the brightest magnitude limit for which at least one star is expected.
+    The model is not based on specific star counting, but rather on a smooth multi-part
+    exponential fit to the cumulative stellar surface density as a function of
+    magnitude and galactic latitude. `G` is the native model band. `V` is approximated
+    as a modestly sparser distribution.
 
-    The current implementation uses a lightweight analytic cumulative star-count model
-    with different density scalings for Galactic-latitude regimes. It is intended for
-    rapid guider and acquisition trade studies, not as a strict all-sky catalogue proof.
+    The tool is intended for high-level trade studies in order to define the optical
+    requirements of instruments and guide systems.
 
     All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
@@ -409,13 +412,3 @@ with cols[1]:
 
     st.subheader("Sky-regime comparison", anchor=False)
     st.dataframe(results_df, hide_index=True, width="stretch")
-
-    st.divider()
-
-    with st.expander("Model notes", expanded=True):
-        """
-        - The model uses cumulative stellar surface density and the criterion $N = \\Sigma A \\ge 1$.
-        - The sky-coverage selector maps to a conservative Galactic-latitude regime rather than a strict all-sky proof.
-        - `G` is the native model band. `V` is approximated as a modestly sparser distribution.
-        - This is most suitable for rapid acquisition or guide-camera trade studies.
-        """
