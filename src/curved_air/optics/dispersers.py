@@ -46,6 +46,8 @@ class EchelleGrating(Disperser):
     ruled_width: ScalarQuantity = 400 * u.mm
     groove_length: ScalarQuantity | None = None
 
+    peak_efficiency: float = 1.0
+
     @cached_property
     def R(self) -> float:
         return round(np.tan(self.blaze_angle).value, 1)
@@ -376,40 +378,119 @@ class EchelleGrating(Disperser):
             m=m, wl=wls[0]
         ) / self.anamorphic_magnification(m=m, wl=wls[1])
 
-    def relative_intensity(
+    @overload
+    def blaze_efficiency(
+        self, m: int, wl: ScalarQuantity, set_angle: ScalarQuantity | None = None
+    ) -> float: ...
+
+    @overload
+    def blaze_efficiency(
+        self, wl: ScalarQuantity, set_angle: ScalarQuantity | None = None
+    ) -> float: ...
+
+    @overload
+    def blaze_efficiency(
+        self, m: int, set_angle: ScalarQuantity | None = None
+    ) -> tuple[ArrayQuantity, list[float]]: ...
+
+    @overload
+    def blaze_efficiency(
+        self, set_angle: ScalarQuantity | None = None
+    ) -> dict[int, tuple[ArrayQuantity, list[float]]]: ...
+
+    def blaze_efficiency(
         self,
-        # m: int,
-        wl: Quantity,
-    ) -> float | NDArray[np.floating]:
+        m: int | None = None,
+        wl: ScalarQuantity | None = None,
+        set_angle: ScalarQuantity | None = None,
+    ) -> (
+        float
+        | tuple[ArrayQuantity, list[float]]
+        | dict[int, tuple[ArrayQuantity, list[float]]]
+    ):
         """
-        Calculate the relative intensity of a particular wavelength or wavelengths in a
-        given diffraction order.
+        Returns the blaze function of the grating.
 
-        TODO: fix this up!
+        If only `wl` is passed, the blaze function is calculated at the order in which
+        that wavelength is closest to the blaze peak: a single float is returned.
 
-        At the moment this finds the diffraction order in which the wavelength is
-        closest to the blaze peak. Maybe I should put the `m` parameter back in,
-        allowing the user to specify the order they want the efficiency for?
+        If only `m` is passed, the blaze function is calculated at the blaze wavelength
+        for that spectral order: a list of floats is returned, tracing out the blaze
+        function across the order.
+
+        If neither `m` nor `wl` are passed, the blaze function for every order spanning
+        the spectrograph's bandpass is returned: a dictionary is returned, where the
+        keys are integers indicating the diffraction order number, and each value is a
+        list tracing out the blaze function across a single order.
+
+        If both `m` and `wl` are passed, the blaze function is calculated at that order
+        and wavelength: a single float is returned.
         """
 
-        # N = 400 * u.mm / self.groove_period  # Number of grooves illuminated
+        if self.peak_efficiency is None:
+            peak_efficiency: float = 1.0
+        else:
+            assert isinstance(self.peak_efficiency, float)
+            peak_efficiency: float = self.peak_efficiency
 
-        frac_m: float | np.ndarray = np.array(self.order_number(wl=wl, quantised=False))
+        if wl is not None:
+            assert isinstance(wl, Quantity)
 
-        # beta = self.diffraction_angle(m=m, wl=wl)
+        if m is not None:
+            assert isinstance(m, int)
 
-        # p: Quantity["angle"] = (  # noqa: F821, UP037
-        #     (np.pi * self.groove_period / wl) * (np.sin(self.theta_B) + np.sin(beta))
-        # ).si * u.radian
+        if m is None and wl is not None:
+            # Single wavelength in an order determined by the wavelength
+            print("Warning: ignoring `set_angle` because `wl` was specified")
+            m: int = self.order_number(wl=wl, quantised=True)
+            return self.blaze_efficiency(m=m, wl=wl, set_angle=None)
 
-        # H: Quantity["angle"] = (  # noqa: F821, UP037
-        #     (np.pi * self.groove_period * np.cos(self.theta_B) / wl)
-        #     * np.sin(self.theta_B - beta)
-        # ).si * u.radian
+        if m is not None and wl is None:
+            # Blaze function spanning the given order
+            assert isinstance(m, int)
+            reddest_order: int = self.order_number(wl=self.max_wl, quantised=True)
 
-        # return (np.sin(p) / p) ** 2  # * (np.sin(N * p) ** 2 / np.sin(p) ** 2)
+            if set_angle is not None:
+                angular_bounds: ArrayQuantity = [
+                    -set_angle.to(u.deg).value,
+                    set_angle.to(u.deg).value,
+                ] * u.deg
 
-        return 1 - np.sinc(frac_m * u.radian) ** 2
+            else:
+                angular_bounds: ArrayQuantity = self.order_opening_angle(
+                    m=reddest_order, return_bounds=True
+                )
+
+            angles: ArrayQuantity = (
+                np.linspace(
+                    angular_bounds[0].to(u.deg).value,
+                    angular_bounds[1].to(u.deg).value,
+                    50,
+                )
+                * u.deg
+            )
+            wavelengths: list[ScalarQuantity] = [
+                self.wavelength_at_angle(m=m, angle=a + self.blaze_angle).to(u.nm).value
+                for a in angles
+            ] * u.nm
+
+            return wavelengths, [
+                float(peak_efficiency * T)
+                for T in (np.sin(angles.to(u.deg).value) / angles.to(u.deg).value) ** 2
+            ]
+
+        if m is None and wl is None:
+            # Return the blaze function for every order spanning the spectrograph's
+            # bandpass
+            return {
+                i: self.blaze_efficiency(m=i, set_angle=set_angle)
+                for i in self.diffraction_orders
+            }
+
+        # Default case: both m and wl are passed
+        assert m is not None and wl is not None
+        beta: ArrayQuantity = self.diffraction_angle(m=m, wl=wl)
+        return (np.sin(beta) / beta) ** 2
 
     @property
     def reddest_order_separation(self) -> ScalarQuantity:
