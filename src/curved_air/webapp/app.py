@@ -43,14 +43,19 @@ pages: list = [
         icon="🌠",
     ),
     st.Page(
-        page=APP_PATH / "pages" / "fibre_loss_converter.py",
-        title="Fibre Loss Converter",
-        icon="🧵",
+        page=APP_PATH / "pages" / "instrument_transmission.py",
+        title="Instrument Transmission",
+        icon="📈",
     ),
     st.Page(
         page=APP_PATH / "pages" / "glass_explorer.py",
         title="Glass Explorer",
         icon="🔍",
+    ),
+    st.Page(
+        page=APP_PATH / "pages" / "fibre_loss_converter.py",
+        title="Fibre Loss Converter",
+        icon="🧵",
     ),
     st.Page(
         page=APP_PATH / "pages" / "surface_tolerances.py",
@@ -86,11 +91,6 @@ pages: list = [
         page=APP_PATH / "pages" / "keplerian_orbits.py",
         title="Keplerian Orbits",
         icon="🪐",
-    ),
-    st.Page(
-        page=APP_PATH / "pages" / "instrument_transmission.py",
-        title="Instrument Transmission",
-        icon="📈",
     ),
 ]
 
