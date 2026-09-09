@@ -297,14 +297,14 @@ with st.expander("About this tool", expanded=False):
 
 initialise_planets()
 
-planets, config, plot = st.columns([1, 1, 2.5])
+planets, config, plot = st.columns([1, 1.5, 2])
 
 with planets:
     st.subheader("Planets")
 
     for index, planet in enumerate(st.session_state.planets):
         with st.container(border=True):  # noqa: SIM117
-            row = st.columns([4, 1, 1])
+            row = st.columns([2.5, 1, 1])
             with row[0]:
                 f"{planet.name}" if planet.name else f"Planet {index + 1}"
                 st.caption(planet_summary(planet))
@@ -366,6 +366,7 @@ with config:
                 "Name",
                 value=planet.name
                 or f"Planet {st.session_state.selected_planet_index + 1}",
+                width=200,
                 key=f"planet_{st.session_state.selected_planet_index}_name",
             )
 
