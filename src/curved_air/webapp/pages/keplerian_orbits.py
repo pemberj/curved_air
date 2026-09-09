@@ -66,6 +66,7 @@ class Planet:
         return self.orbit.semimajor_axis
 
 
+# Phases taken from published JPL values on 2026-09-09
 solar_system_planets: list[Planet] = [
     Planet(
         name="Mercury",
@@ -74,7 +75,7 @@ solar_system_planets: list[Planet] = [
             period=0.241 * u.yr,
             inclination=83 * u.deg,
             eccentricity=0.206,
-            phase=0 * u.rad,
+            phase=1.829555 * u.rad,
         ),
     ),
     Planet(
@@ -84,7 +85,7 @@ solar_system_planets: list[Planet] = [
             period=0.615 * u.yr,
             inclination=86.6 * u.deg,
             eccentricity=0.007,
-            phase=0 * u.rad,
+            phase=3.267761 * u.rad,
         ),
     ),
     Planet(
@@ -94,7 +95,7 @@ solar_system_planets: list[Planet] = [
             period=1 * u.yr,
             inclination=90 * u.deg,
             eccentricity=0.017,
-            phase=0 * u.rad,
+            phase=4.307569 * u.rad,
         ),
     ),
     Planet(
@@ -104,7 +105,7 @@ solar_system_planets: list[Planet] = [
             period=1.88 * u.yr,
             inclination=88.15 * u.deg,
             eccentricity=0.093,
-            phase=0 * u.rad,
+            phase=1.524710 * u.rad,
         ),
     ),
     Planet(
@@ -114,7 +115,7 @@ solar_system_planets: list[Planet] = [
             period=11.86 * u.yr,
             inclination=88.7 * u.deg,
             eccentricity=0.049,
-            phase=0 * u.rad,
+            phase=1.923065 * u.rad,
         ),
     ),
     Planet(
@@ -124,7 +125,7 @@ solar_system_planets: list[Planet] = [
             period=29.46 * u.yr,
             inclination=87.51 * u.deg,
             eccentricity=0.056,
-            phase=0 * u.rad,
+            phase=4.955213 * u.rad,
         ),
     ),
     Planet(
@@ -134,7 +135,7 @@ solar_system_planets: list[Planet] = [
             period=84.01 * u.yr,
             inclination=89.23 * u.deg,
             eccentricity=0.046,
-            phase=0 * u.rad,
+            phase=4.560378 * u.rad,
         ),
     ),
     Planet(
@@ -144,7 +145,7 @@ solar_system_planets: list[Planet] = [
             period=164.8 * u.yr,
             inclination=88.23 * u.deg,
             eccentricity=0.010,
-            phase=0 * u.rad,
+            phase=5.439192 * u.rad,
         ),
     ),
 ]
