@@ -384,7 +384,18 @@ with cols[1]:
                 )
             )
 
-        fig.add_hline(y=1.0, line_dash="dash", line_color="black")
+        # Draw horizontal line at y=1 to indicate the threshold for expected stars
+        fig.add_hline(y=1.0, line_dash="dash", line_color="white")
+
+        fig.add_vline(
+            x=limiting_mag,
+            line_dash="dash",
+            line_color="white",
+            annotation_text=f"Limiting mag: {limiting_mag:.3f}",
+            annotation_position="top right",
+            annotation_textangle=-90,
+        )
+
         fig.update_layout(
             title="Expected stars in FoV vs magnitude limit",
             xaxis_title=f"Magnitude limit ({band})",
