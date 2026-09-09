@@ -36,14 +36,6 @@ if not st.session_state.get("transmission_list", None):
     )
 
 
-st.set_page_config(
-    page_title="Curved Air: Optical Design Tools",
-    # page_icon=Path(APP_PATH / "static" / "icon.png"),
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-
 def display_list() -> None:
     """
     Show and manage the list of transmission curves.
@@ -633,7 +625,29 @@ def main() -> None:
     """
     Main function to run the Streamlit app.
     """
-    st.title("Instrument Transmission Curves")
+    st.header("Instrument Transmission Curves", anchor=False)
+
+    with st.expander("About this tool", expanded=False):
+        """
+        This tool can be used to plot a flowdown diagram of the transmission of an
+        optical system. Any number of unitary transmission curves can be added to the
+        list, which will be plotted in order from top to bottom, as a function of
+        wavelength. The total transmission, the product of all transmission curves,
+        can be downloaded as a CSV file for further analysis or use in other tools.
+
+        All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+
+        Please get in contact if you have any questions, suggestions, or find any bugs!
+
+        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+        useful and want to support its development!
+        """
+
+        st.iframe(
+            """
+            <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
+            """,
+        )
 
     left, right = st.columns(2)
 
