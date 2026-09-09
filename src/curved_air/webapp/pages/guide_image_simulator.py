@@ -688,8 +688,6 @@ with st.expander("About this tool", expanded=False):
         """,
     )
 
-st.divider()
-
 settings_column, output_column = st.columns(2)
 
 with settings_column:
