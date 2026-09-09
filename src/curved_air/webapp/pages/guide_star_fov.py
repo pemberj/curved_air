@@ -268,7 +268,9 @@ with cols[1]:
         )
 
         magnitudes = np.linspace(
-            max(-2.0, target_magnitude - 5), min(18.0, target_magnitude + 5), 150
+            max(-2.0, target_magnitude - 3),
+            min(18.0, target_magnitude + 3),
+            150,
         )
         fig = go.Figure()
         for model in SKY_REGION_MODELS:
