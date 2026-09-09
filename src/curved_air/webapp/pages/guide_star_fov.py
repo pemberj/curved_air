@@ -34,8 +34,8 @@ with st.expander("About this tool", expanded=False):
 
     The model is not based on specific star counting, but rather on a smooth multi-part
     exponential fit to the cumulative stellar surface density as a function of
-    magnitude and galactic latitude. `G` is the native model band. `V` is approximated
-    as a modestly sparser distribution.
+    magnitude and galactic latitude. G is the native model band. V is approximated as a
+    modestly sparser distribution.
 
     The tool is intended for high-level trade studies in order to define the optical
     requirements of instruments and guide systems.
