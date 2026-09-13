@@ -56,7 +56,7 @@ class Transmission:
 
     @property
     def str_peak(self) -> str:
-        return f"peak {100 * self.peak:.1f}%"
+        return f"peak {100 * self.peak:.3g}%"
 
 
 @dataclass
@@ -68,7 +68,7 @@ class FlatTransmission(Transmission):
 
     @property
     def str_peak(self) -> str:
-        return f"flat {100 * self.transmissions[0]:.1f}%"
+        return f"flat {100 * self.transmissions[0]:.3g}%"
 
 
 def mirror(
@@ -314,7 +314,13 @@ def transmission_plot(
         echelle: EchelleGrating = next(T for T in Ts if isinstance(T, EchelleGrating))
 
         # Plot nothing for the echelle, but add a legend entry for it
-        ax.plot(0, 0, color="k", alpha=0.25, label="Echelle (blaze peaks flat 75%)")
+        ax.plot(
+            0,
+            0,
+            color="k",
+            alpha=0.25,
+            label=f"Echelle (blaze peaks flat {(echelle.peak_efficiency * 100):.3g}%)",
+        )
         # echelle: EchelleGrating = EchelleGrating(
         #     catalogue_number="",
         #     groove_frequency=31.6 / u.mm,
@@ -454,6 +460,7 @@ MARVEL_TRANSMISSION: list[Transmission | EchelleGrating | None] = [
         gamma_angle=0.3 * u.deg,
         min_wl=385 * u.nm,
         max_wl=950 * u.nm,
+        peak_efficiency=0.75,
     ),
     None,
 ]

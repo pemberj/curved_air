@@ -460,6 +460,7 @@ def add_echelle_grating() -> None:
     )
 
     grating: EchelleGrating = ECHELLE_GRATINGS[grating]
+    grating.peak_efficiency = 0.75
 
     if not st.session_state.get("customise_grating", False):
         if grating.groove_length is not None:
@@ -559,9 +560,9 @@ def add_echelle_grating() -> None:
         * u.deg
     )
 
-    st.number_input(
+    peak_efficiency: float = st.number_input(
         "Peak efficiency",
-        value=0.75,
+        value=grating.peak_efficiency,
         min_value=0.0,
         max_value=1.0,
         step=0.01,
@@ -576,7 +577,7 @@ def add_echelle_grating() -> None:
         blaze_angle=blaze_angle,
         ruled_width=ruled_width,
         gamma_angle=gamma_angle,
-        peak_efficiency=st.session_state.grating_peak_efficiency,
+        peak_efficiency=peak_efficiency,
     )
 
     st.button(
