@@ -355,7 +355,7 @@ def FWHM(
 def Gaussian(
     x: list[float] | NDArray[np.floating],
     x0: float = 0,
-    sigma: float | None = 1,
+    sigma: float | None = None,
     FWHM: float | None = None,
 ) -> NDArray[np.floating]:
     """
@@ -372,11 +372,76 @@ def Gaussian(
     if isinstance(x, list):
         x: NDArray[np.floating] = np.array(list)
 
-    assert isinstance(sigma, float)
+    assert isinstance(sigma, float | int)
 
-    return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(
+    profile: NDArray = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(
         -(1 / 2) * ((x - x0) / sigma) ** 2
     )
+
+    return profile / np.nanmax(profile)
+
+
+def Lorentzian(
+    x: list[float] | NDArray[np.floating],
+    x0: float = 0,
+    gamma: float | None = None,
+    FWHM: float | None = None,
+) -> NDArray[np.floating]:
+    """
+    Generate a simple Lorentzian distribution
+    """
+
+    if gamma is None and FWHM is None:
+        raise ValueError("You must specify either gamma or FWHM.")
+
+    if FWHM is not None:
+        assert gamma is None, "You cannot specify both gamma and FWHM."
+        gamma: float = FWHM / 2
+
+    if isinstance(x, list):
+        x: NDArray[np.floating] = np.array(list)
+
+    assert isinstance(gamma, float | int)
+
+    profile: NDArray = (1 / np.pi) * (gamma / ((x - x0) ** 2 + gamma**2))
+
+    return profile / np.nanmax(profile)
+
+
+def Moffat(
+    x: list[float] | NDArray[np.floating],
+    x0: float = 0,
+    alpha: float | None = None,
+    beta: float = 1,
+    FWHM: float | None = None,
+) -> NDArray[np.floating]:
+    """
+    Generate a simple Moffat distribution
+    """
+
+    if beta == 1:
+        beta += 1e-6  # Avoid division by zero
+
+    assert beta > 1, "Beta must be greater than 1 for a valid Moffat distribution."
+
+    if alpha is None and FWHM is None:
+        raise ValueError("You must specify either alpha or FWHM.")
+
+    if FWHM is not None:
+        assert alpha is None, "You cannot specify both alpha and FWHM."
+        alpha: float = FWHM / (2 * np.sqrt(2 ** (1 / beta) - 1))
+
+    if isinstance(x, list):
+        x: NDArray[np.floating] = np.array(list)
+
+    assert isinstance(alpha, float | int)
+    assert isinstance(beta, float | int)
+
+    profile: NDArray = (
+        (beta - 1) / (np.pi * alpha**2) * (1 + ((x - x0) / alpha) ** 2) ** (-beta)
+    )
+
+    return profile / np.nanmax(profile)
 
 
 def animate_results(
@@ -516,8 +581,27 @@ def st_quantity_input(
     return value * u.Unit(unit)
 
 
-def main() -> None: ...
+def plot_distributions() -> None:
+
+    xs = np.linspace(-10, 10, 300)
+
+    # Use TkAgg backend for non-interactive plotting
+    plt.switch_backend("TkAgg")
+
+    fig = plt.figure()
+    ax = fig.gca()
+
+    ax.plot(xs, Gaussian(xs, x0=0, FWHM=1), label="Gaussian")
+    ax.plot(xs, Lorentzian(xs, x0=0, FWHM=1), label="Lorentzian")
+
+    for beta in [2, 4.765]:
+        ax.plot(xs, Moffat(xs, x0=0, FWHM=1, beta=beta), label=f"Moffat, beta={beta}")
+
+    ax.legend()
+
+    plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    # plot_distributions()
+    ...
