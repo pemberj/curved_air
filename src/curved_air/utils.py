@@ -381,6 +381,36 @@ def Gaussian(
     return profile / np.nanmax(profile)
 
 
+def SuperGaussian(
+    x: list[float] | NDArray[np.floating],
+    x0: float = 0,
+    sigma: float | None = None,
+    FWHM: float | None = None,
+    n: int = 2,
+) -> NDArray[np.floating]:
+    """
+    Generate a simple Super-Gaussian distribution
+    """
+
+    if sigma is None and FWHM is None:
+        raise ValueError("You must specify either sigma or FWHM.")
+
+    if FWHM is not None:
+        assert sigma is None, "You cannot specify both sigma and FWHM."
+        sigma: float = FWHM / (2 * np.sqrt(2 * np.log(2)))
+
+    if isinstance(x, list):
+        x: NDArray[np.floating] = np.array(list)
+
+    assert isinstance(sigma, float | int)
+
+    profile: NDArray = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(
+        -(1 / 2) * ((x - x0) / sigma) ** (2 * n)
+    )
+
+    return profile / np.nanmax(profile)
+
+
 def Lorentzian(
     x: list[float] | NDArray[np.floating],
     x0: float = 0,
