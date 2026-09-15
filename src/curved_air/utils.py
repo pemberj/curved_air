@@ -767,16 +767,32 @@ def st_quantity_input(
 
 def plot_distributions() -> None:
 
-    xs = np.linspace(-10, 10, 300)
+    xs: NDArray = np.linspace(-4, 4, 300)
 
     # Use TkAgg backend for non-interactive plotting
     plt.switch_backend("TkAgg")
 
-    fig = plt.figure()
-    ax = fig.gca()
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
+
+    ax.axhline(0.5, color="black", ls="--", alpha=0.5)
 
     ax.plot(xs, Gaussian(xs, x0=0, FWHM=1), label="Gaussian")
     ax.plot(xs, Lorentzian(xs, x0=0, FWHM=1), label="Lorentzian")
+
+    ax.plot(xs, SuperGaussian(xs, x0=0, FWHM=1, n=2), label="Super-Gaussian, n=2")
+
+    ax.plot(
+        xs,
+        Voigt(xs, x0=0, FWHM=1, sigma=0.5, gamma=0.5),
+        label="Voigt, sigma=0.5, gamma=0.5",
+    )
+
+    ax.plot(
+        xs,
+        PseudoVoigt(xs, x0=0, FWHM=1, sigma=0.5, gamma=0.5),
+        label="Pseudo-Voigt, sigma=0.5, gamma=0.5",
+    )
 
     for beta in [2, 4.765]:
         ax.plot(xs, Moffat(xs, x0=0, FWHM=1, beta=beta), label=f"Moffat, beta={beta}")
