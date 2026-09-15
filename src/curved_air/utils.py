@@ -355,14 +355,24 @@ def FWHM(
 def Gaussian(
     x: list[float] | NDArray[np.floating],
     x0: float = 0,
-    sigma: float = 1,
+    sigma: float | None = 1,
+    FWHM: float | None = None,
 ) -> NDArray[np.floating]:
     """
     Generate a simple Gaussian distribution
     """
 
+    if sigma is None and FWHM is None:
+        raise ValueError("You must specify either sigma or FWHM.")
+
+    if FWHM is not None:
+        assert sigma is None, "You cannot specify both sigma and FWHM."
+        sigma: float = FWHM / (2 * np.sqrt(2 * np.log(2)))
+
     if isinstance(x, list):
         x: NDArray[np.floating] = np.array(list)
+
+    assert isinstance(sigma, float)
 
     return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(
         -(1 / 2) * ((x - x0) / sigma) ** 2
