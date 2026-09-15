@@ -397,7 +397,11 @@ def SuperGaussian(
 
     if FWHM is not None:
         assert sigma is None, "You cannot specify both sigma and FWHM."
-        sigma: float = FWHM / (2 * np.sqrt(2 * np.log(2)))
+        # For a Super-Gaussian, the half-max condition
+        # exp(-0.5 * (w/sigma)^(2n)) = 0.5 gives w = sigma * (2 ln 2)^(1/(2n)),
+        # so FWHM = 2w -> sigma = FWHM / (2 * (2 ln 2)^(1/(2n))). This reduces to the
+        # standard Gaussian conversion only when n = 1.
+        sigma: float = FWHM / (2 * (2 * np.log(2)) ** (1 / (2 * n)))
 
     if isinstance(x, list):
         x: NDArray[np.floating] = np.array(list)
