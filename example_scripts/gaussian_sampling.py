@@ -14,8 +14,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from numpy.fft import fft, fftshift, ifft  # noqa: F401
 
+from curved_air.distributions import Gaussian1D
 from curved_air.plotting import plot_style
-from curved_air.utils import Gaussian
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -36,7 +36,7 @@ def main() -> None:
 
     grid: NDArray = np.linspace(-10 * sigma, 10 * sigma, 2_000)
 
-    g: NDArray = Gaussian(x=grid, x0=0, sigma=sigma)
+    g: NDArray = Gaussian1D(x=grid, x0=0, sigma=sigma)
     ax1.plot(
         grid / sigma,
         g,
