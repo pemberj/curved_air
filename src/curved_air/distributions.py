@@ -1,9 +1,9 @@
 """
 curved_air
 
-utils
+distributions
 
-This module contains utility functions that are used throughout the curved_air package.
+This module contains 1D and 2D distributions commonly used in optics.
 """
 
 import numpy as np
