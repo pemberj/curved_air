@@ -11,11 +11,12 @@ here.
 """
 
 from dataclasses import dataclass, field
-from typing import overload
+from typing import Literal, overload
 
 import astropy.units as u
 import numpy as np
 from astropy.units import Quantity
+from numpy.typing import NDArray
 from scipy.integrate import quad
 
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
@@ -649,6 +650,52 @@ class SphericalBeam(Beam):
         exponent_2: float = 1j * (k * z)
 
         return constant * (np.exp(exponent_1) * np.exp(-exponent_2))
+
+
+@dataclass
+class BeamProfile:
+    """
+    A class to represent the profile of a beam, including its shape and size.
+    """
+
+    shape: Literal["Top hat", "Flat", "Gaussian", "Moffat"] = "Gaussian"
+    size: ScalarQuantity | tuple[ScalarQuantity, ScalarQuantity] = 10 * u.um
+    parameters: dict = field(default_factory=dict)
+    peak_intensity: float = 1.0
+
+    def __post_init__(self) -> None:
+        if isinstance(self.size, tuple):
+            self.size = tuple(s.to(u.um) for s in self.size)
+        else:
+            self.size = self.size.to(u.um)
+
+        if self.shape == "Moffat" and "beta" not in self.parameters:
+            print(
+                "Moffat profile requires a 'beta' parameter. Setting default beta=4.675."
+            )
+            self.parameters["beta"] = 4.675
+
+    @overload
+    def profile(self, r: ScalarQuantity) -> float: ...
+
+    @overload
+    def profile(self, r: ArrayQuantity) -> NDArray[np.floating]: ...
+
+    def profile(
+        self,
+        r: ScalarQuantity | ArrayQuantity | None = None,
+    ) -> float | NDArray[np.floating]:
+        """
+        Calculate the beam profile at a given radius r.
+        """
+        if self.shape in ["Top hat", "Flat"]:
+            return 1.0 if r is not None and r < self.size else 0.0
+        if self.shape == "Gaussian":
+            return np.exp(-2 * (r / self.size) ** 2) if r is not None else 1.0
+        if self.shape == "Moffat":
+            beta = 2.5  # Example parameter for Moffat profile
+            return (1 + (r / self.size) ** 2) ** (-beta) if r is not None else 1.0
+        raise ValueError(f"Unknown beam shape: {self.shape}")
 
 
 def main() -> None: ...
