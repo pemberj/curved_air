@@ -60,7 +60,10 @@ with st.expander("About this tool", expanded=False):
     - Total loss in dB: $L_{dB} = \\alpha_{dB/km} \\cdot \\ell_{km}$
     - Throughput fraction: $T = 10^{-L_{dB}/10}$
 
-    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember
+    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -92,94 +95,105 @@ with st.container(horizontal_alignment="center"):
         st.stop()
 
 
-cols = st.columns(2)
-
-with cols[0]:
-    # Common inputs
-    length: ScalarQuantity = st_quantity_input(
-        "Fibre length",
-        min_value=0.0,
-        value=50.0,
-        step=1.0,
-        possible_units=["cm", "m", "km"],
-        default_unit="m",
-        key="fibre_length",
-    )
-
-
 if single_multi_mode == "Single value":
-    if conversion_mode == "Relative Transmission -> dB/km":
-        with cols[0]:
-            subcols = st.columns([1, 2])
+    with st.container(horizontal_alignment="center"):  # noqa: SIM117
+        with st.container(width=750):
+            length: ScalarQuantity = st_quantity_input(
+                "Fibre length",
+                min_value=0.0,
+                value=50.0,
+                step=1.0,
+                possible_units=["cm", "m", "km"],
+                default_unit="m",
+                key="fibre_length",
+            )
 
-            with subcols[0]:
-                transmission_mode: str | None = st.segmented_control(
-                    "Interpret transmission value as",
-                    options=["Fraction", "Percent"],
-                    default="Fraction",
-                )
+            if conversion_mode == "Relative Transmission -> dB/km":
+                subcols = st.columns([1, 2])
 
-            with subcols[1]:
-                if transmission_mode == "Percent":
-                    transmission: float = st.number_input(
-                        "Relative Transmission (%)",
+                with subcols[0]:
+                    transmission_mode: str | None = st.segmented_control(
+                        "Interpret transmission value as",
+                        options=["Fraction", "Percent"],
+                        default="Fraction",
+                    )
+
+                with subcols[1]:
+                    if transmission_mode == "Percent":
+                        transmission: float = st.number_input(
+                            "Relative Transmission (%)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=96.6,
+                            step=0.1,
+                            width=200,
+                        )
+                        transmission: float = transmission / 100.0
+                    else:
+                        transmission: float = st.number_input(
+                            "Relative Transmission",
+                            min_value=0.0,
+                            max_value=1.0,
+                            value=0.966,
+                            step=0.0001,
+                            width=200,
+                        )
+
+                total_loss: Quantity = -10.0 * math.log10(transmission) * u.dB
+                attenuation: Quantity = total_loss / length.to(u.km)
+
+                st.divider()
+
+                subcols = st.columns(2)
+
+                with subcols[0]:
+                    st.metric("Total attenuation over length", f"{total_loss:.3g}")
+                with subcols[1]:
+                    st.metric("Equivalent attenuation", f"{attenuation:.3g}")
+
+            else:
+                attenuation = (
+                    st.number_input(
+                        "Attenuation (dB/km)",
                         min_value=0.0,
-                        max_value=100.0,
-                        value=96.6,
+                        value=3.0,
                         step=0.1,
                         width=200,
                     )
-                    transmission: float = transmission / 100.0
-                else:
-                    transmission: float = st.number_input(
-                        "Relative Transmission",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=0.966,
-                        step=0.0001,
-                        width=200,
-                    )
-
-            total_loss: Quantity = -10.0 * math.log10(transmission) * u.dB
-            attenuation: Quantity = total_loss / length.to(u.km)
-
-            subcols = st.columns(2)
-
-            with subcols[0]:
-                st.metric("Total attenuation over length", f"{total_loss:.3g}")
-            with subcols[1]:
-                st.metric("Equivalent attenuation", f"{attenuation:.3g}")
-
-    else:
-        with cols[0]:
-            attenuation = (
-                st.number_input(
-                    "Attenuation (dB/km)",
-                    min_value=0.0,
-                    value=3.0,
-                    step=0.1,
-                    width=200,
+                    * u.dB
+                    / u.km
                 )
-                * u.dB
-                / u.km
-            )
 
-            total_loss: Quantity = (attenuation * length.to(u.km)).to(u.dB)
-            transmission_fraction: float = 10 ** (-total_loss.value / 10.0)
-            transmission_percent: float = 100 * transmission_fraction
+                total_loss: Quantity = (attenuation * length.to(u.km)).to(u.dB)
+                transmission_fraction: float = 10 ** (-total_loss.value / 10.0)
+                transmission_percent: float = 100 * transmission_fraction
 
-            subcols = st.columns(3)
+                st.divider()
 
-            with subcols[0]:
-                st.metric("Total attenuation over length", f"{total_loss:.4g}")
-            with subcols[1]:
-                st.metric("Relative Transmission", f"{transmission_fraction:.5g}")
-            with subcols[2]:
-                st.metric("Relative Transmission", f"{transmission_percent:.4g}%")
+                subcols = st.columns(3)
+
+                with subcols[0]:
+                    st.metric("Total attenuation over length", f"{total_loss:.4g}")
+                with subcols[1]:
+                    st.metric("Relative Transmission", f"{transmission_fraction:.5g}")
+                with subcols[2]:
+                    st.metric("Relative Transmission", f"{transmission_percent:.4g}%")
 
 
 elif single_multi_mode == "Multi-value (CSV)":
+    cols = st.columns(2)
+
     with cols[0]:
+        length: ScalarQuantity = st_quantity_input(
+            "Fibre length",
+            min_value=0.0,
+            value=50.0,
+            step=1.0,
+            possible_units=["cm", "m", "km"],
+            default_unit="m",
+            key="fibre_length",
+        )
+
         st.subheader("Paste CSV Data")
 
         if conversion_mode == "dB/km -> Relative Transmission":
