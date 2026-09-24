@@ -105,7 +105,9 @@ with cols[0]:
 
         # For paraxial rays in air: NA~1/(2 f/#)
         numerical_aperture: float = 1 / (2 * f_number)
-        half_cone_angle: ScalarQuantity = np.arcsin(numerical_aperture) * u.rad
+        half_cone_angle: ScalarQuantity = (np.arcsin(numerical_aperture) * u.rad).to(
+            u.deg
+        )
 
     else:
         numerical_aperture: float = st.number_input(
@@ -118,7 +120,9 @@ with cols[0]:
             width=200,
             key="numerical_aperture",
         )
-        half_cone_angle = np.arcsin(numerical_aperture) * u.rad
+        half_cone_angle: ScalarQuantity = (np.arcsin(numerical_aperture) * u.rad).to(
+            u.deg
+        )
 
     assert isinstance(half_cone_angle, ScalarQuantity)
 
@@ -150,7 +154,7 @@ with cols[0]:
     with subcols[0]:
         st.metric("Numerical aperture NA", f"{numerical_aperture:.4g}")
     with subcols[1]:
-        st.metric("Focal ratio f/# (in air)", f"{f_number:.4g}")
+        st.metric("Focal ratio f/# (in air)", f"{f_number:,.5g}")
 
     st.subheader("Étendue", anchor=False)
 
@@ -183,7 +187,7 @@ with cols[0]:
         area: ScalarQuantity = np.pi * (diameter / 2) ** 2
 
     if area is not None:
-        etendue: ScalarQuantity = area * solid_angle
+        etendue: ScalarQuantity = area * solid_angle.to(u.sr)
 
         subcols = st.columns(2)
 
@@ -192,17 +196,17 @@ with cols[0]:
         with subcols[1]:
             st.metric(
                 "Etendue G = A·Ω",
-                f"{etendue.to(u.m**2 * u.sr).value:.4g} {u.m**2 * u.sr:latex_inline}",
+                f"{etendue.to(area.unit * u.sr).value:.4g} {area.unit * u.sr:latex_inline}",
             )
 
     line: dict[str, str] = {
-        "Half cone angle": f"{half_cone_angle:.5g}",
-        "Full cone angle": f"{full_cone_angle:.5g}",
+        "Half cone angle": f"{half_cone_angle.to(u.deg):.5g}",
+        "Full cone angle": f"{full_cone_angle.to(u.deg):.5g}",
         "NA": f"{numerical_aperture:.5g}",
         "f/#": f"{f_number:,.5g}",
         "Solid angle": f"{solid_angle:.5g}",
         "Area": f"{area:.5g}" if area is not None else "--",
-        "Étendue": f"{etendue.to(u.m**2 * u.sr):.5g}" if area is not None else "--",
+        "Étendue": f"{etendue:.5g}" if area is not None else "--",
     }
 
     if "table" not in st.session_state:
@@ -218,23 +222,24 @@ with cols[0]:
     df = pd.DataFrame(data=st.session_state["table"])
 
 with cols[1]:
-    if not df.empty:
-        st.dataframe(df, hide_index=True, width="stretch", height=650)
+    st.dataframe(df, hide_index=True, width="stretch", height=650)
 
-        subcols = st.columns(2)
+    subcols = st.columns(2)
 
-        with subcols[0], st.container(horizontal_alignment="center"):
-            st.button(
-                "Clear table",
-                on_click=lambda: st.session_state.pop("table", None),
-                type="secondary",
-                help="Clear all surface data. This cannot be undone.",
-            )
+    with subcols[0], st.container(horizontal_alignment="center"):
+        st.button(
+            "Clear table",
+            on_click=lambda: st.session_state.pop("table", None),
+            type="secondary",
+            disabled=df.empty,
+            help="Clear all surface data. This cannot be undone.",
+        )
 
-        with subcols[1], st.container(horizontal_alignment="center"):
-            st.download_button(
-                "Download table as CSV",
-                data=df.to_csv(index=False).encode("utf-8"),
-                file_name="surface_tolerances.csv",
-                mime="text/csv",
-            )
+    with subcols[1], st.container(horizontal_alignment="center"):
+        st.download_button(
+            "Download table as CSV",
+            data=df.to_csv(index=False).encode("utf-8"),
+            file_name="surface_tolerances.csv",
+            disabled=df.empty,
+            mime="text/csv",
+        )
