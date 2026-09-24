@@ -102,14 +102,30 @@ class SurfaceTolerance:
 
     @property
     def sagitta_delta(self) -> ScalarQuantity:
-        if self.fringes is not None:
-            return abs(self.fringes) * self.wavelength / 2
-        if self.positive_tolerance is not None and self.negative_tolerance is not None:
-            return max(
-                abs(self.nominal_sagitta - self.steeper_sagitta),
-                abs(self.nominal_sagitta - self.flatter_sagitta),
-            )
-        raise ValueError("Unable to calculate sagitta delta. Please check your inputs.")
+        return max(
+            abs(self.nominal_sagitta - self.steeper_sagitta),
+            abs(self.nominal_sagitta - self.flatter_sagitta),
+        ).to(self.nominal_sagitta.unit)
+
+    @property
+    def sagitta_tolerance(self) -> tuple[ScalarQuantity, ScalarQuantity]:
+
+        match self.nominal_sagitta.unit.__str__():
+            case "um":
+                unit = u.nm
+            case "mm" | "cm":
+                unit = u.um
+            case "m":
+                unit = u.mm
+            case _:
+                print(f"{self.nominal_sagitta.unit.__str__() = }")
+                print(f"{self.nominal_sagitta.unit = }")
+                unit = self.nominal_sagitta.unit
+
+        return (
+            (self.nominal_sagitta - self.steeper_sagitta).to(unit),
+            (self.nominal_sagitta - self.flatter_sagitta).to(unit),
+        )
 
     def __dict__(self) -> dict[str, ScalarQuantity | float | None]:
         return {
