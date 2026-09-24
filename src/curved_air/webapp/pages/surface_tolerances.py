@@ -183,23 +183,24 @@ with cols[0]:
     )
 
 with cols[1]:
-    if not df.empty:
-        st.dataframe(df, hide_index=True, width="stretch", height=600)
+    st.dataframe(df, hide_index=True, width="stretch", height=600)
 
-        subcols = st.columns(2)
+    subcols = st.columns(2)
 
-        with subcols[0], st.container(horizontal_alignment="center"):
-            st.button(
-                "Clear table",
-                on_click=lambda: st.session_state.pop("surfaces", None),
-                type="secondary",
-                help="Clear all surface data. This cannot be undone.",
-            )
+    with subcols[0], st.container(horizontal_alignment="center"):
+        st.button(
+            "Clear table",
+            on_click=lambda: st.session_state.pop("surfaces", None),
+            type="secondary",
+            disabled=df.empty,
+            help="Clear all surface data. This cannot be undone.",
+        )
 
-        with subcols[1], st.container(horizontal_alignment="center"):
-            st.download_button(
-                "Download table as CSV",
-                data=df.to_csv(index=False).encode("utf-8"),
-                file_name="surface_tolerances.csv",
-                mime="text/csv",
-            )
+    with subcols[1], st.container(horizontal_alignment="center"):
+        st.download_button(
+            "Download table as CSV",
+            data=df.to_csv(index=False).encode("utf-8"),
+            file_name="surface_tolerances.csv",
+            disabled=df.empty,
+            mime="text/csv",
+        )
