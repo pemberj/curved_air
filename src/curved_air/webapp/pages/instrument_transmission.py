@@ -37,10 +37,121 @@ if not st.session_state.get("transmission_list", None):
     )
 
 
+def show_item_controls(index: int) -> None:
+    """Show the relevant controls for a Transmision item"""
+
+    match st.session_state.transmission_list[index]:
+        case FlatTransmission():
+            t = st.session_state.transmission_list[index]
+            st.text_input(
+                "Name",
+                value=t.name,
+                key=f"edit_flat_name_{index}",
+            )
+
+            st.number_input(
+                "Flat fractional transmission value",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(t.transmission),
+                step=0.01,
+                key=f"edit_flat_value_{index}",
+            )
+
+            if st.button("Apply changes", key=f"apply_flat_{index}"):
+                t.name = st.session_state[f"edit_flat_name_{index}"]
+                t.transmission = st.session_state[f"edit_flat_value_{index}"]
+                t.transmissions = [t.transmission]
+                st.rerun()
+
+        case None:
+            st.info("No editable parameters for `None` entries.")
+
+        case EchelleGrating():
+            g = st.session_state.transmission_list[index]
+            st.number_input(
+                "Groove frequency (g/mm)",
+                min_value=0.01,
+                value=float(g.groove_frequency.to(u.mm**-1).value),
+                step=0.1,
+                key=f"edit_echelle_gf_{index}",
+            )
+            st.number_input(
+                "Blaze angle (degrees)",
+                min_value=0.0,
+                max_value=89.0,
+                value=float(g.blaze_angle.to(u.deg).value),
+                step=0.1,
+                key=f"edit_echelle_blaze_{index}",
+            )
+            st.number_input(
+                "Ruled width (mm)",
+                min_value=0.01,
+                value=float(g.ruled_width.to(u.mm).value),
+                step=0.1,
+                key=f"edit_echelle_width_{index}",
+            )
+            st.number_input(
+                "Gamma angle (degrees)",
+                min_value=0.0,
+                value=float(g.gamma_angle.to(u.deg).value),
+                step=0.1,
+                key=f"edit_echelle_gamma_{index}",
+            )
+            st.number_input(
+                "Peak efficiency",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(g.peak_efficiency),
+                step=0.01,
+                key=f"edit_echelle_peak_efficiency_{index}",
+            )
+
+            if st.button("Apply changes", key=f"apply_echelle_{index}"):
+                st.session_state.transmission_list[index] = EchelleGrating(
+                    groove_frequency=st.session_state[f"edit_echelle_gf_{index}"]
+                    / u.mm,
+                    blaze_angle=st.session_state[f"edit_echelle_blaze_{index}"] * u.deg,
+                    ruled_width=st.session_state[f"edit_echelle_width_{index}"] * u.mm,
+                    gamma_angle=st.session_state[f"edit_echelle_gamma_{index}"] * u.deg,
+                    peak_efficiency=st.session_state[
+                        f"edit_echelle_peak_efficiency_{index}"
+                    ],
+                )
+                st.rerun()
+
+        case Transmission():
+            t = st.session_state.transmission_list[index]
+            st.text_input(
+                "Name",
+                value=t.name,
+                key=f"edit_name_{index}",
+            )
+            st.number_input(
+                "Multiply transmission by factor",
+                min_value=0.0,
+                value=1.0,
+                step=0.01,
+                key=f"edit_scale_{index}",
+                help=(
+                    "Scales the current transmission values. Use 1.0 to keep unchanged."
+                ),
+            )
+
+            if st.button("Apply changes", key=f"apply_generic_{index}"):
+                t.name = st.session_state[f"edit_name_{index}"]
+                scale: float = st.session_state[f"edit_scale_{index}"]
+                if not np.isclose(scale, 1.0):
+                    t.transmissions = np.clip(
+                        np.asarray(t.transmissions) * scale,
+                        0.0,
+                        1.0,
+                    )
+                st.rerun()
+
+
 def display_list() -> None:
-    """
-    Show and manage the list of transmission curves.
-    """
+    """Show and manage the list of transmission curves"""
 
     def _move_item(index: int, direction: int) -> None:
         new_index: int = index + direction
@@ -79,11 +190,7 @@ def display_list() -> None:
         with controls_column:
             controls = st.columns([1, 1, 2])
             with controls[0]:
-                if st.button(
-                    "↑",
-                    key=f"move_up_{i}",
-                    disabled=(i == 0),
-                ):
+                if st.button("↑", key=f"move_up_{i}", disabled=(i == 0)):
                     _move_item(i, -1)
                     st.rerun()
 
@@ -97,122 +204,12 @@ def display_list() -> None:
                     st.rerun()
 
             with controls[2]:
-                if st.button(
-                    "Delete",
-                    key=f"delete_{i}",
-                    type="tertiary",
-                ):
+                if st.button("Delete", key=f"delete_{i}", type="tertiary"):
                     _delete_item(i)
                     st.rerun()
 
         with main_column, st.expander(title, expanded=False):
-            if t is None:
-                st.info("No editable parameters for `None` entries.")
-                continue
-
-            if isinstance(t, FlatTransmission):
-                st.text_input(
-                    "Name",
-                    value=t.name,
-                    key=f"edit_flat_name_{i}",
-                )
-
-                st.number_input(
-                    "Flat fractional transmission value",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=float(t.transmission),
-                    step=0.01,
-                    key=f"edit_flat_value_{i}",
-                )
-
-                if st.button("Apply changes", key=f"apply_flat_{i}"):
-                    t.name = st.session_state[f"edit_flat_name_{i}"]
-                    t.transmission = st.session_state[f"edit_flat_value_{i}"]
-                    t.transmissions = [t.transmission]
-                    st.rerun()
-
-            elif isinstance(t, EchelleGrating):
-                st.number_input(
-                    "Groove frequency (g/mm)",
-                    min_value=0.01,
-                    value=float(t.groove_frequency.to(u.mm**-1).value),
-                    step=0.1,
-                    key=f"edit_echelle_gf_{i}",
-                )
-                st.number_input(
-                    "Blaze angle (degrees)",
-                    min_value=0.0,
-                    max_value=89.0,
-                    value=float(t.blaze_angle.to(u.deg).value),
-                    step=0.1,
-                    key=f"edit_echelle_blaze_{i}",
-                )
-                st.number_input(
-                    "Ruled width (mm)",
-                    min_value=0.01,
-                    value=float(t.ruled_width.to(u.mm).value),
-                    step=0.1,
-                    key=f"edit_echelle_width_{i}",
-                )
-                st.number_input(
-                    "Gamma angle (degrees)",
-                    min_value=0.0,
-                    value=float(t.gamma_angle.to(u.deg).value),
-                    step=0.1,
-                    key=f"edit_echelle_gamma_{i}",
-                )
-                st.number_input(
-                    "Peak efficiency",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=float(t.peak_efficiency),
-                    step=0.01,
-                    key=f"edit_echelle_peak_efficiency_{i}",
-                )
-
-                if st.button("Apply changes", key=f"apply_echelle_{i}"):
-                    st.session_state.transmission_list[i] = EchelleGrating(
-                        groove_frequency=st.session_state[f"edit_echelle_gf_{i}"]
-                        / u.mm,
-                        blaze_angle=st.session_state[f"edit_echelle_blaze_{i}"] * u.deg,
-                        ruled_width=st.session_state[f"edit_echelle_width_{i}"] * u.mm,
-                        gamma_angle=st.session_state[f"edit_echelle_gamma_{i}"] * u.deg,
-                        peak_efficiency=st.session_state[
-                            f"edit_echelle_peak_efficiency_{i}"
-                        ],
-                    )
-                    st.rerun()
-
-            else:
-                assert isinstance(t, Transmission)
-                st.text_input(
-                    "Name",
-                    value=t.name,
-                    key=f"edit_name_{i}",
-                )
-                st.number_input(
-                    "Multiply transmission by factor",
-                    min_value=0.0,
-                    value=1.0,
-                    step=0.01,
-                    key=f"edit_scale_{i}",
-                    help=(
-                        "Scales the current transmission values. "
-                        "Use 1.0 to keep unchanged."
-                    ),
-                )
-
-                if st.button("Apply changes", key=f"apply_generic_{i}"):
-                    t.name = st.session_state[f"edit_name_{i}"]
-                    scale: float = st.session_state[f"edit_scale_{i}"]
-                    if not np.isclose(scale, 1.0):
-                        t.transmissions = np.clip(
-                            np.asarray(t.transmissions) * scale,
-                            0.0,
-                            1.0,
-                        )
-                    st.rerun()
+            show_item_controls(i)
 
 
 def add_flat_transmission() -> None:
