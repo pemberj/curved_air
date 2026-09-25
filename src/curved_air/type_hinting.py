@@ -1,6 +1,4 @@
-from typing import TypeAlias
-
 from astropy.units import Quantity
 
-ScalarQuantity: TypeAlias = Quantity
-ArrayQuantity: TypeAlias = Quantity
+type ScalarQuantity = Quantity
+type ArrayQuantity = Quantity

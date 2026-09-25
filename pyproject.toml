@@ -11,7 +11,7 @@ keywords = [
     "refractive index",
 ]
 authors = [{ name = "Jake Pember", email = "jake.pember@kuleuven.be" }]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "astropy>=7.2.0",
     "matplotlib>=3.10.9",
