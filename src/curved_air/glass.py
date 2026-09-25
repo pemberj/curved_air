@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -50,12 +50,12 @@ if TYPE_CHECKING:
 plt.style.use(plot_style)
 
 
-status_dictionary: dict[int, str] = {
-    1: "Standard",
-    2: "Preferred",
+STATUS_DICTIONARY: dict[int, str] = {
+    0: "Standard",
+    1: "Preferred",
+    2: "Obsolete",
     3: "Special",
-    4: "Obsolete",
-    5: "Melt",
+    4: "Melt",
 }
 
 dCF: dict[str, ScalarQuantity] = {
@@ -81,29 +81,62 @@ class Glass:
     glasscode: float = -1.0
     nd: float = -1.0
     vd: float = -1.0
-    status: int = -1  # 1:Standard, 2:Preferred, 3:Special, 4:Obsolete, 5:Melt
+    status: Literal[-1, 0, 1, 2, 3, 4] = -1
     meltfreq: float = -1.0
 
     wlmin: float = -1.0
     wlmax: float = -1.0
 
-    disp_formula_coefficients: list[float] = field(default_factory=list)
-    thermal_disp_coefficients: list[float] = field(default_factory=list)
-
+    # ED - Extra Data
     cte1: float = -1.0  # CTE in range -30C - +70C [1E-6/K]
     cte2: float = -1.0  # CTE in rance +20C - +300C [1E-6/K]
     density: float = -1.0  # [g/cm^3]
     dpgf: float = -1.0  # dPgF
+    ignore_thermal_exp: Literal[0, 1] = 0
 
+    # CD - Coefficient Data
+    disp_formula_coefficients: list[float] = field(default_factory=list)
+
+    # TD - Thermal Data
+    thermal_disp_coefficients: list[float] = field(default_factory=list)
+
+    # TD - Thermal Data
+    D0: float = -1.0
+    D1: float = -1.0
+    D2: float = -1.0
+    E0: float = -1.0
+    E1: float = -1.0
+    Ltk: float = -1.0
+    Temp: float = -1.0
+
+    # MD - Mechanical Data
+    E: float = -1.0  # Young's Modulus in GPa (10^3 N/mm^2)
+    nu: float = -1.0  # Poisson's Ratio
+    HK: float = -1.0  # Knoop Hardness in kgf/mm^2
+    cp: float = -1.0  # Specific Heat Capacity in J/kgK
+    k: float = -1.0  # Heat Conductivity in W/mK
+
+    # OD - Other Data
+    rel_cost: float = -1.0
     CR: float = -1.0  # Climatic resistance: 1(high) - 4(low)
     FR: float = -1.0  # Stain resistance: 0(high) - 5(low)
     SR: float = -1.0  # Acid resistance: 1(high) - 4(low) and 51-53(very low)
     AR: float = -1.0  # Alkali resistance: 1(high) - 4(low)
     PR: float = -1.0  # Phosphate resistance: 1(high) - 4(low)
 
+    # LD - Lambda Data
     wl: list[float] = field(default_factory=list)
+
+    # IT - Internal Transmittance
     IT: list[float] = field(default_factory=list)
     thickness: list[float] = field(default_factory=list)
+
+    # BD - Stress Birefringence Data
+    # BD <lambda> <K> <-K11> <-K12>
+    # Can be many lines
+    # I ignore this for now
+
+    exclude_sub: Literal[0, 1] = 0
 
     comments: str = ""
 
@@ -180,7 +213,7 @@ class Glass:
     @property
     def status_description(self) -> str:
         try:
-            return status_dictionary[self.status]
+            return STATUS_DICTIONARY[self.status]
         except KeyError:
             return "Unknown"
 
@@ -549,13 +582,14 @@ class Glass:
     def to_agf_format(self) -> str:
         try:
             output: str = ""
-            output += f"NM {self.name} {self.formula:.0f} {self.glasscode:.3f} {self.n_d:.5f} {self.V_d:.2f} {self.status:.0f} {self.meltfreq:.0f}\n"
+            output += f"NM {self.name.upper()} {self.formula:.0f} {self.glasscode:.0f} {self.n_d:.6f} {self.V_d:.6f} {self.exclude_sub} {self.status:.0f} {self.meltfreq:.0f}\n"
             output += f"GC {self.comments}\n"
-            output += f"ED {self.cte1:.6f} {self.cte2:.6f} {self.density:.6f} {self.dpgf:.6f}\n"
+            output += f"ED {self.cte1:.9E} {self.cte2:.9E} {self.density:.9E} {self.dpgf:.9E} {self.ignore_thermal_exp}\n"
             output += f"CD {' '.join([f'{c:.9E}' for c in self.disp_formula_coefficients if c is not None])}\n"
             output += f"TD {' '.join([f'{c:.9E}' for c in self.thermal_disp_coefficients if c is not None])}\n"
-            output += f"OD {self.CR:.4f} {self.FR:.4f} {self.SR:.4f} {self.AR:.4f} {self.PR:.4f}\n"
-            output += f"LD {self.wlmin:.5E} {self.wlmax:.5E}\n"
+            output += f"MD {self.E:.5E} {self.nu:.5E} {self.HK:.5E} {self.cp:.5E} {self.k:.5E}\n"
+            output += f"OD {self.rel_cost:.5f} {self.CR:.5f} {self.FR:.5f} {self.SR:.5f} {self.AR:.5f} {self.PR:.5f}\n"
+            output += f"LD {self.wlmin:.8E} {self.wlmax:.8E}\n"
             for wl, it, thickness in zip(
                 self.wl, self.IT, self.thickness, strict=False
             ):
@@ -581,16 +615,6 @@ class Glass:
 
     def __str__(self) -> str:
         return self.name
-        # return f"Original file: {self.original_file}\n"\
-        #      + f"Glass: {self.name}\n"\
-        #      + f"n_d = {self.nd}\n"\
-        #      + f"V_d = {self.vd}\n"\
-        #      + f"Status: {self.status}: {self.status_description}\n"\
-        #      + "-"*20
-
-    # def __repr__(self) -> str:
-    #     return "Glass("
-    #            ""
 
 
 @dataclass
@@ -807,6 +831,8 @@ class GlassCatalogue(dict):
                     except ValueError:
                         g.generate_glasscode()
 
+                    # data[6] is the "Exclude substitution" flag, which I ignore
+
                     if len(data) >= 8:  # noqa: PLR2004
                         try:
                             _status = float(data[7])
@@ -866,6 +892,7 @@ class GlassCatalogue(dict):
                     continue
 
                 elif data[0] == "TD":
+                    # TD <D0> <D1> <D2> <E0> <E1> <Ltk> <Temp>
                     try:
                         # Ignoring empty strings - may need to change?
                         # Or at least check the length of the list if computing
@@ -881,6 +908,43 @@ class GlassCatalogue(dict):
                         ...
 
                     continue
+
+                # MD <E> <nu> <HK> <cp> <k>
+                elif data[0] == "MD":
+                    try:
+                        g.E = float(data[1])
+                        if debug_level >= 1:
+                            print(f"E: {g.E}")
+                    except ValueError:
+                        ...
+
+                    try:
+                        g.nu = float(data[2])
+                        if debug_level >= 1:
+                            print(f"nu: {g.nu}")
+                    except ValueError:
+                        ...
+
+                    try:
+                        g.HK = float(data[3])
+                        if debug_level >= 1:
+                            print(f"HK: {g.HK}")
+                    except ValueError:
+                        ...
+
+                    try:
+                        g.cp = float(data[4])
+                        if debug_level >= 1:
+                            print(f"cp: {g.cp}")
+                    except ValueError:
+                        ...
+
+                    try:
+                        g.k = float(data[5])
+                        if debug_level >= 1:
+                            print(f"k: {g.k}")
+                    except ValueError:
+                        ...
 
                 elif data[0] == "ED":
                     try:
@@ -914,7 +978,13 @@ class GlassCatalogue(dict):
                     continue
 
                 elif data[0] == "OD":
-                    # ? = data[1]
+                    try:
+                        g.rel_cost = float(data[1])
+                        if debug_level >= 1:
+                            print(f"rel_cost: {g.rel_cost}")
+                    except ValueError:
+                        ...
+
                     if len(data) > 2:  # noqa: PLR2004
                         try:
                             g.CR = float(data[2])
@@ -1019,6 +1089,8 @@ class GlassCatalogue(dict):
             print("No target filename specified. Printing raw output...")
             if comment:
                 print(f"CC {comment}")
+            else:
+                print("CC ")
             for _, glass in self.items():
                 print(glass.to_agf_format(), end="")
             return self
@@ -1028,6 +1100,8 @@ class GlassCatalogue(dict):
             print(f"Writing to {filename}...")
             if comment:
                 f.write(f"CC {comment}\n")
+            else:
+                f.write("CC \n")
             for _, glass in self.items():
                 f.write(glass.to_agf_format())
 
@@ -1573,6 +1647,21 @@ def rii_dispersion_formula_number(AGF_formula_number: int) -> int:
     """
     Converts between AGF formula numbers and refractiveindex.INFO formula
     numbers. The two systems use different conventions for numbering.
+
+    AGF spec:
+        1: Schott
+        2: Sellmeier 1
+        3: Herzberger
+        4: Sellmeier 2
+        5: Conrady
+        6: Sellmeier 3
+        7: Handbook of Optics 1
+        8: Handbook of Optics 2
+        9: Sellmeier 4
+        10: Extended
+        11: Sellmeier 5
+        12: Extended 2
+        13: Extended 3
     """
 
     if AGF_formula_number in [1, 11, 12, 13]:
@@ -1595,6 +1684,21 @@ def rii_dispersion_coefficients(
     """
     Adapted from the refractiveindex.INFO database-generation scripts. I follow
     the same conventions in formula numbering as that database.
+
+    AGF spec:
+        1: Schott
+        2: Sellmeier 1
+        3: Herzberger
+        4: Sellmeier 2
+        5: Conrady
+        6: Sellmeier 3
+        7: Handbook of Optics 1
+        8: Handbook of Optics 2
+        9: Sellmeier 4
+        10: Extended
+        11: Sellmeier 5
+        12: Extended 2
+        13: Extended 3
     """
 
     if AGF_formula_number == 1:  # AGF formula number
