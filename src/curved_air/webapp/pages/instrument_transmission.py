@@ -11,19 +11,21 @@ from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style
 from curved_air.transmission import (
     MARVEL_TRANSMISSION,
+    CSVTransmission,
+    FileTransmission,
     FlatTransmission,
     Transmission,
-    from_file,
-    mirror,
+    ZemaxMultiTransmission,
+    ZemaxTransmission,
     total_transmission,
     transmission_plot,
     # total_transmission,
-    zemax,
-    zemax_multi,
 )
 from curved_air.utils import richardson_gratings, st_quantity_input
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from curved_air.type_hinting import ScalarQuantity
 
 plt.style.use(plot_style)
@@ -59,9 +61,9 @@ def show_item_controls(index: int) -> None:
             )
 
             if st.button("Apply changes", key=f"apply_flat_{index}"):
-                t.name = st.session_state[f"edit_flat_name_{index}"]
-                t.transmission = st.session_state[f"edit_flat_value_{index}"]
-                t.transmissions = [t.transmission]
+                t.name: str = st.session_state[f"edit_flat_name_{index}"]
+                t.transmission: float = st.session_state[f"edit_flat_value_{index}"]
+                t._transmissions: NDArray[np.floating] = np.array([t.transmission])
                 st.rerun()
 
         case None:
@@ -173,6 +175,7 @@ def display_list() -> None:
         return
 
     st.write("Transmission curves:")
+
     for i, t in enumerate(st.session_state.transmission_list):
         title: str
 
@@ -208,7 +211,7 @@ def display_list() -> None:
                     _delete_item(i)
                     st.rerun()
 
-        with main_column, st.expander(title, expanded=False):
+        with main_column, st.popover(title, width="stretch"):
             show_item_controls(i)
 
 
@@ -273,12 +276,11 @@ def add_mirror_reflectivity() -> None:
     st.button(
         "Add to list",
         on_click=lambda: st.session_state.transmission_list.append(
-            mirror(
+            CSVTransmission(
                 name=st.session_state.mirror_reflectivity_name,
-                file=st.session_state.reflectivity_file,
-                num_reflections=st.session_state.number_of_reflections,
+                num_passes=st.session_state.number_of_reflections,
                 scale_factor=st.session_state.mirror_reflectivity_scale_factor,
-            )
+            ).load_file(file=st.session_state.reflectivity_file)
         ),
         type="primary",
     )
@@ -313,10 +315,11 @@ def add_zemax_single_config() -> None:
     st.button(
         "Add to list",
         on_click=lambda: st.session_state.transmission_list.append(
-            zemax(
+            ZemaxTransmission(
                 name=st.session_state.zemax_single_config_name,
-                file=st.session_state.zemax_single_config_file,
                 scale_factor=st.session_state.zemax_single_config_scale_factor,
+            ).load_file(
+                file=st.session_state.zemax_single_config_file,
             )
         ),
         type="primary",
@@ -354,10 +357,11 @@ def add_zemax_multi_config() -> None:
     st.button(
         "Add to list",
         on_click=lambda: st.session_state.transmission_list.append(
-            zemax_multi(
+            ZemaxMultiTransmission(
                 name=st.session_state.zemax_multi_config_name,
-                files=[st.session_state.zemax_multi_config_file],
                 scale_factor=st.session_state.zemax_multi_config_scale_factor,
+            ).load_file(
+                files=[st.session_state.zemax_multi_config_file],
             )
         ),
     )
@@ -392,8 +396,9 @@ def add_fibre_transmission() -> None:
     st.button(
         "Add to list",
         on_click=lambda: st.session_state.transmission_list.append(
-            from_file(
+            FileTransmission(
                 name=st.session_state.fibre_transmission_name,
+            ).load_file(
                 file=st.session_state.fibre_transmission_file,
                 wavelength_unit=u.nm,
             )
@@ -423,8 +428,9 @@ def add_detector_qe() -> None:
     st.button(
         "Add to list",
         on_click=lambda: st.session_state.transmission_list.append(
-            from_file(
+            FileTransmission(
                 name=st.session_state.detector_qe_name,
+            ).load_file(
                 file=st.session_state.detector_qe_file,
                 wavelength_unit=u.nm,
             )
@@ -634,12 +640,15 @@ def main() -> None:
         wavelength. The total transmission, the product of all transmission curves,
         can be downloaded as a CSV file for further analysis or use in other tools.
 
-        All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+        All code is written by Jake Pember
+        :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+        :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+        :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
         Please get in contact if you have any questions, suggestions, or find any bugs!
 
-        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
-        useful and want to support its development!
+        You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this
+        tool useful and want to support its development!
         """
 
         st.iframe(
@@ -702,15 +711,15 @@ Note: Echelle grating blaze functions are not included in the exported data."""
 
 
 def test() -> None:
-    Telescope: Transmission = mirror(
-        file=next(iter(DATA_PATH.glob("ASA_Protected_Enhanced_Aluminium.csv"))),
+    Telescope: Transmission = CSVTransmission(
         name="Telescope mirrors (ASA)",
-        num_reflections=3,
-    )
+        num_passes=3,
+    ).load_file(file=next(iter(DATA_PATH.glob("ASA_Protected_Enhanced_Aluminium.csv"))))
 
-    Frontend: Transmission = zemax(
-        file=DATA_PATH / "example_zemax" / "frontend.txt",
+    Frontend: Transmission = ZemaxTransmission(
         name="Frontend optics (incl. 5% split for guiding)",
+    ).load_file(
+        file=DATA_PATH / "example_zemax" / "frontend.txt",
     )
 
     FibreAperture: Transmission = FlatTransmission(
@@ -719,8 +728,8 @@ def test() -> None:
 
     Fibre: Transmission = Transmission(
         name="Fibre transmission & coupling from\ncircular to octagonal fibre",
-        wavelengths=np.array([390, 400, 500, 700, 920]) * u.nm,
-        transmissions=np.array(
+        _wavelengths=np.array([390, 400, 500, 700, 920]) * u.nm,
+        _transmissions=np.array(
             [
                 0.91 ** (15 / 10) * 0.92,
                 0.920 ** (15 / 10) * 0.92,
@@ -733,13 +742,15 @@ def test() -> None:
 
     Slicer = FlatTransmission(name="Slicer/double scrambler", transmission=0.9)
 
-    Spectrograph: Transmission = zemax_multi(
-        files=list((DATA_PATH / "example_zemax_multi").glob("c[123456789].txt")),
+    Spectrograph: Transmission = ZemaxMultiTransmission(
         name="Spectrograph, excluding echelle",
+    ).load_file(
+        files=list((DATA_PATH / "example_zemax_multi").glob("c[123456789].txt")),
     )
 
-    Detector: Transmission = from_file(
+    Detector: Transmission = FileTransmission(
         name="STA1600LN Detector QE",
+    ).load_file(
         file=next(iter(DATA_PATH.glob("STA1600LN*.txt"))),
         wavelength_unit=u.nm,
     )
@@ -758,6 +769,8 @@ def test() -> None:
             blaze_angle=63.5 * u.deg,
             ruled_width=100 * u.mm,
             gamma_angle=0.3 * u.deg,
+            min_wl=370 * u.nm,
+            max_wl=950 * u.nm,
         ),
         None,
     ]

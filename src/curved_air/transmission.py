@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from math import factorial
 from pathlib import Path
+from typing import Literal, Self
 
 import numpy as np
 import pandas as pd
@@ -23,19 +24,47 @@ DATA_PATH: Path = Path(__file__).parent / "transmission_data"
 @dataclass
 class Transmission:
     name: str
-    wavelengths: Quantity = field(default_factory=lambda: [0.55] * u.um)
-    transmissions: list[float] | NDArray = field(default_factory=lambda: [1.0])
+
+    _wavelengths: ArrayQuantity = field(default_factory=lambda: [0.55] * u.um)
+    _transmissions: NDArray[np.floating] = field(
+        default_factory=lambda: np.array([1.0])
+    )
+
+    num_passes: int = 1
+    smooth: bool = True
+    scale_factor: float = 1.0
+
+    _file: Path | None = None
 
     def __post_init__(self) -> None:
-        assert len(self.wavelengths) == len(self.transmissions)
+        assert len(self._wavelengths) == len(self._transmissions)
 
-    #     self.wavelengths = self.wavelengths * 1e-9
-    #     self.transmissions = self.transmissions / 100
+        if isinstance(self._transmissions, list):
+            self._transmissions: NDArray = np.array(self._transmissions)
+
+    @property
+    def wavelengths(self) -> ArrayQuantity:
+        if self.smooth:
+            return savitzky_golay(self._wavelengths.to(u.um).value) * u.um
+        return self._wavelengths
+
+    @property
+    def transmissions(self) -> NDArray[np.floating]:
+        if self.smooth:
+            try:
+                return (
+                    savitzky_golay(self._transmissions) * self.scale_factor
+                ) ** self.num_passes
+            except ValueError:
+                raise Warning(
+                    "Failed to compute smooth transmission with Savitsky-Golay filter"
+                ) from None
+
+        return (self._transmissions * self.scale_factor) ** self.num_passes
 
     def plot(self) -> None:
-        """
-        Plot transmission as a function of wavelength
-        """
+        """Plot transmission as a function of wavelength"""
+
         plt.plot(self.wavelengths, self.transmissions, label=self.name)
         plt.xlabel("Wavelength [microns]")
         plt.ylabel("Transmission [%]")
@@ -52,7 +81,7 @@ class Transmission:
 
     @property
     def peak(self) -> float:
-        return np.max(self.transmissions)
+        return float(np.max(self.transmissions))
 
     @property
     def str_peak(self) -> str:
@@ -62,102 +91,47 @@ class Transmission:
 @dataclass
 class FlatTransmission(Transmission):
     transmission: float = 1.0
+    smooth: Literal[False] = False
 
     def __post_init__(self) -> None:
-        self.transmissions: list[float] = [self.transmission]
+        self._transmissions: NDArray[np.floating] = np.array([self.transmission])
 
     @property
     def str_peak(self) -> str:
         return f"flat {100 * self.transmissions[0]:.3g}%"
 
 
-def mirror(
-    file: Path,
-    name: str,
-    num_reflections: int = 1,
-    scale_factor: float = 1.0,
-    smooth: bool = True,
-) -> Transmission:
-    assert file.exists(), f"File {file} does not exist"
+@dataclass
+class CSVTransmission(Transmission):
+    def load_file(self, file: Path) -> Self:
+        assert file.exists(), f"File {file} does not exist"
 
-    wavelengths, efficiencies = np.transpose(np.genfromtxt(file, delimiter=", "))
+        self._file: Path = file
 
-    wavelengths: Quantity = wavelengths * u.nm
-    efficiencies: np.ndarray = efficiencies**num_reflections
+        wavelengths, efficiencies = np.transpose(np.genfromtxt(file, delimiter=", "))
 
-    if smooth:
-        efficiencies: np.ndarray = savitzky_golay(efficiencies)
+        self._wavelengths: ArrayQuantity = wavelengths * u.nm
+        self._transmissions: NDArray[np.floating] = efficiencies
 
-    return Transmission(
-        name=name,
-        wavelengths=wavelengths.to(u.um),
-        transmissions=efficiencies * scale_factor,
-    )
+        return self
 
 
-def zemax(
-    name: str,
-    file: Path,
-    scale_factor: float = 1.0,
-) -> Transmission:
-    """
-    Load transmission data exported from Zemax, single configuration only.
-    """
-    if file is None:
-        file: Path = next(iter((DATA_PATH / "example_zemax").glob("frontend.txt")))
+@dataclass
+class ZemaxTransmission(Transmission):
+    def load_file(self, file: Path) -> Self:
+        """
+        Load transmission data exported from Zemax, single configuration only.
+        """
 
-    assert file.exists(), f"File {file} does not exist"
+        assert file.exists(), f"File {file} does not exist"
 
-    wavelengths: list[float] = []
-    transmissions: list[float] = []
+        self._file: Path = file
 
-    df: pd.DataFrame = pd.read_csv(
-        file,
-        skiprows=14,
-        delimiter="    ",
-        encoding="utf-16",
-        names=["a", "b", "c"],
-        engine="python",
-    )
+        wavelengths: list[float] = []
+        transmissions: list[float] = []
 
-    wls: list[float] = [i.rstrip(":\t") for i in df["b"][:12].values]
-    trs: list[float] = [i.rstrip(":\t") for i in df["c"][:12].values]
-
-    for wl in wls:
-        wavelengths.append(float(wl))
-    for tr in trs:
-        transmissions.append(float(tr))
-
-    wavelengths: np.ndarray = np.array(wavelengths) * u.um
-    transmissions: np.ndarray = np.array(transmissions)
-
-    return Transmission(
-        name=name,
-        wavelengths=wavelengths,
-        transmissions=transmissions * scale_factor,
-    )
-
-
-def zemax_multi(
-    name: str,
-    files: Path | list[Path],
-    scale_factor: float = 1.0,
-) -> Transmission:
-    if isinstance(files, Path):
-        files: list[Path] = list(files.glob("*.txt"))
-
-    assert isinstance(files, list), "Files must be a list of Paths"
-    for f in files:
-        assert f.exists(), f"File {f} does not exist"
-    assert len(files) > 0, "You must provide at least one file"
-
-    wavelengths: list[float] = []
-    transmissions: list[float] = []
-
-    for f in files:
-        # config_num = int(f[len("./spectrograph/") :].split("c")[1].split(".")[0])
         df: pd.DataFrame = pd.read_csv(
-            f,
+            file,
             skiprows=14,
             delimiter="    ",
             encoding="utf-16",
@@ -165,73 +139,100 @@ def zemax_multi(
             engine="python",
         )
 
-        wls: list[float] = [i.rstrip(":\t") for i in df["b"][:5].values]
-        trs: list[float] = [i.rstrip(":\t") for i in df["c"][:5].values]
+        wls: list[float] = [i.rstrip(":\t") for i in df["b"][:12].values]
+        trs: list[float] = [i.rstrip(":\t") for i in df["c"][:12].values]
 
         for wl in wls:
             wavelengths.append(float(wl))
         for tr in trs:
             transmissions.append(float(tr))
 
-    wavelengths: ArrayQuantity = np.array(wavelengths) * u.um
-    transmissions: NDArray = np.array(transmissions)
+        self._wavelengths: NDArray = np.array(wavelengths) * u.um
+        self._transmissions: NDArray = np.array(transmissions)
 
-    return Transmission(
-        name=name,
-        wavelengths=wavelengths,
-        transmissions=transmissions * scale_factor,
-    )
+        return self
 
 
-def from_file(
-    name: str,
-    file: Path,
-    wavelength_unit: u.Unit = u.nm,
-    scale_factor: float = 1.0,
-) -> Transmission:
-    wavelengths, transmissions = np.transpose(np.genfromtxt(file))
-    wavelengths: Quantity = wavelengths * wavelength_unit
+@dataclass
+class ZemaxMultiTransmission(Transmission):
+    def load_file(self, files: Path | list[Path]) -> Self:
+        """ """
 
-    return Transmission(
-        name=name,
-        wavelengths=wavelengths,
-        transmissions=transmissions * scale_factor,
-    )
+        if isinstance(files, Path):
+            files: list[Path] = list(files.glob("*.txt"))
+
+        assert isinstance(files, list), "Files must be a list of Paths"
+        for f in files:
+            assert f.exists(), f"File {f} does not exist"
+        assert len(files) > 0, "You must provide at least one file"
+
+        wavelengths: list[float] = []
+        transmissions: list[float] = []
+
+        for f in files:
+            # config_num = int(f[len("./spectrograph/") :].split("c")[1].split(".")[0])
+            df: pd.DataFrame = pd.read_csv(
+                f,
+                skiprows=14,
+                delimiter="    ",
+                encoding="utf-16",
+                names=["a", "b", "c"],
+                engine="python",
+            )
+
+            wls: list[float] = [i.rstrip(":\t") for i in df["b"][:5].values]
+            trs: list[float] = [i.rstrip(":\t") for i in df["c"][:5].values]
+
+            for wl in wls:
+                wavelengths.append(float(wl))
+            for tr in trs:
+                transmissions.append(float(tr))
+
+        self._wavelengths: ArrayQuantity = np.array(wavelengths) * u.um
+        self._transmissions: NDArray = np.array(transmissions)
+
+        return self
 
 
-def glass(
-    name: str,
-    wavelengths: ArrayQuantity,
-    glass: Glass,
-    thickness: ScalarQuantity,
-    reference_thickness: ScalarQuantity = 10 * u.mm,
-    scale_factor: float = 1.0,
-) -> Transmission:
-    """
-    Compute the transmission of a glass component, given the glass type and thickness.
-    """
+@dataclass
+class GlassTransmission(Transmission):
+    glass: Glass = field(default_factory=Glass)
+    thickness: ScalarQuantity = 10 * u.um
+    reference_thickness: ScalarQuantity = 10 * u.mm
 
-    transmissions: list[float] = [glass.transmission(wl=wl) for wl in wavelengths]
+    @property
+    def transmission(self) -> NDArray[np.floating]:
+        glass_T: NDArray[np.floating] = np.array(
+            [self.glass.transmission(wl=wl) for wl in self._wavelengths]
+        )
 
-    transmissions: NDArray = (
-        np.array(transmissions) ** (thickness.to(u.mm).value)
-        / reference_thickness.to(u.mm).value
-    )
+        return (
+            np.array(glass_T) ** (self.thickness.to(u.mm).value)
+            / self.reference_thickness.to(u.mm).value
+        )
 
-    return Transmission(
-        name=name,
-        wavelengths=wavelengths,
-        transmissions=transmissions * scale_factor,
-    )
+
+@dataclass
+class FileTransmission(Transmission):
+    def load_file(self, file: Path, wavelength_unit: u.Unit = u.nm) -> Self:
+        """
+        Load transmission data from a generic file
+        """
+
+        wavelengths, transmissions = np.transpose(np.genfromtxt(file))
+        self._wavelengths: Quantity = wavelengths * wavelength_unit
+        self._transmissions: NDArray[np.floating] = transmissions
+
+        return self
 
 
 def savitzky_golay(
-    y: np.ndarray,
+    y: NDArray[np.floating],
     window_size: int = 11,
     order: int = 3,
     deriv: int = 0,
     rate: float = 1,
-) -> np.ndarray:
+) -> NDArray:
     """
     https://stackoverflow.com/questions/22988882/how-to-smooth-a-curve-in-python
     https://en.wikipedia.org/wiki/Savitzky%E2%80%93Golay_filter
@@ -258,6 +259,7 @@ def savitzky_golay(
     firstvals = y[0] - np.abs(y[1 : half_window + 1][::-1] - y[0])
     lastvals = y[-1] + np.abs(y[-half_window - 1 : -1][::-1] - y[-1])
     y = np.concatenate((firstvals, y, lastvals))
+
     return np.convolve(m[::-1], y, mode="valid")
 
 
@@ -414,23 +416,23 @@ def total_transmission(
 
 MARVEL_TRANSMISSION: list[Transmission | EchelleGrating | None] = [
     # Telescope
-    mirror(
-        file=next(iter(DATA_PATH.glob("ASA_Protected_Enhanced_Aluminium.csv"))),
+    CSVTransmission(
         name="Telescope mirrors (ASA)",
-        num_reflections=3,
+        num_passes=3,
+    ).load_file(
+        file=next(iter(DATA_PATH.glob("ASA_Protected_Enhanced_Aluminium.csv")))
     ),
     # Frontend
-    zemax(
-        file=DATA_PATH / "example_zemax" / "frontend.txt",
-        name="Frontend optics (incl. 5% split for guiding)",
+    ZemaxTransmission(name="Frontend optics (incl. 5% split for guiding)").load_file(
+        DATA_PATH / "example_zemax" / "frontend.txt"
     ),
     # FibreAperture
     FlatTransmission(name="Fibre aperture loss", transmission=0.80),
     # Fibre,
     Transmission(
         name="Fibre transmission & coupling from\ncircular to octagonal fibre",
-        wavelengths=np.array([390, 400, 500, 700, 920]) * u.nm,
-        transmissions=np.array(
+        _wavelengths=np.array([390, 400, 500, 700, 920]) * u.nm,
+        _transmissions=np.array(
             [
                 0.91 ** (15 / 10) * 0.92,
                 0.920 ** (15 / 10) * 0.92,
@@ -441,13 +443,11 @@ MARVEL_TRANSMISSION: list[Transmission | EchelleGrating | None] = [
         ),
     ),
     # Spectrograph,
-    zemax_multi(
-        files=list((DATA_PATH / "example_zemax_multi").glob("c[123456789].txt")),
-        name="Spectrograph, excluding echelle",
+    ZemaxMultiTransmission(name="Spectrograph, excluding echelle").load_file(
+        list((DATA_PATH / "example_zemax_multi").glob("c[123456789].txt"))
     ),
     # Detector,
-    from_file(
-        name="STA1600LN Detector QE",
+    FileTransmission(name="STA1600LN Detector QE").load_file(
         file=next(iter(DATA_PATH.glob("STA1600LN*.txt"))),
         wavelength_unit=u.nm,
     ),
@@ -458,7 +458,7 @@ MARVEL_TRANSMISSION: list[Transmission | EchelleGrating | None] = [
         groove_frequency=52.67 / u.mm,
         blaze_angle=69.7 * u.deg,
         gamma_angle=0.3 * u.deg,
-        min_wl=385 * u.nm,
+        min_wl=370 * u.nm,
         max_wl=950 * u.nm,
         peak_efficiency=0.75,
     ),
