@@ -225,7 +225,7 @@ def photon_flux(
     if wavelengths is None:
         np.linspace(380, 950, 100) * u.nm
 
-    assert isinstance(wavelengths, ArrayQuantity)
+    assert isinstance(wavelengths, Quantity)
 
     dlambda = (wavelengths[1].value - wavelengths[0].value) * u.nm
 

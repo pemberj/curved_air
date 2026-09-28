@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from astropy import units as u
+from astropy.units import Quantity
 
 from curved_air.type_hinting import ScalarQuantity
 from curved_air.utils import st_quantity_input
@@ -124,7 +125,7 @@ with cols[0]:
             u.deg
         )
 
-    assert isinstance(half_cone_angle, ScalarQuantity)
+    assert isinstance(half_cone_angle, Quantity)
 
     if half_cone_angle >= 90 * u.deg:
         st.error(
