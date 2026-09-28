@@ -20,10 +20,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from astropy import units as u
+from astropy.units import Quantity
 
 from curved_air.glass import GLASS_CATALOGUES, AGFData, Glass, GlassCatalogue
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex  # noqa: F401
-from curved_air.type_hinting import ScalarQuantity
 from curved_air.utils import st_quantity_input
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-    from curved_air.type_hinting import ArrayQuantity
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 wavelength_options: dict[str, ScalarQuantity | None] = {
     "i": 365.01 * u.nm,
@@ -395,7 +395,7 @@ else:
     V_string = "V_d"
     nV_plot_wavelength: ScalarQuantity = wavelength_options["d"]
 
-assert isinstance(nV_plot_wavelength, ScalarQuantity)
+assert isinstance(nV_plot_wavelength, Quantity)
 
 df: pd.DataFrame = pd.DataFrame(
     data={
