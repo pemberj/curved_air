@@ -26,20 +26,24 @@ def example_three_element_adc() -> tuple[ADC, dict] | None:
 
     adc = ADC(
         prism_stack=PrismStack(
+            # prism_list=[
+            #     Prism(glass=gc["K10"]),
+            #     Prism(glass=gc["S-FPM4"]),
+            #     Prism(glass=gc["S-FPL51"]),
+            # ]
             prism_list=[
-                Prism(glass=gc["K10"]),
-                Prism(glass=gc["S-FPM4"]),
+                Prism(glass=gc["N-BAK1"]),
+                Prism(glass=gc["N-BK7"]),
                 Prism(glass=gc["S-FPL51"]),
             ]
         ),
-        min_wl=380 * u.nm,
-        max_wl=900 * u.nm,
+        min_wl=390 * u.nm,
+        max_wl=950 * u.nm,
         D_telescope=2.2 * u.m,
         D_ADC=15 * u.mm,
         z_max=65 * u.degree,
         criterion="max_abs",  # Can use "RMS", "RSS", "PTV", or "max_abs"
         debug_level=0,
-        wl_0=0.835 * u.um,
     )
 
     # Run optimization
@@ -51,8 +55,6 @@ def example_three_element_adc() -> tuple[ADC, dict] | None:
     if results is None:
         print("Optimization failed!")
         return None
-
-    plt.show()
 
     # Display results
     print("\n" + "=" * 60)
@@ -66,6 +68,8 @@ def example_three_element_adc() -> tuple[ADC, dict] | None:
     print("Residual metrics:")
     print(f"  RMS: {adc.residuals_RMS:.3f}")
     print(f"  PTV: {adc.residuals_PTV:.3f}")
+
+    plt.show()
 
     return adc, results
 
@@ -183,14 +187,18 @@ def example_exhaustive_search() -> ADC | None:
         gc["K10"],
         gc["N-BK7"],
         gc["F2"],
-        gc["S-FSL5"],
+        gc["LLF1"],
+        gc["N-BAK1"],
+        # gc["N-BAK2"],
+        gc["N-FK5"],
+        gc["PBL6Y"],
+        # gc["PBL35Y"],
+        # gc["S-FSL5"],
         gc["S-FPL51"],
-        gc["S-FPL53"],
-        gc["S-FPM2"],
-        gc["S-FPM3"],
+        # gc["S-FPL53"],
         gc["S-FPM4"],
-        gc["S-LAL12"],
-        gc["B270"],
+        # gc["S-LAL12"],
+        gc["S-BAL12"],
     ]
 
     baseline_adc = ADC(
@@ -206,7 +214,7 @@ def example_exhaustive_search() -> ADC | None:
         debug_level=0,
     )
 
-    results = baseline_adc.optimise(plot=False, num_samples=30)
+    results: dict | None = baseline_adc.optimise(plot=False, num_samples=30)
 
     if results is None:
         raise RuntimeError("Baseline ADC optimization failed.")
