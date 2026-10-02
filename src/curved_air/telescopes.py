@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
+from astropy.units import Quantity
 
-from curved_air.type_hinting import ScalarQuantity
+if TYPE_CHECKING:
+    from curved_air.type_hinting import ScalarQuantity
 
 DESIGNS: list[str] = [
     "Newtonian",
@@ -70,12 +73,10 @@ class TelescopeDesign:
                 f"Invalid design: {self.design}. Must be one of {DESIGNS}."
             )
 
-        assert isinstance(self.M1.diameter, ScalarQuantity), (
+        assert isinstance(self.M1.diameter, Quantity), (
             "Primary diameter must be specified."
         )
-        assert isinstance(self.M1.radius, ScalarQuantity), (
-            "Primary radius must be specified."
-        )
+        assert isinstance(self.M1.radius, Quantity), "Primary radius must be specified."
 
         assert self.system_focal_length is not None, (
             "System focal length must be specified."
