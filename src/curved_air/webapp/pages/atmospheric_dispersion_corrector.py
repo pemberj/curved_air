@@ -29,9 +29,42 @@ plt.style.use(plot_style)
 MAX_ELEMENTS: int = 5
 
 
-def _edit_prism(p: Prism) -> Prism:
+def _edit_prism(index: int) -> None:
+    """Edit the glass of the prism at the given index."""
 
-    return p
+    assert "prisms" in st.session_state, "Prisms not initialized in session state."
+
+    assert 0 <= index < len(st.session_state["prisms"]), "Index out of range."
+
+    p: Prism = st.session_state["prisms"][index]
+
+    catalogue: str = st.selectbox(
+        label="Glass catalogue",
+        options=GLASS_CATALOGUES.keys(),
+        index=list(GLASS_CATALOGUES.keys()).index(p.glass.manufacturer)
+        if p.glass.manufacturer in GLASS_CATALOGUES
+        else 0,
+        persist_state="page",
+        key=f"glass_catalogue_{index + 1}",
+    )
+
+    try:
+        glasses = GlassCatalogue(catalogue)
+        glass_names: list[str] = sorted(glasses.keys())
+    except Exception:
+        st.error(f"Could not load {catalogue} glass catalogue.")
+
+    glass: str = st.selectbox(
+        label="Glass",
+        options=glass_names,
+        index=glass_names.index(p.glass.name) if p.glass.name in glass_names else 0,
+        persist_state="page",
+        key=f"glass_{index + 1}",
+    )
+
+    glass: Glass = glasses[glass]
+
+    st.session_state["prisms"][index].glass = glass
 
 
 st.header("Atmospheric Dispersion Corrector", anchor=False)
@@ -92,39 +125,11 @@ with st.sidebar:
                 Prism(glass=GlassCatalogue("Ohara")["S-FPL51"]),
             ]
 
-        for i, p in enumerate(st.session_state["prisms"]):
+        for i, _p in enumerate(st.session_state["prisms"]):
             with st.container(border=True):
                 st.write(f"Prism {i + 1}")
 
-                catalogue: str = st.selectbox(
-                    label="Glass catalogue",
-                    options=GLASS_CATALOGUES.keys(),
-                    index=list(GLASS_CATALOGUES.keys()).index(p.glass.manufacturer)
-                    if p.glass.manufacturer in GLASS_CATALOGUES
-                    else 0,
-                    persist_state="page",
-                    key=f"glass_catalogue_{i + 1}",
-                )
-
-                try:
-                    glasses = GlassCatalogue(catalogue)
-                    glass_names: list[str] = sorted(glasses.keys())
-                except Exception:
-                    st.error(f"Could not load {catalogue} glass catalogue.")
-
-                glass: str = st.selectbox(
-                    label="Glass 1",
-                    options=glass_names,
-                    index=glass_names.index(p.glass.name)
-                    if p.glass.name in glass_names
-                    else 0,
-                    persist_state="page",
-                    key=f"glass_{i + 1}",
-                )
-
-                glass: Glass = glasses[glass]
-
-                st.session_state["prisms"][i] = Prism(glass=glass)
+                _edit_prism(i)
 
                 with st.container(horizontal_alignment="right"):
                     if st.button(
