@@ -26,6 +26,13 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
+MAX_ELEMENTS: int = 5
+
+
+def _edit_prism(p: Prism) -> Prism:
+
+    return p
+
 
 st.header("Atmospheric Dispersion Corrector", anchor=False)
 
@@ -78,50 +85,67 @@ with st.sidebar:
             key="adc_max_wl",
         )
 
-    with st.expander(label="Glass selection", expanded=False):
-        catalogue1: str = st.selectbox(
-            "Catalogue for glass 1",
-            GLASS_CATALOGUES.keys(),
-            index=list(GLASS_CATALOGUES.keys()).index("Schott")
-            if "Schott" in GLASS_CATALOGUES
-            else 0,
-        )
+    with st.expander(label="Prism elements", expanded=False):
+        if "prisms" not in st.session_state:
+            st.session_state["prisms"]: list[Prism] = [
+                Prism(glass=GlassCatalogue("Schott")["K10"]),
+                Prism(glass=GlassCatalogue("Ohara")["S-FPL51"]),
+            ]
 
-        try:
-            glasses1 = GlassCatalogue(catalogue1)
-            glass_names1: list[str] = sorted(glasses1.keys())
-        except Exception:
-            st.error(f"Could not load {catalogue1} glass catalogue.")
+        for i, p in enumerate(st.session_state["prisms"]):
+            with st.container(border=True):
+                st.write(f"Prism {i + 1}")
 
-        glass1: str = st.selectbox(
-            "Glass 1",
-            glass_names1,
-            index=glass_names1.index("K10") if "K10" in glass_names1 else 0,
-        )
+                catalogue: str = st.selectbox(
+                    label="Glass catalogue",
+                    options=GLASS_CATALOGUES.keys(),
+                    index=list(GLASS_CATALOGUES.keys()).index(p.glass.manufacturer)
+                    if p.glass.manufacturer in GLASS_CATALOGUES
+                    else 0,
+                    persist_state="page",
+                    key=f"glass_catalogue_{i + 1}",
+                )
 
-        glass1: Glass = glasses1[glass1]
+                try:
+                    glasses = GlassCatalogue(catalogue)
+                    glass_names: list[str] = sorted(glasses.keys())
+                except Exception:
+                    st.error(f"Could not load {catalogue} glass catalogue.")
 
-        catalogue2: str = st.selectbox(
-            "Catalogue for glass 2",
-            GLASS_CATALOGUES.keys(),
-            index=list(GLASS_CATALOGUES.keys()).index("Ohara")
-            if "Ohara" in GLASS_CATALOGUES
-            else 0,
-        )
+                glass: str = st.selectbox(
+                    label="Glass 1",
+                    options=glass_names,
+                    index=glass_names.index(p.glass.name)
+                    if p.glass.name in glass_names
+                    else 0,
+                    persist_state="page",
+                    key=f"glass_{i + 1}",
+                )
 
-        try:
-            glasses2 = GlassCatalogue(catalogue2)
-            glass_names2: list[str] = sorted(glasses2.keys())
-        except Exception:
-            st.error(f"Could not load {catalogue2} glass catalogue.")
+                glass: Glass = glasses[glass]
 
-        glass2: str = st.selectbox(
-            "Glass 2",
-            glass_names2,
-            index=glass_names2.index("S-FPL51") if "S-FPL51" in glass_names2 else 0,
-        )
+                st.session_state["prisms"][i] = Prism(glass=glass)
 
-        glass2: Glass = glasses2[glass2]
+                with st.container(horizontal_alignment="right"):
+                    if st.button(
+                        f"Remove prism {i + 1}",
+                        type="tertiary",
+                        key=f"remove_prism_{i + 1}",
+                    ):
+                        st.session_state["prisms"].pop(i)
+                        st.rerun()
+
+        if len(st.session_state["prisms"]) < MAX_ELEMENTS:  # noqa: SIM102
+            if st.button("Add prism element"):
+                st.session_state["prisms"].append(
+                    Prism(glass=GlassCatalogue("Schott")["K10"])
+                )
+                st.rerun()
+
+        else:
+            st.write(
+                "This app only supports compound prisms with a maximum of 5 elements."
+            )
 
     with st.expander(label="Beam sizes", expanded=False):
         D_telescope: ScalarQuantity = st_quantity_input(
@@ -183,12 +207,7 @@ with st.sidebar:
 # Create and optimise ADC
 try:
     adc = ADC(
-        prism_stack=PrismStack(
-            [
-                Prism(glass=glass1, apex_angle=0.0 * u.deg),
-                Prism(glass=glass2, apex_angle=0.0 * u.deg),
-            ]
-        ),
+        prism_stack=PrismStack(st.session_state["prisms"]),
         min_wl=min_wl,
         max_wl=max_wl.to(u.nm),
         D_telescope=D_telescope,
@@ -200,8 +219,9 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-with st.spinner("Optimising ADC..."):
-    adc.optimise()
+with st.container(horizontal_alignment="center"):  # noqa: SIM117
+    with st.spinner("Optimising ADC..."):
+        adc.optimise()
 
 # Summary
 cols: Iterable = cycle(
