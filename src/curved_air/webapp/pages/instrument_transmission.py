@@ -517,9 +517,9 @@ def add_echelle_grating() -> None:
                 step=0.1,
                 width=300,
                 key="grating_blaze_angle",
-                help="""The blaze angle of the echelle grating, in degrees. This is
-                the angle of illumination under which the grating is designed for
-                optimal efficiency.""",
+                help="""The blaze angle of the echelle grating, in degrees. This is the
+                angle of illumination under which the grating is designed for optimal
+                efficiency.""",
             )
             * u.deg
         )
@@ -533,8 +533,8 @@ def add_echelle_grating() -> None:
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             key="grating_ruled_width",
-            help="""The ruled width of the echelle grating, in millimetres. This
-                refers to the dimension perpendicular to the grooves themselves.""",
+            help="""The ruled width of the echelle grating, in millimetres. This refers
+            to the dimension perpendicular to the grooves themselves.""",
         )
 
         st.metric(
@@ -557,8 +557,8 @@ def add_echelle_grating() -> None:
             step=0.1,
             width=300,
             key="grating_gamma_angle",
-            help="""The gamma (out-of-plane) angle under which the echelle grating
-                is used, in degrees.""",
+            help="""The gamma (out-of-plane) angle under which the echelle grating is
+            used, in degrees.""",
         )
         * u.deg
     )

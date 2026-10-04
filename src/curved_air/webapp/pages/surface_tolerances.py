@@ -23,7 +23,10 @@ with st.expander("About this tool", expanded=False):
     surface to the table. You can add as many surfaces as you like, and the table can be
     downloaded as a CSV file.
 
-    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember
+    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -50,8 +53,8 @@ with cols[0]:
         value="",
         width=500,
         placeholder=f"Surface {num_surfaces + 1}",
-        help="""An optional name for the surface. This is used to identify the
-        surface in the table to the side.""",
+        help="""An optional name for the surface. This is used to identify the surface
+        in the table to the side.""",
         key="surface_name",
     )
 
@@ -112,8 +115,8 @@ with cols[0]:
                 label="Different positive and negative radius tolerances?",
                 value=False,
                 help="""By default, the tolerance is specified symmetrically, with the
-                positive and negative radius tolerances are the same. Toggle this on if you
-                want to specify different positive and negative radius tolerances.""",
+                positive and negative radius tolerances are the same. Toggle this on if
+                you want to specify different positive and negative radius tolerances.""",
                 key="neg_toggle",
             )
 
@@ -150,8 +153,8 @@ with cols[0]:
                 step=0.1,
                 width=200,
                 help="""The surface tolerance in number of interference fringes.
-                1 fringe = 1/2 test wavelength of sagitta difference between the nominal and
-                the tolerated curvature of the surface.""",
+                1 fringe = 1/2 test wavelength of sagitta difference between the nominal
+                and the tolerated curvature of the surface.""",
                 key="fringes",
             )
 

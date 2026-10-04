@@ -199,15 +199,13 @@ with cols[0]:
     #         m2_diameter = None
 
 if design != "Newtonian" and system_focal_length < primary_focal_length:
-    st.error(
-        f"System focal length ({system_focal_length:.1f}) must be greater than the primary focal length ({primary_focal_length:.1f})."
-    )
+    st.error(f"""System focal length ({system_focal_length:.1f}) must be greater than
+        the primary focal length ({primary_focal_length:.1f}).""")
     st.stop()
 
 if design != "gregorian" and back_focal_distance >= primary_focal_length:
-    st.error(
-        "Back focal distance must be less than the primary focal length for non-Gregorian designs."
-    )
+    st.error("""Back focal distance must be less than the primary focal length for
+        non-Gregorian designs.""")
     st.stop()
 
 telescope: TelescopeDesign = TelescopeDesign(

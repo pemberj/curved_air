@@ -40,7 +40,10 @@ with st.expander("About this tool", expanded=False):
     The tool is intended for high-level trade studies in order to define the optical
     requirements of instruments and guide systems.
 
-    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember
+    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -145,10 +148,8 @@ with cols[0]:
             )
         target_magnitude = 0.0
 
-    st.info(
-        "Criterion: expected star count in the field is at least 1. This is a planning"
-        " estimate, not a strict catalogue-backed guarantee for every pointing."
-    )
+    st.info("""Criterion: expected star count in the field is at least 1. This is a
+        planning estimate, not a strict catalogue-backed guarantee for every pointing.""")
 
 
 if mode is None:

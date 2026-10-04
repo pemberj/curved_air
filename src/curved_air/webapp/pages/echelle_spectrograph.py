@@ -48,7 +48,10 @@ with st.expander("About this tool", expanded=False):
     This is meant for quick exploration of the top-level spectrograph design space. The
     results shown here may differ from a more detailed ray-tracing analysis.
 
-    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember
+    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -308,9 +311,9 @@ with st.sidebar:
             st.metric(
                 "Calculated incidence angle",
                 f"{_cross_disperser.incidence_angle.value:.2f} degrees",
-                help="""This tool automatically calculates the
-                appropriate incidence angle such that the spectral format is symmetrically
-                centred on the detector.""",
+                help="""This tool automatically calculates the appropriate incidence
+                angle such that the spectral format is symmetrically centred on the
+                detector.""",
             )
 
         elif cross_disperser_type == "Multiple prisms":
@@ -438,7 +441,9 @@ with st.sidebar:
 
                 if st.session_state["p2_ref_index_plot_toggle"]:
                     wls: list[float] = np.linspace(
-                        min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
+                        min_wl.to(u.nm).value,
+                        max_wl.to(u.nm).value,
+                        50,
                     )
 
                     fig = go.Figure()
@@ -472,9 +477,9 @@ with st.sidebar:
             st.metric(
                 "Calculated incidence angle",
                 f"{_cross_disperser.incidence_angle.value:.2f} degrees",
-                help="""This tool automatically calculates the
-                appropriate incidence angle such that the spectral format is symmetrically
-                centred on the detector.""",
+                help="""This tool automatically calculates the appropriate incidence
+                angle such that the spectral format is symmetrically centred on the
+                detector.""",
             )
 
         elif cross_disperser_type == "Grating":
@@ -926,8 +931,7 @@ with c5:
         wavelength. This should be considered an upper limit, as it does not account for
         any image quality effects, and assumes a perfectly illuminated slit and ideal
         sampling. The actual achievable resolution may be lower due to a number of
-        factors not considered here.
-        """,
+        factors not considered here.""",
     )
 
 

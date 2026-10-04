@@ -238,9 +238,8 @@ elif single_multi_mode == "Multi-value (CSV)":
                 df = pd.read_csv(io.StringIO(csv_data), header=None)
             except Exception as e:
                 st.error(f"Error parsing CSV data: {e}")
-                st.info(
-                    "Please ensure your CSV is properly formatted with headers and numeric values."
-                )
+                st.info("""Please ensure your CSV is properly formatted with headers and
+                    numeric values.""")
 
             # Determine if dataframe has one or two columns
             if len(df.columns) == 1:

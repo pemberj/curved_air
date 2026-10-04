@@ -65,7 +65,10 @@ with st.expander("About this tool", expanded=False):
     The catalogue can then be filtered by various parameters, and the filtered catalogue
     can be downloaded as an AGF file for use in your optical design projects.
 
-    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember
+    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -652,9 +655,10 @@ with cols[0]:
             value=10.0,
             step=0.1,
             key="d_lambda",
-            help="""The wavelength step (in nm) used for calculating the numerical derivatives
-    for dV and dRPD calculations. A smaller step will give a more accurate result
-    but may be noisier, while a larger step will be smoother but perhaps less accurate.""",
+            help="""The wavelength step (in nm) used for calculating the numerical
+            derivatives for dV and dRPD calculations. A smaller step will give a more
+            accurate result but may be noisier, while a larger step will be smoother but
+            perhaps less accurate.""",
         )
         * u.nm
     )

@@ -27,7 +27,10 @@ with st.expander("About this tool", expanded=False):
     To compare multiple computations, you can add results to the table, where the data
     can be sorted and downloaded as a CSV file.
 
-    All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember
+    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
+    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -128,9 +131,8 @@ with cols[0]:
     assert isinstance(half_cone_angle, Quantity)
 
     if half_cone_angle >= 90 * u.deg:
-        st.error(
-            "The values you have entered correspond to a half cone angle greater than 90 degrees."
-        )
+        st.error("""The values you have entered correspond to a half cone angle greater
+            than 90 degrees.""")
 
     solid_angle: ScalarQuantity = compute_solid_angle(half_cone_angle=half_cone_angle)
 

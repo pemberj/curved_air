@@ -10,7 +10,10 @@ navigate between the available tools.
 st.divider()
 
 """
-All code is written by Jake Pember :gray-badge[:material/language: [Web](https://www.jakepember.com)] :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)] :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+All code is written by Jake Pember
+:gray-badge[:material/language: [Web](https://www.jakepember.com)]
+:gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
+:gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
 
 Please get in contact if you have any questions, suggestions, or find any bugs!
 
