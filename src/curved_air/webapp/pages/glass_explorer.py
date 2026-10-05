@@ -1,13 +1,16 @@
 #! uv run streamlit run
 
-# Glass Explorer
+"""
+Glass Explorer
 
-# A frontend for loading one or more existing glass catalogues in AGF format (with the
-# option to upload your own), viewing the glasses on an Abbe diagram and others,
-# filtering glasses by various parameters, and saving (downloading) the filtered
-# catalogue as an AGF for use in Zemax (and elsewhere?).
+A frontend for loading one or more existing glass catalogues in AGF format (with the
+option to upload your own), viewing the glasses on an Abbe diagram and others,
+filtering glasses by various parameters, and saving (downloading) the filtered
+catalogue as an AGF for use in Zemax (and elsewhere?).
 
-# TODO: Plot differential relative partial dispersion (dRPD) diagram
+TODO: Can I show a 3D Abbe diagram? Third axis is wavelength, each glass becomes a 3D
+line rather than a single point
+"""
 
 from __future__ import annotations
 
@@ -77,9 +80,11 @@ with st.expander("About this tool", expanded=False):
     """
 
     st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """,
+        """<script type="text/javascript"
+        src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+        data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺"
+        data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000"
+        data-font-color="#ffffff"></script>""",
     )
 
 # Interface
