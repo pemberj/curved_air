@@ -18,6 +18,7 @@ from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.optics.dispersers import Prism
 from curved_air.plotting import plot_style
 from curved_air.utils import st_quantity_input
+from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -70,16 +71,13 @@ def _edit_prism(index: int) -> None:
 st.header("Atmospheric Dispersion Corrector", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     This tool allows for the basic design of a rotational atmospheric dispersion
     corrector (ADC) with two different glasses. Given the glass choice and other input
     parameters, an ADC system is optimised and a report is generated on its expected
     performance.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -87,11 +85,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """
-    )
+    bmac()
 
 # Interface
 with st.sidebar:

@@ -17,6 +17,7 @@ from plotly import graph_objects as go
 from curved_air.plotting import plot_style
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 from curved_air.utils import st_quantity_input
+from curved_air.webapp import badges, bmac
 
 plt.style.use(plot_style)
 
@@ -660,7 +661,7 @@ def simulate_image(
 st.title("Guide Image Simulator")
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     This tool generates simulated images for a telescope guiding system.
 
     You can use this tool for top-level design and specification of a guiding system,
@@ -674,10 +675,7 @@ with st.expander("About this tool", expanded=False):
     get in contact if you would like to see this configurable to extend to other
     bandpasses.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -685,11 +683,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """,
-    )
+    bmac()
 
 settings_column, output_column = st.columns(2)
 

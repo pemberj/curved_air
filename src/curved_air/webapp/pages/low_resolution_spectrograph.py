@@ -13,6 +13,7 @@ from curved_air.optics.dispersers import Prism, SimpleGrating
 from curved_air.plotting import plot_style, wl_to_hex
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 from curved_air.utils import st_quantity_input
+from curved_air.webapp import badges, bmac
 
 plt.style.use(plot_style)
 
@@ -20,16 +21,13 @@ plt.style.use(plot_style)
 st.header("Low Resolution Spectrograph", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     This tool allows for the basic design of a low-resolution spectrograph with a
     single disperser. Given the disperser choice and other input parameters, the
     spectral format on the detector is computed and visualised, and a basic report is
     generated on the slit sampling and spectral resolution.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -37,11 +35,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """,
-    )
+    bmac()
 
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=False):

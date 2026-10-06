@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.other import material_CTEs
 from curved_air.plotting import plot_style
+from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
     from curved_air.type_hinting import ScalarQuantity
@@ -26,16 +27,13 @@ plt.style.use(plot_style)
 st.header("CTE Match", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     Use this tool to find materials with a coefficient of thermal expansion (CTE) that
     matches that of a given optical glass. This is useful for selecting materials for
     optomechanical components such as lens mounts, where a good CTE match can help to
     reduce stress on the optics and improve the overall performance of sensitive systems.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -43,11 +41,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """
-    )
+    bmac()
 
 
 @dataclass

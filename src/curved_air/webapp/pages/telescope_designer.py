@@ -11,6 +11,7 @@ from curved_air.telescopes import (
 )
 from curved_air.type_hinting import ScalarQuantity
 from curved_air.utils import st_quantity_input
+from curved_air.webapp import badges, bmac
 
 
 def render_table(title: str, rows: list[tuple[str, str]]) -> None:
@@ -25,7 +26,7 @@ def render_table(title: str, rows: list[tuple[str, str]]) -> None:
 st.header("Telescope Designer", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     This tool calculates a two-mirror telescope prescription from the primary diameter,
     system focal length, primary mirror f/ratio, and back focal distance.
 
@@ -33,10 +34,7 @@ with st.expander("About this tool", expanded=False):
     separation, and central obstruction for Newtonian, Cassegrain, Ritchey-Chrétien,
     Dall-Kirkham, and Gregorian designs.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -44,11 +42,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """,
-    )
+    bmac()
 
 cols = st.columns(2)
 

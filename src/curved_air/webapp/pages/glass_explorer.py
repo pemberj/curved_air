@@ -28,6 +28,7 @@ from astropy.units import Quantity
 from curved_air.glass import GLASS_CATALOGUES, AGFData, Glass, GlassCatalogue
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex  # noqa: F401
 from curved_air.utils import st_quantity_input
+from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -58,7 +59,7 @@ wavelength_options: dict[str, ScalarQuantity | None] = {
 st.header("Glass Explorer", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     This tool allows querying, inspection, and filtering of glass catalogues for the
     purpose of creating custom catalogues for use in Zemax projects or similar.
 
@@ -68,10 +69,7 @@ with st.expander("About this tool", expanded=False):
     The catalogue can then be filtered by various parameters, and the filtered catalogue
     can be downloaded as an AGF file for use in your optical design projects.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -79,13 +77,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """<script type="text/javascript"
-        src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
-        data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺"
-        data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000"
-        data-font-color="#ffffff"></script>""",
-    )
+    bmac()
 
 # Interface
 with st.sidebar:

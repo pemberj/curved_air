@@ -1,5 +1,7 @@
 import streamlit as st
 
+from curved_air.webapp import badges, bmac
+
 st.title("Curved Air: Optical Design Tools", anchor=False)
 
 """
@@ -9,11 +11,8 @@ navigate between the available tools.
 
 st.divider()
 
-"""
-All code is written by Jake Pember
-:gray-badge[:material/language: [Web](https://www.jakepember.com)]
-:gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-:gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+f"""
+All code is written by Jake Pember {badges}
 
 Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -23,8 +22,4 @@ You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find any o
 tools useful and want to support their development!
 """
 
-st.iframe(
-    """
-    <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-    """,
-)
+bmac()

@@ -17,6 +17,7 @@ from curved_air.star_counts import (
     limiting_magnitude_for_area,
 )
 from curved_air.utils import st_quantity_input
+from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray  # noqa: F401
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 st.header("Guide Star Field of View", anchor=False)
 
 with st.expander("About this tool", expanded=False):
-    """
+    f"""
     This tool estimates the field of view required so that a telescope pointing is
     expected to contain at least one star brighter than a chosen magnitude limit, or
     vice-versa to estimate the brightest magnitude limit for which at least one star is
@@ -40,10 +41,7 @@ with st.expander("About this tool", expanded=False):
     The tool is intended for high-level trade studies in order to define the optical
     requirements of instruments and guide systems.
 
-    All code is written by Jake Pember
-    :gray-badge[:material/language: [Web](https://www.jakepember.com)]
-    :gray-badge[:material/email: [Email](mailto:jacob.pember@ikmail.com)]
-    :gray-badge[:material/code: [Github](https://www.github.com/pemberj)]
+    All code is written by Jake Pember {badges}
 
     Please get in contact if you have any questions, suggestions, or find any bugs!
 
@@ -51,11 +49,7 @@ with st.expander("About this tool", expanded=False):
     useful and want to support its development!
     """
 
-    st.iframe(
-        """
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="pemberj" data-color="#E5660C" data-emoji="🍺" data-font="Cookie" data-text="Buy me a pint" data-outline-color="#000000" data-font-color="#ffffff"></script>
-        """,
-    )
+    bmac()
 
 cols = st.columns([1, 3])
 
