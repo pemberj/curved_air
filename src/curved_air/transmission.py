@@ -102,21 +102,6 @@ class FlatTransmission(Transmission):
 
 
 @dataclass
-class CSVTransmission(Transmission):
-    def load_file(self, file: Path) -> Self:
-        assert file.exists(), f"File {file} does not exist"
-
-        self._file: Path = file
-
-        wavelengths, efficiencies = np.transpose(np.genfromtxt(file, delimiter=", "))
-
-        self._wavelengths: ArrayQuantity = wavelengths * u.nm
-        self._transmissions: NDArray[np.floating] = efficiencies
-
-        return self
-
-
-@dataclass
 class ZemaxTransmission(Transmission):
     def load_file(self, file: Path) -> Self:
         """
@@ -214,14 +199,47 @@ class GlassTransmission(Transmission):
 
 @dataclass
 class FileTransmission(Transmission):
-    def load_file(self, file: Path, wavelength_unit: u.Unit = u.nm) -> Self:
-        """
-        Load transmission data from a generic file
-        """
+    def load_file(
+        self,
+        file: Path,
+        wavelength_unit: u.Unit = u.nm,
+    ) -> Self:
+        assert file.exists(), f"File {file} does not exist"
 
-        wavelengths, transmissions = np.transpose(np.genfromtxt(file))
-        self._wavelengths: Quantity = wavelengths * wavelength_unit
-        self._transmissions: NDArray[np.floating] = transmissions
+        self._file: Path = file
+
+        with file.open("r") as f:
+            for line in f:
+                if line.strip() and not line.startswith("#"):
+                    # Find the first valid line of the file
+                    # Determine the delimiter based on the line content
+                    if "," in line:
+                        delimiter = ","
+                    elif "\t" in line:
+                        delimiter = "\t"
+                    else:
+                        delimiter = ""
+
+                    # Attermpt to parse line
+                    try:
+                        np.genfromtxt([line], delimiter=delimiter)
+                    except ValueError:
+                        raise ValueError(
+                            f"Could not parse line '{line.strip()}' in file {file}"
+                        ) from None
+                    break
+
+        try:
+            wavelengths, efficiencies = np.transpose(
+                np.genfromtxt(file, delimiter=delimiter)
+            )
+        except ValueError as e:
+            raise ValueError(
+                f"Could not parse file {file} with delimiter '{delimiter}'{e}"
+            ) from e
+
+        self._wavelengths: ArrayQuantity = wavelengths * wavelength_unit
+        self._transmissions: NDArray[np.floating] = efficiencies
 
         return self
 
@@ -416,7 +434,7 @@ def total_transmission(
 
 MARVEL_TRANSMISSION: list[Transmission | EchelleGrating | None] = [
     # Telescope
-    CSVTransmission(
+    FileTransmission(
         name="Telescope mirrors (ASA)",
         num_passes=3,
     ).load_file(

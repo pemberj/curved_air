@@ -1,4 +1,5 @@
 #! uv run streamlit run
+from itertools import cycle
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,6 @@ from curved_air.optics.dispersers import EchelleGrating
 from curved_air.plotting import plot_style
 from curved_air.transmission import (
     MARVEL_TRANSMISSION,
-    CSVTransmission,
     FileTransmission,
     FlatTransmission,
     Transmission,
@@ -19,20 +19,32 @@ from curved_air.transmission import (
     ZemaxTransmission,
     total_transmission,
     transmission_plot,
-    # total_transmission,
 )
-from curved_air.utils import richardson_gratings, st_quantity_input
 from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
+    from collections.abc import Iterator
 
-    from curved_air.type_hinting import ScalarQuantity
+    from numpy.typing import NDArray
 
 plt.style.use(plot_style)
 
 DATA_PATH: Path = Path(__file__).parent / ".." / ".." / "transmission_data"
+MIRROR_REFLECTIVITY_FILES: list[Path] = list(DATA_PATH.glob("ASA*.csv"))
+ZEMAX_SINGLE_CONFIG_FILE: Path = DATA_PATH / "example_zemax" / "frontend.txt"
+ZEMAX_MULTI_CONFIG_FILES: list[Path] = list(
+    DATA_PATH.glob("example_zemax_multi/c[123456789].txt")
+)
+FIBRE_TRANSMISSION_FILES: list[Path] = list(DATA_PATH.glob("*[Ff]iber*.csv"))
+DETECTOR_QE_FILES: list[Path] = list(DATA_PATH.glob("STA1600LN*.txt")) + list(
+    DATA_PATH.glob("*[Dd]etector*.csv")
+)
 
+ALL_FILES: list[Path] = [
+    *MIRROR_REFLECTIVITY_FILES,
+    *FIBRE_TRANSMISSION_FILES,
+    *DETECTOR_QE_FILES,
+]
 
 if not st.session_state.get("transmission_list", None):
     st.session_state.transmission_list: list[Transmission | EchelleGrating | None] = (
@@ -43,9 +55,8 @@ if not st.session_state.get("transmission_list", None):
 def show_item_controls(index: int) -> None:
     """Show the relevant controls for a Transmision item"""
 
-    match st.session_state.transmission_list[index]:
+    match t := st.session_state.transmission_list[index]:
         case FlatTransmission():
-            t = st.session_state.transmission_list[index]
             st.text_input(
                 "Name",
                 value=t.name,
@@ -71,41 +82,28 @@ def show_item_controls(index: int) -> None:
             st.info("No editable parameters for `None` entries.")
 
         case EchelleGrating():
-            g = st.session_state.transmission_list[index]
             st.number_input(
                 "Groove frequency (g/mm)",
                 min_value=0.01,
-                value=float(g.groove_frequency.to(u.mm**-1).value),
+                value=float(t.groove_frequency.to(u.mm**-1).value),
                 step=0.1,
                 key=f"edit_echelle_gf_{index}",
             )
+
             st.number_input(
                 "Blaze angle (degrees)",
                 min_value=0.0,
                 max_value=89.0,
-                value=float(g.blaze_angle.to(u.deg).value),
+                value=float(t.blaze_angle.to(u.deg).value),
                 step=0.1,
                 key=f"edit_echelle_blaze_{index}",
             )
-            st.number_input(
-                "Ruled width (mm)",
-                min_value=0.01,
-                value=float(g.ruled_width.to(u.mm).value),
-                step=0.1,
-                key=f"edit_echelle_width_{index}",
-            )
-            st.number_input(
-                "Gamma angle (degrees)",
-                min_value=0.0,
-                value=float(g.gamma_angle.to(u.deg).value),
-                step=0.1,
-                key=f"edit_echelle_gamma_{index}",
-            )
+
             st.number_input(
                 "Peak efficiency",
                 min_value=0.0,
                 max_value=1.0,
-                value=float(g.peak_efficiency),
+                value=float(t.peak_efficiency),
                 step=0.01,
                 key=f"edit_echelle_peak_efficiency_{index}",
             )
@@ -115,21 +113,217 @@ def show_item_controls(index: int) -> None:
                     groove_frequency=st.session_state[f"edit_echelle_gf_{index}"]
                     / u.mm,
                     blaze_angle=st.session_state[f"edit_echelle_blaze_{index}"] * u.deg,
-                    ruled_width=st.session_state[f"edit_echelle_width_{index}"] * u.mm,
-                    gamma_angle=st.session_state[f"edit_echelle_gamma_{index}"] * u.deg,
                     peak_efficiency=st.session_state[
                         f"edit_echelle_peak_efficiency_{index}"
                     ],
                 )
                 st.rerun()
 
+        case FileTransmission():
+            st.text_input(
+                "Name",
+                value=st.session_state.transmission_list[index].name,
+                key=f"edit_name_{index}",
+            )
+
+            try:
+                current_index = ALL_FILES.index(
+                    st.session_state.transmission_list[index]._file.stem
+                )
+            except Exception:
+                st.warning(
+                    f"Could not find the file {st.session_state.transmission_list[index]._file.stem} in the list of available files. Please select a new file."
+                )
+                current_index = 0
+
+            st.selectbox(
+                "Select a file:",
+                options=ALL_FILES,
+                index=current_index,
+                format_func=lambda x: x.name,
+                key=f"edit_reflectivity_file_{index}",
+            )
+
+            st.number_input(
+                "Number of reflections",
+                value=st.session_state.transmission_list[index].num_passes,
+                min_value=1,
+                width=300,
+                help="""The number of reflections in the optical path. For example, a
+                telescope with a primary and secondary mirror using the same coating can
+                be modelled as 2 reflections from the same mirror.""",
+                key=f"edit_num_reflections_{index}",
+            )
+
+            st.number_input(
+                "Scale reflectivity by factor",
+                value=float(st.session_state.transmission_list[index].scale_factor),
+                min_value=0.0,
+                step=0.01,
+                width=300,
+                key=f"edit_scale_factor_{index}",
+            )
+
+            if st.button("Apply changes", key=f"apply_echelle_{index}"):
+                st.session_state.transmission_list[index] = FileTransmission(
+                    name=st.session_state[f"edit_name_{index}"],
+                    num_passes=st.session_state[f"edit_num_reflections_{index}"],
+                    scale_factor=st.session_state[f"edit_scale_factor_{index}"],
+                )
+
+                try:
+                    st.session_state.transmission_list[index].load_file(
+                        file=st.session_state[f"edit_reflectivity_file_{index}"],
+                        wavelength_unit=u.nm,
+                        delimiter="\t",
+                    )
+                except Exception as e:
+                    st.error(f"Error loading file: {e}")
+
+                try:
+                    st.session_state.transmission_list[index].load_file(
+                        file=st.session_state[f"edit_reflectivity_file_{index}"],
+                        wavelength_unit=u.nm,
+                        delimiter=",",
+                    )
+                except Exception as e:
+                    st.error(f"Error loading file: {e}")
+
+                st.rerun()
+
+        case FlatTransmission():
+            st.text_input("Name", value="Flat transmission", key=f"edit_name_{index}")
+
+            st.number_input(
+                "Flat fractional transmission value",
+                value=0.9,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+                width=300,
+                key=f"edit_flat_transmission_{index}",
+            )
+
+            if st.button("Apply changes", key=f"apply_flat_{index}"):
+                st.session_state.transmission_list[index] = FlatTransmission(
+                    name=st.session_state[f"edit_name_{index}"],
+                    transmission=st.session_state[f"edit_flat_transmission_{index}"],
+                )
+                st.rerun()
+
+        case ZemaxTransmission():
+            ZEMAX_SINGLE_CONFIG_FILE: Path = (
+                DATA_PATH / "example_zemax" / "frontend.txt"
+            )
+
+            st.text_input(
+                "Name",
+                value="Frontend optics (incl. 5% split for guiding)",
+                key=f"edit_name_{index}",
+            )
+
+            st.selectbox(
+                "Select a Zemax single configuration file:",
+                options=[ZEMAX_SINGLE_CONFIG_FILE],
+                format_func=lambda x: x.name,
+                key=f"edit_zemax_single_config_file_{index}",
+            )
+
+            st.number_input(
+                "Scale transmission by factor",
+                value=1.0,
+                min_value=0.0,
+                step=0.01,
+                width=300,
+                key=f"edit_zemax_single_config_scale_factor_{index}",
+            )
+
+            if st.button("Apply changes", key=f"apply_zemax_single_{index}"):
+                st.session_state.transmission_list[index] = ZemaxTransmission(
+                    name=st.session_state[f"edit_name_{index}"],
+                    scale_factor=st.session_state[
+                        f"edit_zemax_single_config_scale_factor_{index}"
+                    ],
+                ).load_file(
+                    file=st.session_state[f"edit_zemax_single_config_file_{index}"],
+                )
+                st.rerun()
+
+        case ZemaxMultiTransmission():
+            ZEMAX_MULTI_CONFIG_FILES: list[Path] = sorted(
+                DATA_PATH.glob("example_zemax_multi/c[123456789].txt")
+            )
+
+            st.text_input(
+                "Name",
+                value="Spectrograph, excluding echelle",
+                key=f"edit_zemax_multi_config_name_{index}",
+            )
+
+            # TODO: File upload!
+            files: list[Path] = [
+                Path(p)
+                for p in st.multiselect(
+                    "Select a Zemax multi-configuration file:",
+                    options=ZEMAX_MULTI_CONFIG_FILES,
+                    format_func=lambda x: x.name,
+                    key=f"edit_zemax_multi_config_file_{index}",
+                )
+            ]
+
+            if not files:
+                st.warning("Please select at least one Zemax multi-configuration file.")
+                files = [ZEMAX_MULTI_CONFIG_FILES[0]]
+
+            st.number_input(
+                "Scale transmission by factor",
+                value=1.0,
+                min_value=0.0,
+                step=0.01,
+                width=300,
+                key=f"edit_zemax_multi_config_scale_factor_{index}",
+            )
+
+            if st.button("Apply changes", key=f"apply_zemax_multi_{index}"):
+                st.session_state.transmission_list[index] = ZemaxMultiTransmission(
+                    name=st.session_state[f"edit_zemax_multi_config_name_{index}"],
+                    scale_factor=st.session_state[
+                        f"edit_zemax_multi_config_scale_factor_{index}"
+                    ],
+                ).load_file(
+                    files=files,
+                )
+                st.rerun()
+
         case Transmission():
-            t = st.session_state.transmission_list[index]
             st.text_input(
                 "Name",
                 value=t.name,
                 key=f"edit_name_{index}",
             )
+
+            if st.toggle(
+                label="Smoothed values",
+                value=False,
+                key=f"edit_smooth_{index}",
+            ):
+                edited_data = st.data_editor(
+                    data={
+                        "Wavelength (nm)": t.wavelengths.to(u.nm).value,
+                        "Transmission": t.transmissions,
+                    },
+                    hide_index=True,
+                )
+
+            else:
+                edited_data = st.data_editor(
+                    data={
+                        "Wavelength (nm)": t._wavelengths.to(u.nm).value,
+                        "Transmission": t._transmissions,
+                    },
+                    hide_index=True,
+                )
+
             st.number_input(
                 "Multiply transmission by factor",
                 min_value=0.0,
@@ -142,15 +336,18 @@ def show_item_controls(index: int) -> None:
             )
 
             if st.button("Apply changes", key=f"apply_generic_{index}"):
-                t.name = st.session_state[f"edit_name_{index}"]
-                scale: float = st.session_state[f"edit_scale_{index}"]
-                if not np.isclose(scale, 1.0):
-                    t.transmissions = np.clip(
-                        np.asarray(t.transmissions) * scale,
-                        0.0,
-                        1.0,
-                    )
+                st.session_state.transmission_list[index] = Transmission(
+                    name=st.session_state[f"edit_name_{index}"],
+                    _wavelengths=edited_data["Wavelength (nm)"].to_numpy() * u.nm,
+                    _transmissions=edited_data["Transmission"].to_numpy(),
+                    scale_factor=st.session_state[f"edit_scale_{index}"],
+                )
                 st.rerun()
+
+        case _:
+            st.warning(
+                f"Unknown transmission type: {type(st.session_state.transmission_list[index])}"
+            )
 
 
 def display_list() -> None:
@@ -175,7 +372,8 @@ def display_list() -> None:
         st.write("No transmission curves added yet.")
         return
 
-    st.write("Transmission curves:")
+    with st.container(horizontal_alignment="center"):
+        st.write("Transmission curves")
 
     for i, t in enumerate(st.session_state.transmission_list):
         title: str
@@ -189,7 +387,7 @@ def display_list() -> None:
         else:
             title = f"{i + 1}. {t.name}"
 
-        main_column, controls_column = st.columns([4, 1])
+        main_column, controls_column = st.columns([3, 1])
 
         with controls_column:
             controls = st.columns([1, 1, 2])
@@ -216,422 +414,148 @@ def display_list() -> None:
             show_item_controls(i)
 
 
-def add_flat_transmission() -> None:
-
-    st.text_input("Name", value="Flat transmission", key="flat_transmission_name")
-
-    st.number_input(
-        "Flat fractional transmission value",
-        value=0.9,
-        min_value=0.0,
-        max_value=1.0,
-        step=0.01,
-        width=300,
-        key="flat_transmission_value",
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(
-            FlatTransmission(
-                name=st.session_state.flat_transmission_name,
-                transmission=st.session_state.flat_transmission_value,
-            )
-        ),
-        type="primary",
-    )
-
-
-def add_mirror_reflectivity() -> None:
-
-    MIRROR_REFLECTIVITY_FILES: list[Path] = list(DATA_PATH.glob("ASA*.csv"))
-
-    st.text_input("Name", value="Telescope mirrors", key="mirror_reflectivity_name")
-
-    st.selectbox(
-        "Select a reflectivity file:",
-        options=MIRROR_REFLECTIVITY_FILES,
-        format_func=lambda x: x.name,
-        key="reflectivity_file",
-    )
-
-    st.number_input(
-        "Number of reflections",
-        value=2,
-        min_value=1,
-        width=300,
-        help="""The number of reflections in the optical path. For example, a telescope
-        with a primary and secondary mirror has 2 reflections.""",
-        key="number_of_reflections",
-    )
-
-    st.number_input(
-        "Scale reflectivity by factor",
-        value=1.0,
-        min_value=0.0,
-        step=0.01,
-        width=300,
-        key="mirror_reflectivity_scale_factor",
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(
-            CSVTransmission(
-                name=st.session_state.mirror_reflectivity_name,
-                num_passes=st.session_state.number_of_reflections,
-                scale_factor=st.session_state.mirror_reflectivity_scale_factor,
-            ).load_file(file=st.session_state.reflectivity_file)
-        ),
-        type="primary",
-    )
-
-
-def add_zemax_single_config() -> None:
-
-    ZEMAX_SINGLE_CONFIG_FILE: Path = DATA_PATH / "example_zemax" / "frontend.txt"
-
-    st.text_input(
-        "Name",
-        value="Frontend optics (incl. 5% split for guiding)",
-        key="zemax_single_config_name",
-    )
-
-    st.selectbox(
-        "Select a Zemax single configuration file:",
-        options=[ZEMAX_SINGLE_CONFIG_FILE],
-        format_func=lambda x: x.name,
-        key="zemax_single_config_file",
-    )
-
-    st.number_input(
-        "Scale transmission by factor",
-        value=1.0,
-        min_value=0.0,
-        step=0.01,
-        width=300,
-        key="zemax_single_config_scale_factor",
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(
-            ZemaxTransmission(
-                name=st.session_state.zemax_single_config_name,
-                scale_factor=st.session_state.zemax_single_config_scale_factor,
-            ).load_file(
-                file=st.session_state.zemax_single_config_file,
-            )
-        ),
-        type="primary",
-    )
-
-
-def add_zemax_multi_config() -> None:
-
-    ZEMAX_MULTI_CONFIG_FILES: list[Path] = list(
-        DATA_PATH.glob("example_zemax_multi/c[123456789].txt")
-    )
-
-    st.text_input(
-        "Name",
-        value="Spectrograph, excluding echelle",
-        key="zemax_multi_config_name",
-    )
-
-    st.selectbox(
-        "Select a Zemax multi-configuration file:",
-        options=ZEMAX_MULTI_CONFIG_FILES,
-        format_func=lambda x: x.name,
-        key="zemax_multi_config_file",
-    )
-
-    st.number_input(
-        "Scale transmission by factor",
-        value=1.0,
-        min_value=0.0,
-        step=0.01,
-        width=300,
-        key="zemax_multi_config_scale_factor",
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(
-            ZemaxMultiTransmission(
-                name=st.session_state.zemax_multi_config_name,
-                scale_factor=st.session_state.zemax_multi_config_scale_factor,
-            ).load_file(
-                files=[st.session_state.zemax_multi_config_file],
-            )
-        ),
-    )
-
-
-def add_fibre_transmission() -> None:
-
-    FIBRE_TRANSMISSION_FILES: list[Path] = list(DATA_PATH.glob("*[Ff]iber*.csv"))
-
-    st.text_input(
-        "Name",
-        value="Fibre transmission",
-        key="fibre_transmission_name",
-    )
-
-    st.selectbox(
-        "Select a fibre transmission file:",
-        options=FIBRE_TRANSMISSION_FILES,
-        format_func=lambda x: x.name,
-        key="fibre_transmission_file",
-    )
-
-    st.number_input(
-        "Scale transmission by factor",
-        value=1.0,
-        min_value=0.0,
-        step=0.01,
-        width=300,
-        key="fibre_transmission_scale_factor",
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(
-            FileTransmission(
-                name=st.session_state.fibre_transmission_name,
-            ).load_file(
-                file=st.session_state.fibre_transmission_file,
-                wavelength_unit=u.nm,
-            )
-        ),
-    )
-
-
-def add_detector_qe() -> None:
-
-    DETECTOR_QE_FILES: list[Path] = list(DATA_PATH.glob("STA1600LN*.txt")) + list(
-        DATA_PATH.glob("*[Dd]etector*.csv")
-    )
-
-    st.text_input(
-        "Name",
-        value="Detector QE",
-        key="detector_qe_name",
-    )
-
-    st.selectbox(
-        "Select a detector QE file:",
-        options=DETECTOR_QE_FILES,
-        format_func=lambda x: x.name,
-        key="detector_qe_file",
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(
-            FileTransmission(
-                name=st.session_state.detector_qe_name,
-            ).load_file(
-                file=st.session_state.detector_qe_file,
-                wavelength_unit=u.nm,
-            )
-        ),
-    )
-
-
-def add_echelle_grating() -> None:
-
-    if any(isinstance(t, EchelleGrating) for t in st.session_state.transmission_list):
-        st.warning(
-            "There is already an echelle grating in the list. Only one is allowed."
-        )
-        return
-
-    ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
-        f"{g.catalogue_number}: {g.groove_frequency.value:g}g/mm R{g.R:g}": g
-        for g in richardson_gratings(selection_query=None)
-    }
-
-    grating: str = st.selectbox(
-        "Richardson gratings",
-        options=list(ECHELLE_GRATINGS.keys()),
-        index=16,  # MARVEL grating
-        width=300,
-        disabled=st.session_state.get("customise_grating", False),
-        help="""Select from a list of commercially available echelle gratings from
-        Richardson Gratings. The grating parameters will be pre-filled based on the
-        selected option.""",
-    )
-
-    grating: EchelleGrating = ECHELLE_GRATINGS[grating]
-    grating.peak_efficiency = 0.75
-
-    if not st.session_state.get("customise_grating", False):
-        if grating.groove_length is not None:
-            st.metric(
-                "Maximum Groove Length",
-                f"{grating.groove_length.to(u.mm):.0f}",
-            )
-        else:
-            st.warning(
-                "Warning: maximum groove length is not specified for this grating."
-            )
-
-        if grating.ruled_width is not None:
-            st.metric(
-                "Maximum Ruled Width",
-                f"{grating.ruled_width.to(u.mm):.0f}",
-            )
-        else:
-            st.warning(
-                "Warning: maximum ruled width is not specified for this grating."
-            )
-
-    st.toggle(
-        "Custom grating parameters",
-        value=False,
-        key="customise_grating",
-        help="""Input your own values for the grating groove spacing, blaze angle,
-        and ruled width.""",
-    )
-
-    if st.session_state["customise_grating"]:
-        groove_frequency: ScalarQuantity = st_quantity_input(
-            "Groove freqency",
-            min_value=0.0,
-            value=grating.groove_frequency.to(u.mm**-1).value,
-            step=0.1,
-            possible_units=["µm", "mm", "cm"],
-            default_unit="mm",
-            unit_input_text="Per",
-            inverse=True,
-            key="grating_groove_frequency",
-            # help="""Spatial groove frequency""",
-        )
-
-        blaze_angle: ScalarQuantity = (
-            st.number_input(
-                "Blaze angle (degrees)",
-                min_value=0.0,
-                max_value=89.0,
-                value=grating.blaze_angle.to(u.deg).value,
-                step=0.1,
-                width=300,
-                key="grating_blaze_angle",
-                help="""The blaze angle of the echelle grating, in degrees. This is the
-                angle of illumination under which the grating is designed for optimal
-                efficiency.""",
-            )
-            * u.deg
-        )
-
-        ruled_width: ScalarQuantity = st_quantity_input(
-            "Ruled width (mm)",
-            min_value=0.0,
-            # max_value=1200.0,
-            value=grating.ruled_width.to(u.mm).value,
-            step=0.05,
-            possible_units=["mm", "cm", "m"],
-            default_unit="mm",
-            key="grating_ruled_width",
-            help="""The ruled width of the echelle grating, in millimetres. This refers
-            to the dimension perpendicular to the grooves themselves.""",
-        )
-
-        st.metric(
-            "Grating R-number",
-            f"R{np.tan(blaze_angle):.1f}",
-            help="""The R-number of an echelle grating is a dimensionless parameter
-            defined as the tangent of the blaze angle.""",
-        )
-
-    else:
-        groove_frequency: float = grating.groove_frequency.to(u.mm**-1)
-        blaze_angle: float = grating.blaze_angle.to(u.deg)
-        ruled_width: float = grating.ruled_width.to(u.mm)
-
-    gamma_angle: ScalarQuantity = (
-        st.number_input(
-            "Gamma angle (degrees)",
-            min_value=0.0,
-            value=0.3,
-            step=0.1,
-            width=300,
-            key="grating_gamma_angle",
-            help="""The gamma (out-of-plane) angle under which the echelle grating is
-            used, in degrees.""",
-        )
-        * u.deg
-    )
-
-    peak_efficiency: float = st.number_input(
-        "Peak efficiency",
-        value=grating.peak_efficiency,
-        min_value=0.0,
-        max_value=1.0,
-        step=0.01,
-        width=300,
-        key="grating_peak_efficiency",
-        help="""The peak efficiency of the echelle grating, as a fraction between 0 and
-        1. This is the maximum efficiency of the grating at the blaze wavelength.""",
-    )
-
-    echelle_grating: EchelleGrating = EchelleGrating(
-        groove_frequency=groove_frequency,
-        blaze_angle=blaze_angle,
-        ruled_width=ruled_width,
-        gamma_angle=gamma_angle,
-        peak_efficiency=peak_efficiency,
-    )
-
-    st.button(
-        "Add to list",
-        on_click=lambda: st.session_state.transmission_list.append(echelle_grating),
-    )
-
-
 def transmission_selector() -> None:
     """
     A dropdown selector for choosing which transmission curves to add to the list.
     """
 
-    options: list[str] = [
-        "Mirror Reflectivity and Number",
-        "Zemax, Single Configuration",
-        "Zemax, Multi-Configuration",
-        "Fibre Transmission & Coupling",
-        "Flat Transmission",
-        "Detector Quantum Efficiency",
-        "Echelle Grating",
-    ]
+    cols: Iterator = cycle(st.columns(3))
 
-    st.selectbox(
-        "Select a transmission curve to add to the list:",
-        options=options,
-        key="transmission_selector",
-    )
+    with next(cols):
+        if st.button(
+            label="Tabulated",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                Transmission(
+                    name="Tabulated",
+                    _wavelengths=np.array([400, 500, 600, 700, 800, 900]) * u.nm,
+                    _transmissions=np.array([0.8, 0.9, 0.85, 0.9, 0.95, 0.99]),
+                )
+            )
 
-    if st.session_state.transmission_selector == "Mirror Reflectivity and Number":
-        add_mirror_reflectivity()
-    elif st.session_state.transmission_selector == "Zemax, Single Configuration":
-        add_zemax_single_config()
-    elif st.session_state.transmission_selector == "Zemax, Multi-Configuration":
-        add_zemax_multi_config()
-    elif st.session_state.transmission_selector == "Fibre Transmission & Coupling":
-        add_fibre_transmission()
-    elif st.session_state.transmission_selector == "Flat Transmission":
-        add_flat_transmission()
-    elif st.session_state.transmission_selector == "Detector Quantum Efficiency":
-        add_detector_qe()
-    elif st.session_state.transmission_selector == "Echelle Grating":
-        add_echelle_grating()
+    with next(cols):
+        if st.button(
+            label="Mirror reflectivity",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                FileTransmission(
+                    name="Mirror reflectivity",
+                    num_passes=2,
+                    scale_factor=1,
+                ).load_file(file=MIRROR_REFLECTIVITY_FILES[0])
+            )
+
+    with next(cols):
+        if st.button(
+            label="Zemax (Single Configuration)",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                ZemaxTransmission(
+                    name="Zemax (Single Configuration)",
+                    scale_factor=1,
+                ).load_file(
+                    file=ZEMAX_SINGLE_CONFIG_FILE,
+                )
+            )
+
+    with next(cols):
+        if st.button(
+            label="Zemax (Multi-Configuration)",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                ZemaxMultiTransmission(
+                    name="Zemax (Multi-Configuration)",
+                    scale_factor=1,
+                ).load_file(
+                    files=ZEMAX_MULTI_CONFIG_FILES,
+                )
+            )
+
+    with next(cols):
+        if st.button(
+            label="Fibre Transmission (CSV File)",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                FileTransmission(
+                    name="Fibre Transmission (CSV File)",
+                ).load_file(
+                    file=FIBRE_TRANSMISSION_FILES[0],
+                    wavelength_unit=u.nm,
+                )
+            )
+
+    with next(cols):
+        if st.button(
+            label="Flat Transmission",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                FlatTransmission(
+                    name="Flat Transmission",
+                    transmission=1,
+                )
+            )
+
+    with next(cols):
+        if st.button(
+            label="Detector QE",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.transmission_list.append(
+                FileTransmission(
+                    name="Detector QE",
+                ).load_file(
+                    file=DETECTOR_QE_FILES[0],
+                    wavelength_unit=u.nm,
+                )
+            )
+
+    with next(cols):
+        if st.button(
+            label="Echelle Grating",
+            width="stretch",
+            type="primary",
+        ):
+            if any(
+                isinstance(t, EchelleGrating)
+                for t in st.session_state.transmission_list
+            ):
+                st.warning(
+                    """
+                    Only one Echelle Grating can be added to the list.
+                    Please remove the existing one first.
+                    """,
+                )
+            else:
+                st.session_state.transmission_list.append(EchelleGrating())
+
+    with next(cols):
+        if st.button(
+            label="Reset",
+            width="stretch",
+            type="secondary",
+        ):
+            st.session_state.transmission_list = [MARVEL_TRANSMISSION]
+            st.rerun()
 
 
 def main() -> None:
     """
     Main function to run the Streamlit app.
     """
-    st.header("Instrument Transmission Curves", anchor=False)
+    st.header("Instrument Transmission", anchor=False)
 
     with st.expander("About this tool", expanded=False):
         f"""
@@ -659,6 +583,15 @@ def main() -> None:
         st.divider()
 
         display_list()
+
+        with st.container(horizontal_alignment="center"):
+            st.caption(
+                "Click on a transmission curve to expand and edit its parameters."
+            )
+
+            if st.button(label="Remove all", width=300, type="tertiary"):
+                st.session_state.transmission_list = [None]
+                st.rerun()
 
     with right:
         if len(st.session_state.transmission_list) > 0:
@@ -702,81 +635,6 @@ def main() -> None:
 
 Note: Echelle grating blaze functions are not included in the exported data."""
                 )
-
-
-def test() -> None:
-    Telescope: Transmission = CSVTransmission(
-        name="Telescope mirrors (ASA)",
-        num_passes=3,
-    ).load_file(file=next(iter(DATA_PATH.glob("ASA_Protected_Enhanced_Aluminium.csv"))))
-
-    Frontend: Transmission = ZemaxTransmission(
-        name="Frontend optics (incl. 5% split for guiding)",
-    ).load_file(
-        file=DATA_PATH / "example_zemax" / "frontend.txt",
-    )
-
-    FibreAperture: Transmission = FlatTransmission(
-        name="Fibre aperture loss", transmission=0.80
-    )
-
-    Fibre: Transmission = Transmission(
-        name="Fibre transmission & coupling from\ncircular to octagonal fibre",
-        _wavelengths=np.array([390, 400, 500, 700, 920]) * u.nm,
-        _transmissions=np.array(
-            [
-                0.91 ** (15 / 10) * 0.92,
-                0.920 ** (15 / 10) * 0.92,
-                0.963 ** (15 / 10) * 0.92,
-                0.987 ** (15 / 10) * 0.92,
-                0.991 ** (15 / 10) * 0.92,
-            ]
-        ),
-    )
-
-    Slicer = FlatTransmission(name="Slicer/double scrambler", transmission=0.9)
-
-    Spectrograph: Transmission = ZemaxMultiTransmission(
-        name="Spectrograph, excluding echelle",
-    ).load_file(
-        files=list((DATA_PATH / "example_zemax_multi").glob("c[123456789].txt")),
-    )
-
-    Detector: Transmission = FileTransmission(
-        name="STA1600LN Detector QE",
-    ).load_file(
-        file=next(iter(DATA_PATH.glob("STA1600LN*.txt"))),
-        wavelength_unit=u.nm,
-    )
-
-    Ts: list[Transmission | EchelleGrating | None] = [
-        # atmosphere(), # Not yet implemented
-        Telescope,
-        Frontend,
-        FibreAperture,
-        Fibre,
-        Slicer,
-        Spectrograph,
-        Detector,
-        EchelleGrating(
-            groove_frequency=31.6 / u.mm,
-            blaze_angle=63.5 * u.deg,
-            ruled_width=100 * u.mm,
-            gamma_angle=0.3 * u.deg,
-            min_wl=370 * u.nm,
-            max_wl=950 * u.nm,
-        ),
-        None,
-    ]
-
-    fig: plt.Figure = transmission_plot(
-        Ts=Ts,
-        min_wl=0.37 * u.um,
-        max_wl=0.92 * u.um,
-        num_wls=500,
-    )
-
-    st.pyplot(fig)
 
 
 if __name__ == "__main__":
