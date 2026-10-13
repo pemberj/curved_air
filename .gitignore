@@ -4,6 +4,9 @@ old_scripts/
 # Zemax AGF glass catalogues
 *.[Aa][Gg][Ff]
 
+# Zemax ZMX files
+*.[Zz][Mm][Xx]
+
 
 # Scratch Python documents, just a way to indicate that I am just experimenting
 *\[[Ss][Cc][Rr][Aa][Tt][Cc][Hh]\]*.py
