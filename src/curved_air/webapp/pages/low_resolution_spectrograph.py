@@ -7,12 +7,12 @@ from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import DETECTORS, Detector
-from curved_air.glass import GLASS_CATALOGUES, GlassCatalogue
+from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.LRS import LowResolutionSpectrograph
 from curved_air.optics.dispersers import Prism, SimpleGrating
 from curved_air.plotting import plot_style, wl_to_hex
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
-from curved_air.utils import st_quantity_input
+from curved_air.utils import st_glass_chooser, st_quantity_input
 from curved_air.webapp import badges, bmac
 
 plt.style.use(plot_style)
@@ -74,29 +74,37 @@ with st.sidebar:
         )
 
         if st.session_state["disperser_type"] == "Prism":
-            catalogue: str = st.selectbox(
-                "Glass catalogue",
-                GLASS_CATALOGUES.keys(),
-                index=list(GLASS_CATALOGUES.keys()).index("Schott")
-                if "Schott" in GLASS_CATALOGUES
-                else 0,
+            st.session_state["current_glass"] = GlassCatalogue("Schott")["F2"]
+
+            chosen_glass: Glass = st_glass_chooser(
+                current_glass=st.session_state.get("current_glass", None),
+                catalogues=GLASS_CATALOGUES,
+                key="prism_glass",
             )
 
-            try:
-                glasses = GlassCatalogue(catalogue)
-                glass_names: list[str] = sorted(glasses.keys())
-            except Exception:
-                st.error(f"Could not load {catalogue} glass catalogue.")
-
-            default_glass: str = "F2"
-
-            glass_name: str = st.selectbox(
-                "Glass",
-                glass_names,
-                index=glass_names.index(default_glass)
-                if default_glass in glass_names
-                else 0,
-            )
+            #             catalogue: str = st.selectbox(
+            #                 "Glass catalogue",
+            #                 GLASS_CATALOGUES.keys(),
+            #                 index=list(GLASS_CATALOGUES.keys()).index("Schott")
+            #                 if "Schott" in GLASS_CATALOGUES
+            #                 else 0,
+            #             )
+            #
+            #             try:
+            #                 glasses = GlassCatalogue(catalogue)
+            #                 glass_names: list[str] = sorted(glasses.keys())
+            #             except Exception:
+            #                 st.error(f"Could not load {catalogue} glass catalogue.")
+            #
+            #             default_glass: str = "F2"
+            #
+            #             glass_name: str = st.selectbox(
+            #                 "Glass",
+            #                 glass_names,
+            #                 index=glass_names.index(default_glass)
+            #                 if default_glass in glass_names
+            #                 else 0,
+            #             )
 
             apex_angle: ScalarQuantity = (
                 st.number_input(
@@ -107,6 +115,13 @@ with st.sidebar:
                     step=1.0,
                 )
                 * u.deg
+            )
+
+            _prism: Prism = Prism(
+                glass=chosen_glass,
+                apex_angle=apex_angle,
+                min_wl=min_wl,
+                max_wl=max_wl,
             )
 
             st.toggle(
@@ -124,25 +139,18 @@ with st.sidebar:
                 fig.add_trace(
                     trace=go.Scatter(
                         x=wls,
-                        y=glasses[glass_name].refractive_index(wls),
+                        y=chosen_glass.refractive_index(wls),
                         mode="lines",
                     )
                 )
                 fig.update_layout(
-                    title=f"{glass_name} Refractive Index",
+                    title=f"{chosen_glass.name} Refractive Index",
                     xaxis_title="Wavelength (nm)",
                     yaxis_title="Refractive Index",
                     template="plotly_dark",
                 )
 
                 st.plotly_chart(fig)
-
-                _prism: Prism = Prism(
-                    glass=glasses[glass_name],
-                    apex_angle=apex_angle,
-                    min_wl=min_wl,
-                    max_wl=max_wl,
-                )
 
                 st.metric(
                     "Calculated incidence angle",
@@ -363,7 +371,7 @@ with st.sidebar:
 # Create Spectrograph
 
 if st.session_state["disperser_type"] == "Prism":
-    disperser = Prism(glass=glasses[glass_name], apex_angle=apex_angle)
+    disperser = _prism
 elif st.session_state["disperser_type"] == "Grating":
     disperser = SimpleGrating(groove_frequency=groove_frequency)
 

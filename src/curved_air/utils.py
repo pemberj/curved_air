@@ -19,6 +19,7 @@ from astropy.units import Quantity
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 
+from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.optics.dispersers import EchelleGrating
 from curved_air.type_hinting import ScalarQuantity
 
@@ -520,6 +521,119 @@ def st_quantity_input(
 
     st.session_state[key] = value * u.Unit(unit)
     return value * u.Unit(unit)
+
+
+@st.dialog("Choose a glass")
+def _glass_chooser_dialog(
+    key: str,
+    catalogues: dict[str, Path],
+    current_glass: Glass,
+) -> None:
+    """
+    A catalogue/glass picker, shown in a modal dialog that is not initialised until the
+    dialog is created. Populating and displaying dropdown selectors for glasses in a
+    chosen catalogue is somehwat expensive, so I wanted this to be loaded only on
+    demand.
+    """
+
+    catalogue_names: list[str] = list(catalogues.keys())
+
+    # Best-effort: pre-select the catalogue that the current glass came from
+    default_catalogue_index: int = next(
+        (
+            i
+            for i, name in enumerate(catalogue_names)
+            if name.lower() == current_glass.manufacturer.lower()
+        ),
+        0,
+    )
+
+    catalogue_name: str = st.selectbox(
+        "Glass catalogue",
+        options=catalogue_names,
+        index=default_catalogue_index,
+        key=f"{key}_catalogue_select",
+    )
+
+    try:
+        catalogue: GlassCatalogue = GlassCatalogue(catalogue_name)
+    except Exception:
+        st.error(f"Could not load the '{catalogue_name}' glass catalogue.")
+        return
+
+    glass_names: list[str] = sorted(catalogue.keys())
+    default_glass_index: int = (
+        glass_names.index(current_glass.name)
+        if current_glass.name in glass_names
+        else 0
+    )
+
+    glass_name: str = st.selectbox(
+        "Glass",
+        options=glass_names,
+        index=default_glass_index,
+        key=f"{key}_glass_select",
+    )
+
+    select, cancel = st.columns(2)
+    with select:
+        if st.button(
+            "Select",
+            key=f"{key}_select_button",
+            type="primary",
+            width="stretch",
+        ):
+            st.session_state[f"{key}_chosen_glass"] = catalogue[glass_name]
+            st.rerun()
+
+    with cancel:
+        if st.button("Cancel", key=f"{key}_cancel_button", width="stretch"):
+            # Closing a dialog requires a full-script rerun: Streamlit only keeps
+            # the dialog open because the outer script calls
+            # `_glass_chooser_dialog(...)` again each run. Rerunning here (without
+            # setting `{key}_chosen_glass`) means that call won't happen on the
+            # next run, so the dialog disappears and `current_glass` is unchanged.
+            st.rerun()
+
+
+def st_glass_chooser(
+    current_glass: Glass,
+    catalogues: dict[str, Path] = GLASS_CATALOGUES,
+    key: str = "glass",
+) -> Glass:
+    """
+    A custom streamlit widget for selecting an optical glass, first selecting the
+    catalogue, and then a glass from that catalogue.
+
+    Only the currently-selected glass and a "Change" button are rendered up-front. The
+    catalogue/glass picker itself (and the loading of whichever glass catalogue is
+    selected) is not created until the user clicks "Change", at which point it is shown
+    in a modal dialog.
+
+    If more than one glass chooser appears on the same page, pass a distinct `key` for
+    each one.
+    """
+
+    chosen_key: str = f"{key}_chosen_glass"
+
+    if chosen_key in st.session_state:
+        current_glass = st.session_state.pop(chosen_key)
+
+    with st.container(border=True):
+        cols = st.columns(2)
+
+        with cols[0]:
+            st.caption("Current glass")
+            st.write(f"**{current_glass.manufacturer} {current_glass.name}**")
+
+        with cols[1]:
+            st.container(height=1, border=False)
+            if st.button("Change", key=f"{key}_change_button", width="stretch"):
+                _glass_chooser_dialog(
+                    key=key, catalogues=catalogues, current_glass=current_glass
+                )
+
+    return current_glass
 
 
 def main() -> None: ...

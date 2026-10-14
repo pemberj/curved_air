@@ -14,7 +14,7 @@ from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import DETECTORS, Detector
-from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
+from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.echelle import (
     DoublePassEchelleSpectrograph,
     EchelleSpectrograph,
@@ -28,7 +28,7 @@ from curved_air.optics.dispersers import (
 )
 from curved_air.other import _atomic_lines
 from curved_air.plotting import plot_style, wavelength_to_rgb, wl_to_hex
-from curved_air.utils import richardson_gratings, st_quantity_input
+from curved_air.utils import richardson_gratings, st_glass_chooser, st_quantity_input
 from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ with st.expander("About this tool", expanded=False):
 # Interface
 with st.sidebar:
     with st.expander(label="Wavelength range", expanded=False):
-        min_wl: ScalarQuantity = st_quantity_input(
+        MIN_WL: ScalarQuantity = st_quantity_input(
             "Min λ",
             min_value=0.0,
             value=380.0,
@@ -70,10 +70,9 @@ with st.sidebar:
             possible_units=["nm", "µm"],
             default_unit="nm",
             key="min_wl",
-        )
-        st.session_state["min_wl"] = min_wl
+        ).to(u.nm)
 
-        max_wl: ScalarQuantity = st_quantity_input(
+        MAX_WL: ScalarQuantity = st_quantity_input(
             "Max λ",
             min_value=0.0,
             value=950.0,
@@ -81,8 +80,7 @@ with st.sidebar:
             possible_units=["nm", "µm"],
             default_unit="nm",
             key="max_wl",
-        )
-        st.session_state["max_wl"] = max_wl
+        ).to(u.nm)
 
     with st.expander(label="Echelle Grating", expanded=False):
         ECHELLE_GRATINGS: dict[str, EchelleGrating] = {
@@ -201,6 +199,13 @@ with st.sidebar:
             * u.deg
         )
 
+        GRATING: EchelleGrating = EchelleGrating(
+            groove_frequency=groove_frequency,
+            blaze_angle=blaze_angle,
+            gamma_angle=gamma_angle,
+            ruled_width=ruled_width,
+        )
+
     with st.expander(
         label="Cross-disperser",
         expanded=False,
@@ -229,31 +234,9 @@ with st.sidebar:
             default_apex_angle: ScalarQuantity = 45 * u.deg
 
         if cross_disperser_type in ["Prism", "Double-pass prism"]:
-            catalogue: str = st.selectbox(
-                "Glass catalogue",
-                GLASS_CATALOGUES.keys(),
-                index=list(GLASS_CATALOGUES.keys()).index("Schott")
-                if "Schott" in GLASS_CATALOGUES
-                else 0,
-                width=300,
-            )
+            default_glass: Glass = GlassCatalogue("Schott")["F2"]
 
-            try:
-                glasses = GlassCatalogue(catalogue)
-                glass_names: list[str] = sorted(glasses.keys())
-            except Exception:
-                st.error(f"Could not load {catalogue} glass catalogue.")
-
-            default_glass: str = "F2"
-
-            glass_name: str = st.selectbox(
-                "Glass",
-                glass_names,
-                index=glass_names.index(default_glass)
-                if default_glass in glass_names
-                else 0,
-                width=300,
-            )
+            glass: Glass = st_glass_chooser(current_glass=default_glass)
 
             apex_angle: ScalarQuantity = (
                 st.number_input(
@@ -267,6 +250,13 @@ with st.sidebar:
                 * u.deg
             )
 
+            CROSS_DISPERSER: CrossDisperser = Prism(
+                glass=glass,
+                apex_angle=apex_angle,
+                min_wl=MIN_WL,
+                max_wl=MAX_WL,
+            )
+
             st.toggle(
                 "Plot glass refractive index",
                 value=False,
@@ -274,20 +264,18 @@ with st.sidebar:
             )
 
             if st.session_state["ref_index_plot_toggle"]:
-                wls: list[float] = np.linspace(
-                    min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
-                )
+                wls: list[float] = np.linspace(MIN_WL.value, MAX_WL.value, 50)
 
                 fig: go.Figure = go.Figure()  # go figure!
                 fig.add_trace(
                     trace=go.Scatter(
                         x=wls,
-                        y=glasses[glass_name].refractive_index(wls),
+                        y=glass.refractive_index(wls),
                         mode="lines",
                     )
                 )
                 fig.update_layout(
-                    title=f"{glass_name} Refractive Index",
+                    title=f"{glass.name} Refractive Index",
                     xaxis_title="Wavelength (nm)",
                     yaxis_title="Refractive Index",
                     template="plotly_dark",
@@ -295,46 +283,20 @@ with st.sidebar:
 
                 st.plotly_chart(fig)
 
-            _cross_disperser: CrossDisperser = Prism(
-                glass=glasses[glass_name],
-                apex_angle=apex_angle,
-                min_wl=min_wl,
-                max_wl=max_wl,
-            )
-
             st.metric(
                 "Calculated incidence angle",
-                f"{_cross_disperser.incidence_angle.value:.2f} degrees",
+                f"{CROSS_DISPERSER.incidence_angle.value:.2f} degrees",
                 help="""This tool automatically calculates the appropriate incidence
                 angle such that the spectral format is symmetrically centred on the
                 detector.""",
             )
 
         elif cross_disperser_type == "Multiple prisms":
-            p1_catalogue: str = st.selectbox(
-                "Prism 1 glass catalogue",
-                GLASS_CATALOGUES.keys(),
-                index=list(GLASS_CATALOGUES.keys()).index("Schott")
-                if "Schott" in GLASS_CATALOGUES
-                else 0,
-                width=300,
-            )
+            default_glass: Glass = GlassCatalogue("Schott")["F2"]
 
-            try:
-                p1_glasses = GlassCatalogue(p1_catalogue)
-                p1_glass_names: list[str] = sorted(p1_glasses.keys())
-            except Exception:
-                st.error(f"Could not load {p1_catalogue} glass catalogue.")
-
-            default_glass: str = "F2"
-
-            p1_glass_name: str = st.selectbox(
-                "Prism 1 Glass",
-                p1_glass_names,
-                index=p1_glass_names.index(default_glass)
-                if default_glass in p1_glass_names
-                else 0,
-                width=300,
+            p1_glass: Glass = st_glass_chooser(
+                current_glass=default_glass,
+                key="p1_glass_chooser",
             )
 
             p1_apex_angle: ScalarQuantity = (
@@ -357,20 +319,18 @@ with st.sidebar:
             )
 
             if st.session_state["p1_ref_index_plot_toggle"]:
-                wls: list[float] = np.linspace(
-                    min_wl.to(u.nm).value, max_wl.to(u.nm).value, 50
-                )
+                wls: list[float] = np.linspace(MIN_WL.value, MAX_WL.value, 50)
 
                 fig = go.Figure()
                 fig.add_trace(
                     trace=go.Scatter(
                         x=wls,
-                        y=p1_glasses[p1_glass_name].refractive_index(wls),
+                        y=p1_glass.refractive_index(wls),
                         mode="lines",
                     )
                 )
                 fig.update_layout(
-                    title=f"{p1_glass_name} Refractive Index",
+                    title=f"{p1_glass.name} Refractive Index",
                     xaxis_title="Wavelength (nm)",
                     yaxis_title="Refractive Index",
                     template="plotly_dark",
@@ -385,33 +345,13 @@ with st.sidebar:
             )
 
             if st.session_state["identical_prisms_toggle"]:
-                # p2_catalogue = p1_catalogue
-                p2_glasses: GlassCatalogue = p1_glasses
-                p2_glass_name: str = p1_glass_name
+                p2_glass: Glass = p1_glass
                 p2_apex_angle: ScalarQuantity = p1_apex_angle
+
             else:
-                p2_catalogue: str = st.selectbox(
-                    "Prism 2 glass catalogue",
-                    GLASS_CATALOGUES.keys(),
-                    index=list(GLASS_CATALOGUES.keys()).index("Schott")
-                    if "Schott" in GLASS_CATALOGUES
-                    else 0,
-                    width=300,
-                )
-
-                try:
-                    p2_glasses = GlassCatalogue(p2_catalogue)
-                    p2_glass_names: list[str] = sorted(p2_glasses.keys())
-                except Exception:
-                    st.error(f"Could not load {p2_catalogue} glass catalogue.")
-
-                p2_glass_name: str = st.selectbox(
-                    "Prism 2 Glass",
-                    p2_glass_names,
-                    index=p2_glass_names.index(default_glass)
-                    if default_glass in p2_glass_names
-                    else 0,
-                    width=300,
+                p2_glass: Glass = st_glass_chooser(
+                    current_glass=default_glass,
+                    key="p2_glass_chooser",
                 )
 
                 p2_apex_angle: ScalarQuantity = (
@@ -434,22 +374,18 @@ with st.sidebar:
                 )
 
                 if st.session_state["p2_ref_index_plot_toggle"]:
-                    wls: list[float] = np.linspace(
-                        min_wl.to(u.nm).value,
-                        max_wl.to(u.nm).value,
-                        50,
-                    )
+                    wls: list[float] = np.linspace(MIN_WL.value, MAX_WL.value, 50)
 
                     fig = go.Figure()
                     fig.add_trace(
                         trace=go.Scatter(
                             x=wls,
-                            y=p2_glasses[p2_glass_name].refractive_index(wls),
+                            y=p2_glass.refractive_index(wls),
                             mode="lines",
                         )
                     )
                     fig.update_layout(
-                        title=f"{p2_glass_name} Refractive Index",
+                        title=f"{p2_glass.name} Refractive Index",
                         xaxis_title="Wavelength (nm)",
                         yaxis_title="Refractive Index",
                         template="plotly_dark",
@@ -457,20 +393,14 @@ with st.sidebar:
 
                     st.plotly_chart(fig, key="p2_ref_index_plot")
 
-            _cross_disperser = TwoPrisms(
-                prism1=Prism(
-                    glass=p1_glasses[p1_glass_name],
-                    apex_angle=p1_apex_angle,
-                ),
-                prism2=Prism(
-                    glass=p2_glasses[p2_glass_name],
-                    apex_angle=p2_apex_angle,
-                ),
+            CROSS_DISPERSER = TwoPrisms(
+                prism1=Prism(glass=p1_glass, apex_angle=p1_apex_angle),
+                prism2=Prism(glass=p2_glass, apex_angle=p2_apex_angle),
             )
 
             st.metric(
                 "Calculated incidence angle",
-                f"{_cross_disperser.incidence_angle.value:.2f} degrees",
+                f"{CROSS_DISPERSER.incidence_angle.value:.2f} degrees",
                 help="""This tool automatically calculates the appropriate incidence
                 angle such that the spectral format is symmetrically centred on the
                 detector.""",
@@ -489,9 +419,11 @@ with st.sidebar:
                 key="cross_disperser_groove_frequency",
             )
 
-            if st.session_state.get("max_wl", 950 * u.nm) > 2 * st.session_state.get(
-                "min_wl", 380 * u.nm
-            ):
+            CROSS_DISPERSER: CrossDisperser = SimpleGrating(
+                groove_frequency=cross_disperser_groove_frequency,
+            )
+
+            if MAX_WL > 2 * MIN_WL:
                 st.warning(
                     """Warning: with a grating cross-disperser, the wavelength range
                     should not exceed an octave (max λ should be less than 2x min λ) to
@@ -696,6 +628,14 @@ with st.sidebar:
                 )
             )
 
+            if len(detectors) > 1:
+                st.warning(
+                    """Warning: only the first detector is used to calculate the
+                    instrument metrics.""",
+                )
+            # For setting up the spectrograph, take the first detector only
+            DETECTOR = detectors[0] if detectors else None
+
         st.toggle("Show detector name in plot", value=True, key="detector_name")
 
     with st.expander(label="Plot Format Options", expanded=False):
@@ -759,43 +699,6 @@ with st.sidebar:
 
 
 # Create Spectrograph
-
-MIN_WL: ScalarQuantity = min_wl.to(u.nm)
-MAX_WL: ScalarQuantity = max_wl.to(u.nm)
-
-GRATING: EchelleGrating = EchelleGrating(
-    groove_frequency=groove_frequency,
-    blaze_angle=blaze_angle,
-    gamma_angle=gamma_angle,
-    ruled_width=ruled_width,
-)
-
-if cross_disperser_type in ["Prism", "Double-pass prism"]:
-    glass: Glass = glasses[glass_name]
-    CROSS_DISPERSER: CrossDisperser = Prism(
-        glass=glass,
-        apex_angle=apex_angle,
-    )
-
-elif cross_disperser_type == "Multiple prisms":
-    CROSS_DISPERSER = TwoPrisms(
-        prism1=Prism(
-            glass=p1_glasses[p1_glass_name],
-            apex_angle=p1_apex_angle,
-        ),
-        prism2=Prism(
-            glass=p2_glasses[p2_glass_name],
-            apex_angle=p2_apex_angle,
-        ),
-    )
-
-elif cross_disperser_type == "Grating":
-    CROSS_DISPERSER: CrossDisperser = SimpleGrating(
-        groove_frequency=cross_disperser_groove_frequency,
-    )
-
-DETECTOR = detectors[0] if detectors else None
-
 if cross_disperser_type == "Double-pass prism":
     spectrograph: DoublePassEchelleSpectrograph = DoublePassEchelleSpectrograph(
         grating=GRATING,

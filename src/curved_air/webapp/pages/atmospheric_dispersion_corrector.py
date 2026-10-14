@@ -17,7 +17,7 @@ from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.optics.dispersers import Prism
 from curved_air.plotting import plot_style
-from curved_air.utils import st_quantity_input
+from curved_air.utils import st_glass_chooser, st_quantity_input
 from curved_air.webapp import badges, bmac
 
 if TYPE_CHECKING:
@@ -39,31 +39,11 @@ def _edit_prism(index: int) -> None:
 
     p: Prism = st.session_state["prisms"][index]
 
-    catalogue: str = st.selectbox(
-        label="Glass catalogue",
-        options=GLASS_CATALOGUES.keys(),
-        index=list(GLASS_CATALOGUES.keys()).index(p.glass.manufacturer)
-        if p.glass.manufacturer in GLASS_CATALOGUES
-        else 0,
-        persist_state="page",
-        key=f"glass_catalogue_{index + 1}",
+    glass: Glass = st_glass_chooser(
+        current_glass=p.glass,
+        catalogues=GLASS_CATALOGUES,
+        key=f"prism_{index + 1}_glass",
     )
-
-    try:
-        glasses = GlassCatalogue(catalogue)
-        glass_names: list[str] = sorted(glasses.keys())
-    except Exception:
-        st.error(f"Could not load {catalogue} glass catalogue.")
-
-    glass: str = st.selectbox(
-        label="Glass",
-        options=glass_names,
-        index=glass_names.index(p.glass.name) if p.glass.name in glass_names else 0,
-        persist_state="page",
-        key=f"glass_{index + 1}",
-    )
-
-    glass: Glass = glasses[glass]
 
     st.session_state["prisms"][index].glass = glass
 
