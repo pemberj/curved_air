@@ -151,16 +151,25 @@ with st.sidebar:
             st.toggle("Filter by transmission", key="filter_transmission")
 
             if st.session_state.get("filter_transmission", False):
-                T_wls: ArrayQuantity = (
-                    st.slider(
-                        "Transmission wavelengths (nm)",
-                        min_value=100.0,
-                        max_value=4500.0,
-                        value=(380.0, 950.0),
-                        step=5.0,
-                    )
-                    * u.nm
-                )
+                T_min_wl: ScalarQuantity = st_quantity_input(
+                    "Min λ",
+                    min_value=0.0,
+                    value=380.0,
+                    step=1.0,
+                    possible_units=["nm", "µm"],
+                    default_unit="nm",
+                    key="T_min_wl",
+                ).to(u.nm)
+
+                T_max_wl: ScalarQuantity = st_quantity_input(
+                    "Max λ",
+                    min_value=0.0,
+                    value=950.0,
+                    step=1.0,
+                    possible_units=["nm", "µm"],
+                    default_unit="nm",
+                    key="T_max_wl",
+                ).to(u.nm)
 
                 T_min: float = (
                     st.number_input(
@@ -174,8 +183,8 @@ with st.sidebar:
                 )
 
                 working_catalogue: GlassCatalogue = working_catalogue.filter(
-                    min_wl=T_wls[0],
-                    max_wl=T_wls[1],
+                    min_wl=T_min_wl,
+                    max_wl=T_max_wl,
                     min_transmission=T_min,
                 )
 
@@ -545,31 +554,33 @@ if len(selected_glasses) == 1:
 
 cols = st.columns(2, gap="large")
 
-with cols[0], st.container(horizontal_alignment="right"):
-    min_wl: float = st.number_input(
-        "Minimum wavelength (nm)",
-        min_value=100.0,
-        max_value=4500.0,
-        value=st.session_state.get("min_max_wls", (370.0, 500.0))[0],
-        step=5.0,
-        key="min_wl_input",
-        width=200,
-    )
+with cols[0], st.container(horizontal_alignment="right"):  # noqa: SIM117
+    with st.container(width=400):
+        min_wl: ScalarQuantity = st_quantity_input(
+            "Min λ",
+            min_value=0.0,
+            value=380.0,
+            step=1.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="min_wl_input",
+        ).to(u.nm)
 
-with cols[1], st.container(horizontal_alignment="left"):
-    max_wl: float = st.number_input(
-        "Maximum wavelength (nm)",
-        min_value=100.0,
-        max_value=4500.0,
-        value=st.session_state.get("min_max_wls", (370.0, 500.0))[1],
-        step=5.0,
-        key="max_wl_input",
-        width=200,
-    )
+with cols[1], st.container(width=400, horizontal_alignment="left"):  # noqa: SIM117
+    with st.container(width=400):
+        max_wl: ScalarQuantity = st_quantity_input(
+            "Max λ",
+            min_value=0.0,
+            value=950.0,
+            step=1.0,
+            possible_units=["nm", "µm"],
+            default_unit="nm",
+            key="max_wl_input",
+        ).to(u.nm)
 
 st.session_state["min_max_wls"] = (min_wl, max_wl)
 
-plot_wls: ArrayQuantity = np.linspace(min_wl, max_wl, 100) * u.nm
+plot_wls: ArrayQuantity = np.linspace(min_wl.value, max_wl.value, 100) * u.nm
 
 
 cols = st.columns(2)
