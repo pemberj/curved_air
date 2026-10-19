@@ -838,7 +838,7 @@ class GlassCatalogue(dict):
                             _status = float(data[7])
                             if debug_level >= 1:
                                 print(f"_status: {_status}")
-                            g.status = int(_status)
+                            g.status = int(_status)  # ty:ignore[invalid-assignment]
                             if debug_level >= 1:
                                 print(f"int -> Status: {g.status}")
                         except ValueError:
