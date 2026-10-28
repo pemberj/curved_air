@@ -497,6 +497,24 @@ with st.sidebar:
                 "Warning: projected beam diameter is larger than grating ruled width!",
             )
 
+        st.toggle(
+            "Different beam diameter at cross-disperser?",
+            key="asymmetric_toggle",
+        )
+
+        if st.session_state["asymmetric_toggle"]:
+            beam_diameter_at_cross_disperser: ScalarQuantity = st_quantity_input(
+                "Beam diameter at cross-disperser",
+                min_value=0.0,
+                value=beam_diameter.to(u.mm).value,
+                step=1.0,
+                possible_units=["mm", "cm", "m"],
+                default_unit="mm",
+                key="beam_diameter_2",
+            )
+        else:
+            beam_diameter_at_cross_disperser = None
+
         f_cam: ScalarQuantity = st_quantity_input(
             "Camera focal length",
             min_value=0.0,
@@ -507,9 +525,14 @@ with st.sidebar:
             key="f_cam",
         )
 
+        if beam_diameter_at_cross_disperser is not None:
+            camera_f_number = (f_cam / beam_diameter_at_cross_disperser).si.value
+        else:
+            camera_f_number = (f_cam / beam_diameter).si.value
+
         st.metric(
             "Camera focal ratio",
-            f"f/{(f_cam / beam_diameter).decompose().value:.1f}",
+            f"f/{camera_f_number:.1f}",
             help="""The focal ratio of the camera, calculated from the camera focal
             length and the collimated beam diameter. Extreme low f-ratios can have
             important implications for the optical design of the camera in terms of
@@ -708,6 +731,7 @@ if cross_disperser_type == "Double-pass prism":
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=beam_diameter,
+        beam_diameter_at_cross_disperser=beam_diameter_at_cross_disperser,
         collimator_focal_length=f_col,
         camera_focal_length=f_cam,
         slit_width=slit_width,
@@ -723,6 +747,7 @@ else:
         min_wl=MIN_WL,
         max_wl=MAX_WL,
         beam_diameter=beam_diameter,
+        beam_diameter_at_cross_disperser=beam_diameter_at_cross_disperser,
         collimator_focal_length=f_col,
         camera_focal_length=f_cam,
         slit_width=slit_width,

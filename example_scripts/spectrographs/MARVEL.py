@@ -14,7 +14,7 @@ import numpy as np
 from astropy import units as u
 from matplotlib import pyplot as plt
 
-from curved_air.detectors import Detector
+from curved_air.detectors import e2v_9k
 from curved_air.glass import GlassCatalogue
 from curved_air.instruments.echelle import EchelleSpectrograph
 from curved_air.optics.dispersers import EchelleGrating, Prism
@@ -33,36 +33,35 @@ if TYPE_CHECKING:
 plt.style.use(plot_style)
 
 
+MARVEL: EchelleSpectrograph = EchelleSpectrograph(
+    name="MARVEL Spectrograph",
+    grating=EchelleGrating(
+        name="MARVEL Grating",
+        catalogue_number="53-*-417E",
+        groove_frequency=52.67 / u.mm,
+        ruled_width=400 * u.mm,
+        blaze_angle=69.7 * u.deg,
+        gamma_angle=0.3 * u.deg,
+    ),
+    cross_disperser=Prism(
+        name="MARVEL Prism",
+        glass=GlassCatalogue("Schott")["F2"],
+        apex_angle=60 * u.deg,
+    ),
+    detector=e2v_9k,
+    min_wl=380 * u.nm,
+    max_wl=950 * u.nm,
+    beam_diameter=160 * u.mm,
+    camera_focal_length=730 * u.mm,
+    slit_width=40 * u.um,
+    slit_length=0.5 * u.mm,
+    slit_native_focal_ratio=3.85,
+)
+
+
 def main(plot: bool = False) -> None:
-    MARVEL: EchelleSpectrograph = EchelleSpectrograph(
-        name="MARVEL Spectrograph",
-        grating=EchelleGrating(
-            name="MARVEL Grating",
-            catalogue_number="53-*-417E",
-            groove_frequency=52.67 / u.mm,
-            ruled_width=400 * u.mm,
-            blaze_angle=69.7 * u.deg,
-            gamma_angle=0.3 * u.deg,
-        ),
-        cross_disperser=Prism(
-            name="MARVEL Prism",
-            glass=GlassCatalogue("Schott")["F2"],
-            apex_angle=60 * u.deg,
-        ),
-        detector=Detector(
-            name="STA1600",
-            pixel_size=9 * u.um,
-            nx=10560,
-            ny=10560,
-        ),
-        min_wl=380 * u.nm,
-        max_wl=950 * u.nm,
-        collimator_focal_length=1125 * u.mm,
-        camera_focal_length=730 * u.mm,
-        slit_width=40 * u.um,
-        slit_length=0.5 * u.mm,
-        slit_native_focal_ratio=3.85,
-    ).print_parameters()
+
+    MARVEL.print_parameters()
 
     if plot:
         fig: plt.Figure = plt.figure("MARVEL spectral format", figsize=(10, 10))

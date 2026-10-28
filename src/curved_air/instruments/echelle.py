@@ -7,6 +7,12 @@ generation, etc. for echelle spectrographs.
 Also included is a DoublePassEchelleSpectrograph class for describing an echelle
 spectrograph where the light passes twice through the cross-disperser. For now the
 cross-disperser of this type of instrument must be a Prism.
+
+TODO: Add separate collimated beam diameter values for echelle and cross-disperser
+    - First compute the angles from the echelle
+    - Then "(de-)magnify" these angles by multiplying by the ratio of the two beam sizes
+    - Then compute the angles from the cross disperser, before computing the detector
+      positions
 """
 
 from __future__ import annotations
@@ -42,6 +48,8 @@ class EchelleSpectrograph:
     detector: Detector | None = field(default_factory=Detector)
 
     beam_diameter: ScalarQuantity | None = None
+    beam_diameter_at_cross_disperser: ScalarQuantity | None = None
+
     min_wl: ScalarQuantity = 390 * u.nm
     max_wl: ScalarQuantity = 950 * u.nm
     collimator_focal_length: ScalarQuantity | None = 1125 * u.mm
@@ -53,6 +61,10 @@ class EchelleSpectrograph:
     def __post_init__(self) -> None:
         if self.beam_diameter is None:
             self.beam_diameter: ScalarQuantity = self.grating.beam_diameter
+
+        if self.beam_diameter_at_cross_disperser is None:
+            # If no second beam diameter is specified, assume the setup is symmetric
+            self.beam_diameter_at_cross_disperser: ScalarQuantity = self.beam_diameter
 
         self.grating.min_wl: ScalarQuantity = self.min_wl
         self.grating.max_wl: ScalarQuantity = self.max_wl
@@ -108,6 +120,14 @@ class EchelleSpectrograph:
             )
 
     @property
+    def asymmetry_factor(self) -> float:
+        return float(
+            (
+                self.beam_diameter / self.beam_diameter_at_cross_disperser  # ty:ignore[unsupported-operator]
+            ).si.value
+        )
+
+    @property
     def mid_wavelength(self) -> ScalarQuantity:
         return (self.max_wl + self.min_wl) / 2
 
@@ -147,9 +167,13 @@ class EchelleSpectrograph:
 
     @property
     def camera_focal_ratio(self) -> float:
-        if self.camera_focal_length is None or self.beam_diameter is None:
+        if self.camera_focal_length is None:
             raise ValueError("Camera focal length and beam diameter must be defined.")
-        return self.camera_focal_length / self.beam_diameter
+
+        if self.beam_diameter_at_cross_disperser is None:
+            raise ValueError("Beam diameter must be defined for camera focal ratio.")
+
+        return self.camera_focal_length / self.beam_diameter_at_cross_disperser
 
     @property
     def slit_magnification(self) -> float:
@@ -158,9 +182,15 @@ class EchelleSpectrograph:
     @property
     def slit_sampling(self, slit_width: ScalarQuantity | None = None) -> float:
         if slit_width is None:
-            slit_width = self.slit_width
+            slit_width: ScalarQuantity = self.slit_width
 
-        return float((self.slit_image_width() / self.detector.pixel_size).si.value)
+        return float(
+            (
+                self.slit_image_width()
+                * self.asymmetry_factor
+                / self.detector.pixel_size
+            ).si.value
+        )
 
     @property
     def spectral_orders(self) -> list[int]:
@@ -229,8 +259,12 @@ class EchelleSpectrograph:
         assert wavelength.isscalar
 
         grating_angle: ScalarQuantity = self.grating.diffraction_angle(
-            m=m, wl=wavelength
+            m=m,
+            wl=wavelength,
         )
+        # "(de-)magnify" the diffraction angles to account for different beam diameters
+        # at the echelle and the cross-disperser
+        grating_angle: ScalarQuantity = grating_angle * self.asymmetry_factor
 
         cross_disperser_angle: ScalarQuantity = self.cross_disperser.dispersion_angle(
             wl=wavelength,
@@ -429,12 +463,15 @@ class EchelleSpectrograph:
             self.grating.anamorphic_magnification(m=m, wl=wls[1]),
         )
 
-    def print_parameters(self, column_width: int = 35) -> EchelleSpectrograph:
+    def print_parameters(self, column_width: int = 45) -> EchelleSpectrograph:
 
         w: int = column_width
 
-        print(f"{'Collimated beam diameter:':<{w}}", end="")
+        print(f"{'Collimated beam diameter at echelle:':<{w}}", end="")
         print(f"{self.beam_diameter:.3g}")
+
+        print(f"{'Collimated beam diameter at cross-disperser:':<{w}}", end="")
+        print(f"{self.beam_diameter_at_cross_disperser:.3g}")
 
         print(f"{'Slit magnification factor:':<{w}}", end="")
         print(f"{self.slit_magnification:.3g}x")
@@ -542,6 +579,11 @@ class DoublePassEchelleSpectrograph(EchelleSpectrograph):
         )
 
         grating_angle: Quantity = _grating.diffraction_angle(m=m, wl=wavelength)
+
+        # I think it is highly unlikely that any double-pass instrument has a different
+        # beam size at the echelle and the cross-disperser, but this code can handle it
+        # anyway
+        grating_angle: Quantity = grating_angle * self.asymmetry_factor
 
         _prism_second_pass: Prism = Prism(
             glass=self.cross_disperser.glass,

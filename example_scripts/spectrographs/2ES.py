@@ -58,25 +58,11 @@ def main(plot: bool = False) -> None:
         min_wl=375 * u.nm,
         max_wl=900 * u.nm,
         beam_diameter=100 * u.mm,
-        collimator_focal_length=1000 * u.mm,
         camera_focal_length=570 * u.mm,
         slit_width=32 * u.um,
         slit_length=128 * u.um,
         slit_native_focal_ratio=5,
     ).print_parameters()
-
-    fig: plt.Figure = plt.figure()
-    ax: plt.Axes = fig.gca()
-
-    # Plot the spectral resolution as a function of wavelength
-    wls = np.linspace(TwoES.min_wl, TwoES.max_wl, 100)
-    Rs = np.array([TwoES.spectral_resolution(wl=wl) for wl in wls])
-
-    ax.plot(wls, Rs)
-
-    plt.show()
-
-    return
 
     if plot:
         fig: plt.Figure = plt.figure("2ES spectral format", figsize=(10, 10))
@@ -91,73 +77,71 @@ def main(plot: bool = False) -> None:
 
         ax.set_aspect("equal")
 
-        for f in range(1):  # number of fibres
-            offset: ScalarQuantity = f * 130 * u.um * TwoES.slit_magnification
-            for m in TwoES.spectral_orders:
-                wls: ArrayQuantity = TwoES.order_wavelengths(m=m)
-                mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
+        for m in TwoES.spectral_orders:
+            wls: ArrayQuantity = TwoES.order_wavelengths(m=m)
+            mean_wl: ScalarQuantity = np.mean(wls.value) * wls.unit
 
-                xs, ys = np.transpose(TwoES.image_plane_position(m=m, wavelength=wls))
-                ax.plot(
-                    xs + offset,
-                    ys,
-                    color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
-                    lw=2.5,
-                    path_effects=stroke(thickness=5),
+            xs, ys = np.transpose(TwoES.image_plane_position(m=m, wavelength=wls))
+            ax.plot(
+                xs,
+                ys,
+                color=wavelength_to_rgb(mean_wl, fade_factor=0.8),
+                lw=2.5,
+                path_effects=stroke(thickness=5),
+            )
+
+            if m % 5 == 0:
+                if m == 165:  # noqa: PLR2004
+                    mtext = f"{m = }"
+                    wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
+                else:
+                    mtext = f"{m}"
+                    wltext = f"{wls[0].to(u.nm).value:.0f}"
+
+                if abs(ys[0].value) + 5 > b:
+                    continue
+
+                ax.text(
+                    xs[0].value,
+                    ys[0].value - 2,
+                    mtext,
+                    fontsize=14,
+                    ha="center",
+                    va="top",
                 )
 
-                if m % 5 == 0:
-                    if m == 165:  # noqa: PLR2004
-                        mtext = f"{m = }"
-                        wltext = f"$\\lambda = {wls[0].to(u.nm):.0f}$"
-                    else:
-                        mtext = f"{m}"
-                        wltext = f"{wls[0].to(u.nm).value:.0f}"
+                if abs(ys[-1].value) + 5 > b:
+                    continue
 
-                    if abs(ys[0].value) + 5 > b:
-                        continue
+                ax.text(
+                    xs[-1].value,
+                    ys[-1].value + 2,
+                    wltext,
+                    fontsize=14,
+                    ha="center",
+                    va="bottom",
+                )
 
-                    ax.text(
-                        (xs[0] + offset).value,
-                        ys[0].value - 2,
-                        mtext,
-                        fontsize=14,
-                        ha="center",
-                        va="top",
-                    )
+            min_FSR_wl, max_FSR_wl = TwoES.grating.order_FSR_bounds(m=m)
 
-                    if abs(ys[-1].value) + 5 > b:
-                        continue
+            for name, wl in _atomic_lines.items():
+                if min_FSR_wl <= wl <= max_FSR_wl:
+                    x, y = TwoES.image_plane_position(m=m, wavelength=wl)
 
                     ax.text(
-                        (xs[-1] + offset).value,
-                        ys[-1].value + 2,
-                        wltext,
+                        x.value,
+                        y.value,
+                        f"{name}",
                         fontsize=14,
                         ha="center",
-                        va="bottom",
+                        va="center",
+                        bbox={
+                            "facecolor": "w",
+                            "edgecolor": "k",
+                            "alpha": 0.75,
+                            "boxstyle": "round,pad=0.25",
+                        },
                     )
-
-                min_FSR_wl, max_FSR_wl = TwoES.grating.order_FSR_bounds(m=m)
-
-                for name, wl in _atomic_lines.items():
-                    if min_FSR_wl <= wl <= max_FSR_wl:
-                        x, y = TwoES.image_plane_position(m=m, wavelength=wl)
-
-                        ax.text(
-                            x.value,
-                            y.value,
-                            f"{name}",
-                            fontsize=14,
-                            ha="center",
-                            va="center",
-                            bbox={
-                                "facecolor": "w",
-                                "edgecolor": "k",
-                                "alpha": 0.75,
-                                "boxstyle": "round,pad=0.25",
-                            },
-                        )
 
         # ax.patch.set_facecolor("black")
         ax.axis("off")
