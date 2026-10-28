@@ -633,8 +633,9 @@ with st.sidebar:
                     """Warning: only the first detector is used to calculate the
                     instrument metrics.""",
                 )
-            # For setting up the spectrograph, take the first detector only
-            DETECTOR = detectors[0] if detectors else None
+
+        # For setting up the spectrograph, take the first detector only
+        DETECTOR = detectors[0] if detectors else None
 
         st.toggle("Show detector name in plot", value=True, key="detector_name")
 
