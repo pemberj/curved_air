@@ -425,6 +425,9 @@ def generate_zemax_zmx(spectrograph: EchelleSpectrograph) -> str:
 
     for i, wl in enumerate(first_cfg, start=1):
         header.append(f"WAVM {i} {wl.to(u.um).value:.16f} 1")
+    while i < 24:  # noqa: PLR2004
+        i += 1
+        header.append(f"WAVM {i} {0.55:.16f} 1")
 
     header.extend(
         [
