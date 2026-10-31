@@ -584,10 +584,11 @@ MPGESO: Shape = telescope(
 
 
 def segmented_telescope(
-    primary_diameter: ScalarQuantity = 6.6 * u.m,
+    segment_size: ScalarQuantity = 1.32 * u.m,
     segment_gap_size: ScalarQuantity = 10 * u.mm,
-    num_hexagon_rings: int = 2,
+    num_hexagon_rings: int | None = 2,
     clocking_angle: ScalarQuantity = 0 * u.deg,
+    max_radius: ScalarQuantity | None = None,
 ) -> Shape:
     """
     A convenience function to model compound-mirror telescopes with hexagonal mirror
@@ -596,16 +597,20 @@ def segmented_telescope(
     """
 
     HEX_FACTOR: float = 1.15470  # Factor between circumradius and flat-to-flat distance
-    UNIT_MIRROR_SIZE: ScalarQuantity = (
-        primary_diameter / (num_hexagon_rings * 2 + 1)
-    ) - segment_gap_size
+    UNIT_MIRROR_SIZE: ScalarQuantity = segment_size
+
+    if num_hexagon_rings is None:
+        assert max_radius is not None, (
+            "max_radius must be specified if num_hexagon_rings is None"
+        )
+        num_hexagon_rings: int = int(np.ceil((2 * max_radius) / UNIT_MIRROR_SIZE))
 
     UNIT_MIRROR: Shape = RegularPolygon(
         num_sides=6, circumradius=(UNIT_MIRROR_SIZE * HEX_FACTOR) / 2
     )
 
     # Flat-to-flat spacing
-    X_SPACING: ScalarQuantity = UNIT_MIRROR_SIZE + segment_gap_size
+    X_SPACING: ScalarQuantity = UNIT_MIRROR_SIZE + 1 * segment_gap_size
     Y_SPACING: ScalarQuantity = (UNIT_MIRROR_SIZE * HEX_FACTOR + segment_gap_size) / 2
 
     # Calculate primary mirror Shape based on num_hexagon_rings
@@ -617,7 +622,10 @@ def segmented_telescope(
             if max(abs(q), abs(r), abs(q + r)) <= num_hexagon_rings:
                 x: ScalarQuantity = X_SPACING * (q + r / 2)
                 y: ScalarQuantity = 1.5 * Y_SPACING * r
-                primary |= UNIT_MIRROR.translate(dx=x, dy=y)
+                if max_radius is not None and np.sqrt(x**2 + y**2) <= max_radius:
+                    primary |= UNIT_MIRROR.translate(dx=x, dy=y)
+                # else:
+                #     print(f"{q=}, {r=} not added because outside max_radius")
 
     telescope: Shape = (primary).rotate(clocking_angle)
 
@@ -634,38 +642,40 @@ JWST_SPIDERS: Shape = (
     .rotate(-30 * u.deg)
 )
 
-JWST_SECONDARY: Shape = RegularPolygon(num_sides=6, circumradius=0.75 * u.m)
+JWST_SECONDARY: Shape = RegularPolygon(num_sides=6, circumradius=0.7621 * u.m)
 
 JWST: Shape = (
     segmented_telescope(
-        primary_diameter=6.6 * u.m,
+        segment_size=1.32 * u.m,
         segment_gap_size=40 * u.mm,
         num_hexagon_rings=2,
     )
     - JWST_SECONDARY
 ).rotate(30 * u.deg) - JWST_SPIDERS
 
-
-# Doesn't quite work for telescopes with a larger number of segments and which better
-# approximate a circular aperture - need to have a max. radius parameter or so! Then
-# iterate through the possible segements and add them only if they fit within the max.
-# radius.
-# TODO
-
-# ELT: Shape = segmented_telescope(
-#     primary_diameter=39 * u.m,
-#     segment_gap_size=50 * u.mm,
-#     num_hexagon_rings=7,
-# )
+ELT: Shape = (
+    segmented_telescope(
+        segment_size=1.45 * u.m,
+        max_radius=20 * u.m,
+        segment_gap_size=40 * u.mm,
+        num_hexagon_rings=None,  # The function calculates what is needed here
+    )
+    - Circle(diameter=4.25 * u.m)
+    - (
+        Rectangle(width=0.5 * u.m, height=45 * u.m)
+        | Rectangle(width=0.5 * u.m, height=45 * u.m).rotate(60 * u.deg)
+        | Rectangle(width=0.5 * u.m, height=45 * u.m).rotate(120 * u.deg)
+    )
+)
 
 
 def test() -> None:
 
     from matplotlib import pyplot as plt  # noqa: PLC0415
 
-    pupil = Pupil(geometry=JWST)
+    pupil = Pupil(geometry=ELT)
 
-    grid = PupilGrid(npix=1500, extent=10 * u.m)
+    grid = PupilGrid(npix=1500, extent=50 * u.m)
 
     sampled: SampledPupil = pupil.sample(grid)
 
@@ -686,9 +696,9 @@ def test() -> None:
     ax.set_xlabel("Pupil position [m]")
     ax.set_ylabel("Pupil position [m]")
 
-    width: ScalarQuantity = (8 * u.m).to(u.m).value
-    ax.set_xlim(-width / 2, width / 2)
-    ax.set_ylim(-width / 2, width / 2)
+    # width: ScalarQuantity = (8 * u.m).to(u.m).value
+    # ax.set_xlim(-width / 2, width / 2)
+    # ax.set_ylim(-width / 2, width / 2)
 
     psf: PSF = sampled.psf(wavelength=500 * u.nm)
 
