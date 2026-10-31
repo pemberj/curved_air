@@ -656,7 +656,7 @@ JWST: Shape = (
 ELT: Shape = (
     segmented_telescope(
         segment_size=1.45 * u.m,
-        max_radius=20 * u.m,
+        max_radius=19.5 * u.m,
         segment_gap_size=40 * u.mm,
         num_hexagon_rings=None,  # The function calculates what is needed here
     )
@@ -675,7 +675,7 @@ def test() -> None:
 
     pupil = Pupil(geometry=ELT)
 
-    grid = PupilGrid(npix=1500, extent=50 * u.m)
+    grid = PupilGrid(npix=2000, extent=60 * u.m)
 
     sampled: SampledPupil = pupil.sample(grid)
 
@@ -696,9 +696,9 @@ def test() -> None:
     ax.set_xlabel("Pupil position [m]")
     ax.set_ylabel("Pupil position [m]")
 
-    # width: ScalarQuantity = (8 * u.m).to(u.m).value
-    # ax.set_xlim(-width / 2, width / 2)
-    # ax.set_ylim(-width / 2, width / 2)
+    width: ScalarQuantity = (40 * u.m).to(u.m).value
+    ax.set_xlim(-width / 2, width / 2)
+    ax.set_ylim(-width / 2, width / 2)
 
     psf: PSF = sampled.psf(wavelength=500 * u.nm)
 
@@ -720,7 +720,7 @@ def test() -> None:
     ax.set_xlabel("Angular position [arcsec]")
     ax.set_ylabel("Angular position [arcsec]")
 
-    width = (3 * u.arcsec).to(u.arcsec).value
+    width = (0.5 * u.arcsec).to(u.arcsec).value
     ax.set_xlim(-width / 2, width / 2)
     ax.set_ylim(-width / 2, width / 2)
 
