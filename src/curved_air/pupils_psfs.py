@@ -43,11 +43,19 @@ type BoolArray = NDArray[np.bool_]
 
 
 class Shape(ABC):
-    """Base class describing a generic geometrical region"""
+    """
+    Base class describing a generic geometrical region
+    """
 
     @abstractmethod
     def contains(self, x: ArrayQuantity, y: ArrayQuantity) -> BoolArray:
-        """Return True where (x, y) lies inside the shape"""
+        """
+        Returns True if (x, y) lies inside the Shape, which may be complex and comprised
+        of many simple Shapes with boolean operations between them. x and y are in the
+        Shape's local coordinate system, and may represent a single point or an array of
+        many points. The return value is a boolean array of the same shape as the input
+        coordinates, indicating whether each point is inside the Shape.
+        """
         ...
 
     def __sub__(self, other: Shape) -> Shape:
@@ -142,7 +150,10 @@ class Rectangle(Shape):
 
 @dataclass
 class Polygon(Shape):
-    """Simple polygon defined by vertices in its local coordinate system"""
+    """
+    polygons that are not regular, or where the vertices of the shape are known
+    explicitly.
+    """
 
     vertices: tuple[tuple[Quantity, Quantity], ...]
 
@@ -173,7 +184,7 @@ class Polygon(Shape):
 
 @dataclass
 class RegularPolygon(Polygon):
-    """Regular polygon defined by number of sides and circumradius"""
+    """ """
 
     num_sides: int
     circumradius: ScalarQuantity
@@ -204,7 +215,9 @@ class RegularPolygon(Polygon):
 # -- Boolean shape composition ---------------------------------------------------------
 
 # All of these subclasses represent the result of a boolean operation on two shapes, for
-# instance adding two shapes together to form a more complex geometry
+# instance adding two shapes together, taking their difference, or only the intersection
+# between them. With simple shapes and these basic operations you can form much more
+# complex geometrical shapes.
 
 
 @dataclass(frozen=True)
@@ -305,25 +318,33 @@ class PupilGrid:
 
     @property
     def pixel_size(self) -> ScalarQuantity:
-        """Physical pupil-plane sampling interval."""
+        """
+        Physical pupil-plane sampling interval
+        """
         return self.extent / self.npix
 
     @property
     def x(self) -> ArrayQuantity:
-        """1-D x coordinates of pixel centres."""
+        """
+        1d x-axis coordinates of pixel centres
+        """
         dx: ScalarQuantity = self.pixel_size
         c: ScalarQuantity = self.center[0].to(dx.unit)
         return (np.arange(self.npix) - (self.npix - 1) / 2) * dx + c
 
     @property
     def y(self) -> ArrayQuantity:
-        """1-D y coordinates of pixel centres."""
+        """
+        1d y-axis coordinates of pixel centres
+        """
         dx: ScalarQuantity = self.pixel_size
         c: ScalarQuantity = self.center[1].to(dx.unit)
         return (np.arange(self.npix) - (self.npix - 1) / 2) * dx + c
 
     def coordinates(self) -> tuple[ArrayQuantity, ArrayQuantity]:
-        """Return 2-D meshgrid coordinates."""
+        """
+        Return 2d meshgrid coordinates
+        """
         return np.meshgrid(self.x, self.y, indexing="xy")  # ty: ignore
 
     def spatial_frequency(
@@ -354,8 +375,6 @@ class PupilGrid:
 @dataclass
 class Pupil:
     """
-    A description of an optical pupil, which includes some geometry formed by an
-    arbitrary collection of Shapes, an (optional) optical path difference (OPD) model,
     which is a placeholder for now, and an (also optional) complex phase amplitude model
     which may be used for optimising pupil masks or something like that, in the future
     """
@@ -369,7 +388,9 @@ class Pupil:
         grid: PupilGrid,
         wavelength: Quantity | None = None,
     ) -> SampledPupil:
-        """ """
+        """
+        Sample the pupil over an already-defined PupilGrid
+        """
 
         x, y = grid.coordinates()
         aperture: BoolArray = self.geometry.contains(x, y)
@@ -379,15 +400,17 @@ class Pupil:
         if self.amplitude is None:
             amplitude[aperture] = 1.0
         else:
-            value: FloatArray = np.asarray(self.amplitude(x, y), dtype=float)  # ty: ignore[call-non-callable]
+            raise NotImplementedError("Amplitude model is not yet implemented")
+            value: FloatArray = np.asarray(self.amplitude(x, y), dtype=float)
             amplitude: FloatArray = np.where(aperture, value, 0.0)
 
         phase: FloatArray = np.zeros(aperture.shape, dtype=float)
 
         if self.opd is not None:
+            raise NotImplementedError("OPD model is not yet implemented")
             if wavelength is None:
                 raise ValueError("Wavelength is required when an OPD model is present")
-            opd: ArrayQuantity = self.opd(x, y)  # ty: ignore
+            opd: ArrayQuantity = self.opd(x, y)
             phase: FloatArray = np.asarray(
                 2 * np.pi * opd / wavelength,
                 dtype=float,
@@ -399,7 +422,9 @@ class Pupil:
         return SampledPupil(field=field, grid=grid)
 
     def mask(self, grid: PupilGrid) -> BoolArray:
-        """Return the binary geometrical pupil mask."""
+        """
+        Return the binary geometrical pupil mask
+        """
 
         x, y = grid.coordinates()
 
@@ -408,7 +433,9 @@ class Pupil:
 
 @dataclass(frozen=True)
 class SampledPupil:
-    """Complex pupil field sampled on a Cartesian grid"""
+    """
+    Complex pupil field sampled on a Cartesian grid
+    """
 
     field: ComplexArray
     grid: PupilGrid
@@ -422,7 +449,10 @@ class SampledPupil:
         return np.angle(self.field)
 
     def fft(self, *, shift: bool = True) -> ComplexArray:
-        """Return the unscaled Fourier transform of the pupil field."""
+        """
+        Return the unscaled Fourier transform of the pupil field
+        """
+
         result = np.fft.fft2(self.field)
 
         if shift:
@@ -437,13 +467,9 @@ class SampledPupil:
         normalize: bool = True,
         shift: bool = True,
     ) -> PSF:
-        """Monochromatic Fraunhofer PSF"""
-
-        # Angular sampling
-        #     dtheta = wavelength / grid.extent
-
-        # Total angular field of view
-        #     N * dtheta = wavelength / grid.pixel_size.
+        """
+        Compute the monochromatic Fraunhofer PSF for the pupil for the given wavelength
+        """
 
         if wavelength.ndim != 0:
             raise ValueError("Wavelength must be scalar")
@@ -458,21 +484,16 @@ class SampledPupil:
             if peak > 0:
                 intensity: FloatArray = intensity / peak
 
-        # FFT spatial frequency is cycles / length.
         # For Fraunhofer diffraction:
         #     theta ~= lambda * f
-        # where f is spatial frequency in cycles / length.
+        # where f is spatial frequency in cycles / length
 
         fx, fy = self.grid.spatial_frequency()
 
         theta_x: ArrayQuantity = (wavelength * fx).si * u.rad
         theta_y: ArrayQuantity = (wavelength * fy).si * u.rad
 
-        return PSF(
-            intensity=intensity,
-            x=theta_x,
-            y=theta_y,
-        )
+        return PSF(intensity=intensity, x=theta_x, y=theta_y, wavelength=wavelength)
 
 
 @dataclass(frozen=True)
@@ -487,11 +508,18 @@ class PSF:
     intensity: FloatArray
     x: ArrayQuantity
     y: ArrayQuantity
+    wavelength: ScalarQuantity
 
     @property
     def pixel_scale(self) -> ScalarQuantity:
-        """Angular separation between adjacent PSF samples"""
+        """
+        Angular separation between adjacent PSF samples
+        """
         return abs(self.x[1] - self.x[0])
+
+    @property
+    def angular_sampling(self) -> ScalarQuantity:
+        return self.wavelength / (self.x[-1] - self.x[0])
 
 
 def telescope(
@@ -555,41 +583,48 @@ MPGESO: Shape = telescope(
 )
 
 
-# Factor between circumradius and flat-to-flat distance for a regular hexagon
-HEX_FACTOR: float = 1.15470
-JWST_MIRROR_SIZE: ScalarQuantity = 1.32 * u.m
+def segmented_telescope(
+    primary_diameter: ScalarQuantity = 6.6 * u.m,
+    segment_gap_size: ScalarQuantity = 10 * u.mm,
+    num_hexagon_rings: int = 2,
+    clocking_angle: ScalarQuantity = 0 * u.deg,
+) -> Shape:
+    """
+    A convenience function to model compound-mirror telescopes with hexagonal mirror
+    segments, such as the James Webb Space Telescope (JWST), the Keck telescopes, the
+    European Extremely Large Telescope (ELT), etc.
+    """
 
-JWST_UNIT_MIRROR: Shape = RegularPolygon(
-    num_sides=6, circumradius=(JWST_MIRROR_SIZE * HEX_FACTOR) / 2
-)
+    HEX_FACTOR: float = 1.15470  # Factor between circumradius and flat-to-flat distance
+    UNIT_MIRROR_SIZE: ScalarQuantity = (
+        primary_diameter / (num_hexagon_rings * 2 + 1)
+    ) - segment_gap_size
 
-X_SPACING: ScalarQuantity = 1.35 * u.m
-Y_SPACING: ScalarQuantity = 0.86603 * X_SPACING
+    UNIT_MIRROR: Shape = RegularPolygon(
+        num_sides=6, circumradius=(UNIT_MIRROR_SIZE * HEX_FACTOR) / 2
+    )
 
-JWST: Shape = (
-    JWST_UNIT_MIRROR.translate(dx=X_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=X_SPACING * 2)
-    | JWST_UNIT_MIRROR.translate(dx=-X_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-X_SPACING * 2)
-    #
-    | JWST_UNIT_MIRROR.translate(dx=X_SPACING / 2, dy=Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=3 * X_SPACING / 2, dy=Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-X_SPACING / 2, dy=Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-3 * X_SPACING / 2, dy=Y_SPACING)
-    #
-    | JWST_UNIT_MIRROR.translate(dx=X_SPACING / 2, dy=-Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=3 * X_SPACING / 2, dy=-Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-X_SPACING / 2, dy=-Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-3 * X_SPACING / 2, dy=-Y_SPACING)
-    #
-    | JWST_UNIT_MIRROR.translate(dy=2 * Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=X_SPACING, dy=2 * Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-X_SPACING, dy=2 * Y_SPACING)
-    #
-    | JWST_UNIT_MIRROR.translate(dy=-2 * Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=X_SPACING, dy=-2 * Y_SPACING)
-    | JWST_UNIT_MIRROR.translate(dx=-X_SPACING, dy=-2 * Y_SPACING)
-).rotate(30 * u.deg) - (
+    # Flat-to-flat spacing
+    X_SPACING: ScalarQuantity = UNIT_MIRROR_SIZE + segment_gap_size
+    Y_SPACING: ScalarQuantity = (UNIT_MIRROR_SIZE * HEX_FACTOR + segment_gap_size) / 2
+
+    # Calculate primary mirror Shape based on num_hexagon_rings
+    primary: Shape = UNIT_MIRROR
+
+    # Axial coordinates (q, r)
+    for q in range(-num_hexagon_rings, num_hexagon_rings + 1):
+        for r in range(-num_hexagon_rings, num_hexagon_rings + 1):
+            if max(abs(q), abs(r), abs(q + r)) <= num_hexagon_rings:
+                x: ScalarQuantity = X_SPACING * (q + r / 2)
+                y: ScalarQuantity = 1.5 * Y_SPACING * r
+                primary |= UNIT_MIRROR.translate(dx=x, dy=y)
+
+    telescope: Shape = (primary).rotate(clocking_angle)
+
+    return telescope
+
+
+JWST_SPIDERS: Shape = (
     Rectangle(width=80 * u.mm, height=4 * u.m).translate(dy=2 * u.m)
     | Rectangle(width=80 * u.mm, height=4 * u.m)
     .translate(dy=-2 * u.m)
@@ -599,6 +634,30 @@ JWST: Shape = (
     .rotate(-30 * u.deg)
 )
 
+JWST_SECONDARY: Shape = RegularPolygon(num_sides=6, circumradius=0.75 * u.m)
+
+JWST: Shape = (
+    segmented_telescope(
+        primary_diameter=6.6 * u.m,
+        segment_gap_size=40 * u.mm,
+        num_hexagon_rings=2,
+    )
+    - JWST_SECONDARY
+).rotate(30 * u.deg) - JWST_SPIDERS
+
+
+# Doesn't quite work for telescopes with a larger number of segments and which better
+# approximate a circular aperture - need to have a max. radius parameter or so! Then
+# iterate through the possible segements and add them only if they fit within the max.
+# radius.
+# TODO
+
+# ELT: Shape = segmented_telescope(
+#     primary_diameter=39 * u.m,
+#     segment_gap_size=50 * u.mm,
+#     num_hexagon_rings=7,
+# )
+
 
 def test() -> None:
 
@@ -606,7 +665,7 @@ def test() -> None:
 
     pupil = Pupil(geometry=JWST)
 
-    grid = PupilGrid(npix=1500, extent=15 * u.m)
+    grid = PupilGrid(npix=1500, extent=10 * u.m)
 
     sampled: SampledPupil = pupil.sample(grid)
 
