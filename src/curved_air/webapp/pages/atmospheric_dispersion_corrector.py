@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from itertools import cycle
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import streamlit as st
@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.optics.dispersers import Prism
+from curved_air.other import Air
 from curved_air.plotting import plot_style
 from curved_air.utils import st_glass_chooser, st_quantity_input
 from curved_air.webapp import badges, bmac
@@ -31,21 +32,39 @@ MAX_ELEMENTS: int = 5
 
 
 def _edit_prism(index: int) -> None:
-    """Edit the glass of the prism at the given index."""
+    """
+    Widget to edit the glass of the prism at the given index, lazy loading the glass
+    catalogue chooser (can be a lot to load) in a popover dialog
+    """
 
     assert "prisms" in st.session_state, "Prisms not initialized in session state."
 
-    assert 0 <= index < len(st.session_state["prisms"]), "Index out of range."
+    assert 0 <= index < len(st.session_state["prisms"]), "Prism index out of range."
 
-    p: Prism = st.session_state["prisms"][index]
+    with st.container(border=True):
+        cols = st.columns([1, 1], gap="small", vertical_alignment="center")
 
-    glass: Glass = st_glass_chooser(
-        current_glass=p.glass,
-        catalogues=GLASS_CATALOGUES,
-        key=f"prism_{index + 1}_glass",
-    )
+        with cols[0]:
+            st.write(f"Prism {index + 1}")
 
-    st.session_state["prisms"][index].glass = glass
+        with cols[1], st.container(horizontal_alignment="right"):
+            if st.button(
+                "Remove",
+                type="tertiary",
+                key=f"remove_prism_{i + 1}",
+            ):
+                st.session_state["prisms"].pop(i)
+                st.rerun()
+
+        p: Prism = st.session_state["prisms"][index]
+
+        glass: Glass = st_glass_chooser(
+            current_glass=p.glass,
+            catalogues=GLASS_CATALOGUES,
+            key=f"prism_{index + 1}_glass",
+        )
+
+        st.session_state["prisms"][index].glass = glass
 
 
 st.header("Atmospheric Dispersion Corrector", anchor=False)
@@ -69,26 +88,96 @@ with st.expander("About this tool", expanded=False):
 
 # Interface
 with st.sidebar:
+    with st.expander(label="Air model", expanded=False):
+        model_name: Literal["ciddor", "edlen", "zemax"] = st.selectbox(
+            "Air model",
+            ["ciddor", "edlen", "zemax"],
+            index=2,
+            format_func=lambda x: x.capitalize(),
+            help="""The air model to use for calculating the refractive index of air.
+            - `ciddor`: Ciddor (1996) air model
+            - `edlen`: Edlen (1966) air model
+            - `zemax`: Zemax air model (default)""",
+        )
+
+        temperature: ScalarQuantity | None = st_quantity_input(
+            "Temperature",
+            min_value=-100.0,
+            max_value=100.0,
+            value=15.0,
+            step=1.0,
+            possible_units=["°C", "K"],
+            default_unit="°C",
+            format="%.2g",
+            key="air_model_temperature",
+        )
+
+        pressure: ScalarQuantity | None = st_quantity_input(
+            "Pressure",
+            min_value=0.0,
+            # max_value=2000.0,
+            value=1013.25,
+            step=10.0,
+            possible_units=["hPa", "Pa", "mbar", "bar", "torr"],
+            default_unit="hPa",
+            format="%.2g",
+            key="air_model_pressure",
+        )
+
+        humidity: float | None = st.number_input(
+            "Relative humidity",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.01,
+            help="""Relative humidity as a fraction (0.0 - 1.0).
+            Note: The Zemax air model does not support humidity.""",
+            disabled=model_name == "zemax",
+            format="%.2g",
+            key="air_model_humidity",
+        )
+
+        carbon_dioxide: float | None = st.number_input(
+            "CO₂ concentration",
+            min_value=0.0,
+            max_value=10_000.0,
+            value=425.0,
+            step=10.0,
+            help="""CO₂ concentration in ppm (parts per million).
+            Note: The Zemax and Edlen air models do not support CO₂ concentration.""",
+            disabled=model_name != "ciddor",
+            format="%.2g",
+            key="air_model_co2",
+        )
+
+        air_model = Air(
+            air_model=model_name,
+            temperature=temperature,
+            pressure=pressure,
+            humidity=humidity if model_name != "zemax" else None,
+            carbon_dioxide=carbon_dioxide if model_name in "ciddor" else None,
+        )
+
     with st.expander(label="Wavelength range", expanded=False):
         min_wl: ScalarQuantity = st_quantity_input(
             "Min λ",
             min_value=0.0,
-            max_value=1600.0,
             value=380.0,
             step=5.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
+            format="%.2g",
             key="adc_min_wl",
         )
 
         max_wl: ScalarQuantity = st_quantity_input(
             "Max λ",
             min_value=0.0,
-            max_value=1600.0,
             value=950.0,
             step=5.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
+            format="%.2g",
             key="adc_max_wl",
         )
 
@@ -100,19 +189,7 @@ with st.sidebar:
             ]
 
         for i, _p in enumerate(st.session_state["prisms"]):
-            with st.container(border=True):
-                st.write(f"Prism {i + 1}")
-
-                _edit_prism(i)
-
-                with st.container(horizontal_alignment="right"):
-                    if st.button(
-                        f"Remove prism {i + 1}",
-                        type="tertiary",
-                        key=f"remove_prism_{i + 1}",
-                    ):
-                        st.session_state["prisms"].pop(i)
-                        st.rerun()
+            _edit_prism(i)
 
         if len(st.session_state["prisms"]) < MAX_ELEMENTS:  # noqa: SIM102
             if st.button("Add prism element"):
@@ -135,6 +212,7 @@ with st.sidebar:
             step=100.0,
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
+            format="%.2g",
             key="D_telescope",
         )
 
@@ -146,6 +224,7 @@ with st.sidebar:
             step=5.0,
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
+            format="%.2g",
             key="D_ADC",
         )
 
@@ -157,6 +236,7 @@ with st.sidebar:
                 max_value=90.0,
                 value=60.0,
                 step=1.0,
+                format="%.2g",
                 key="z_max",
             )
             * u.degree
@@ -187,6 +267,7 @@ with st.sidebar:
 try:
     adc = ADC(
         prism_stack=PrismStack(st.session_state["prisms"]),
+        air_model=air_model,
         min_wl=min_wl,
         max_wl=max_wl.to(u.nm),
         D_telescope=D_telescope,
@@ -194,6 +275,7 @@ try:
         z_max=z_max,
         criterion=optimisation_criterion,
     )
+    print(adc)
 except Exception as e:
     st.exception(e)
     st.stop()
