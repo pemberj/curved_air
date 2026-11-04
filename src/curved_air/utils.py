@@ -600,6 +600,7 @@ def st_glass_chooser(
     current_glass: Glass,
     catalogues: dict[str, Path] = GLASS_CATALOGUES,
     key: str = "glass",
+    border: bool = False,
 ) -> Glass:
     """
     A custom streamlit widget for selecting an optical glass, first selecting the
@@ -619,7 +620,7 @@ def st_glass_chooser(
     if chosen_key in st.session_state:
         current_glass = st.session_state.pop(chosen_key)
 
-    with st.container(border=True):
+    with st.container(border=border):
         cols = st.columns(2)
 
         with cols[0]:
