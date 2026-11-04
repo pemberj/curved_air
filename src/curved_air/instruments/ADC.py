@@ -366,6 +366,13 @@ class PrismStack:
 
         return "\n".join(summary_lines)
 
+    def __repr__(self) -> str:
+        return f"""PrismStack(
+    prism_list={self.prism_list},
+    entrance_medium={self.entrance_medium},
+    exit_medium={self.exit_medium}
+)"""
+
 
 @dataclass
 class ADC:
@@ -386,6 +393,10 @@ class ADC:
     debug_level: int = 0
 
     def __post_init__(self) -> None:
+
+        self.prism_stack.entrance_medium = self.air_model
+        self.prism_stack.exit_medium = self.air_model
+
         for p in self.prism_stack.prism_list:
             if not isinstance(p, Prism):
                 raise TypeError(
@@ -914,24 +925,18 @@ class ADC:
         return fig
 
     def __str__(self) -> str:
-        return f"""
-            Compound prism rotation al ADC with {self.g1} and {self.g2} glasses.
-            Apex angles: {self.first_apex_angle:.3f} / \
-            {self.second_apex_angle:.3f} (compound angle {self.beta:.3f}).
-            Provides zero beam deviation at {self.wl_0:.3f}.
-            """
+        return self.__repr__()
 
     def __repr__(self) -> str:
-        return (
-            f"ADC(prism_stack = {self.prism_stack}, "
-            + f"air_model = {self.air_model}, "
-            + f"min_wl = {self.min_wl:.3f}, max_wl = {self.max_wl:.3f}, "
-            + f"D_telescope = {self.D_telescope:.3f}, "
-            + f"D_ADC = {self.D_ADC:.3f}, "
-            + f"z_max = {self.z_max:.3f}, "
-            + f"alpha = {self.alpha:.3f}, "
-            + ")"
-        )
+        return f"""ADC(
+    prism_stack = {self.prism_stack},
+    air_model = {self.air_model},
+    min_wl = {self.min_wl:.3g},
+    max_wl = {self.max_wl:.3g},
+    D_telescope = {self.D_telescope:.3g},
+    D_ADC = {self.D_ADC:.3g},
+    z_max = {self.z_max:.3g},
+)"""
 
 
 def test() -> None:
