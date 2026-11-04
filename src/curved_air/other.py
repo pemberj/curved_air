@@ -11,7 +11,7 @@ Also contains wavelength definitions of Fraunhofer lines
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import overload
+from typing import Literal, overload
 
 import numpy as np
 import ref_index
@@ -352,7 +352,7 @@ def ciddor(
         x_c: float = 450.0
 
     if isinstance(wl, float):
-        print("No units provided for wavelength. Assuming microns.")
+        # If no units provided for wavelength, assume microns.
         wl *= u.um
 
     assert isinstance(wl, Quantity)
@@ -372,12 +372,32 @@ def ciddor(
     if not p.isscalar:
         return [ciddor(wl=wl, T=T, p=ip, h=h, x_c=x_c) for ip in p]
 
-    assert 0.3 <= wl.to("um").value <= 1.7  # noqa: PLR2004
+    if not 0.3 <= wl.to("um").value <= 1.7:  # noqa: PLR2004
+        raise ValueError(
+            f"Wavelength {wl} is out of range for the Ciddor formula. "
+            "Valid range is 0.3 to 1.7 microns."
+        )
     T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
-    assert -40 <= T_C.value <= 100  # noqa: PLR2004
-    assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
-    assert 0 <= h <= 1
-    assert 0 <= x_c <= 2_000  # noqa: PLR2004
+    if not -40 <= T_C.value <= 100:  # noqa: PLR2004
+        raise ValueError(
+            f"Temperature {T} is out of range for the Ciddor formula. "
+            "Valid range is -40 to 100 deg C."
+        )
+    if not 10_000 <= p.to("Pa").value <= 140_000:  # noqa: PLR2004
+        raise ValueError(
+            f"Pressure {p} is out of range for the Ciddor formula. "
+            "Valid range is 10,000 to 140,000 Pa."
+        )
+    if not 0 <= h <= 1:
+        raise ValueError(
+            f"Relative humidity {h} is out of range for the Ciddor formula. "
+            "Valid range is 0 to 1."
+        )
+    if not 0 <= x_c <= 2_000:  # noqa: PLR2004
+        raise ValueError(
+            f"CO2 concentration {x_c} is out of range for the Ciddor formula. "
+            "Valid range is 0 to 2000 ppm."
+        )
 
     return float(
         ref_index.ciddor(
@@ -454,10 +474,11 @@ def edlen(
         h: float = 0.0
 
     if x_c is not None:
-        print("Warning: x_c parameter is not used in the Edlen formula. Ignoring it.")
+        # x_c parameter is not used in the Edlen formula. Ignoring it.
+        ...
 
     if isinstance(wl, float):
-        print("Not units provided for wavelength. Assuming microns")
+        # If no units provided for wavelength, assume microns
         wl *= u.um
 
     assert isinstance(wl, Quantity)
@@ -480,11 +501,27 @@ def edlen(
     if not p.isscalar:
         return [edlen(wl=wl, T=T, p=ip, h=h) for ip in p]
 
-    assert 0.3 <= wl.to("um").value <= 1.7  # noqa: PLR2004
+    if not 0.3 <= wl.to("um").value <= 1.7:  # noqa: PLR2004
+        raise ValueError(
+            f"Wavelength {wl} is out of range for the Edlen formula. "
+            "Valid range is 0.3 to 1.7 microns."
+        )
     T_C: Quantity = T.to("deg_C", equivalencies=u.temperature())
-    assert -40 <= T_C.value <= 100  # noqa: PLR2004
-    assert 10_000 <= p.to("Pa").value <= 140_000  # noqa: PLR2004
-    assert 0 <= h <= 1
+    if not -40 <= T_C.value <= 100:  # noqa: PLR2004
+        raise ValueError(
+            f"Temperature {T} is out of range for the Edlen formula. "
+            "Valid range is -40 to 100 deg C."
+        )
+    if not 10_000 <= p.to("Pa").value <= 140_000:  # noqa: PLR2004
+        raise ValueError(
+            f"Pressure {p} is out of range for the Edlen formula. "
+            "Valid range is 10,000 to 140,000 Pa."
+        )
+    if not 0 <= h <= 1:
+        raise ValueError(
+            f"Relative humidity {h} is out of range for the Edlen formula. "
+            "Valid range is 0 to 1."
+        )
 
     return float(
         ref_index.edlen(
@@ -536,10 +573,12 @@ def zemax(
         p: ScalarQuantity = ONE_ATMOSPHERE
 
     if h is not None:
-        print("Warning: h parameter is not used in the Zemax formula. Ignoring it.")
+        # h is not used in the Zemax formula. Ignoring it.
+        ...
 
     if x_c is not None:
-        print("Warning: x_c parameter is not used in the Zemax formula. Ignoring it.")
+        # x_c is not used in the Zemax formula. Ignoring it.
+        ...
 
     wl: float = wl.to(u.um).value
 
@@ -559,6 +598,8 @@ def zemax(
 
     return 1 + ((n_ref - 1) * relative_pressure) / (1 + (T - 15) * 3.4785e-3)
 
+
+zemax_formula_tex: str = """n = 1 + \\frac{(6432.8 + \\frac{2949810 \\lambda^2}{146 \\lambda^2 - 1} + \\frac{25540 \\lambda^2}{41 \\lambda^2 - 1}) * 10^{-8} * p/p_0}{1 + (T - 15) * 3.4785 * 10^{-3}}"""
 
 air_refractive_index_formulae: dict[str, Callable] = {
     "ciddor": ciddor,
@@ -648,8 +689,9 @@ class Model:
                 )
             return np.interp(wl, self.tabulated[:, 0], self.tabulated[:, 1])
 
-        print("No function or tabulated values found")
-        raise NotImplementedError
+        raise NotImplementedError(
+            "No refractive index function or tabulated values found"
+        )
 
     @overload
     def n(self, wl: Quantity) -> float: ...
@@ -680,7 +722,7 @@ class Air(Model):
     zemax
     """
 
-    air_model: str = "ciddor"
+    air_model: Literal["ciddor", "edlen", "zemax"] = "ciddor"
     function: Callable | None = None
 
     temperature: ScalarQuantity | None = None
@@ -710,6 +752,15 @@ class Air(Model):
                 carbon_dioxide=self.carbon_dioxide,
                 function=self.function,
             )
+
+    def __repr__(self) -> str:
+        return f"""Air(
+    air_model={self.air_model},
+    temperature={self.temperature},
+    pressure={self.pressure},
+    humidity={self.humidity},
+    carbon_dioxide={self.carbon_dioxide}
+)"""
 
 
 @dataclass
