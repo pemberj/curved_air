@@ -417,140 +417,228 @@ df: pd.DataFrame = pd.DataFrame(
             else g.V_d
             for g in working_catalogue
         ],
+        "Relative Cost": [
+            g.relative_cost if g.relative_cost != -1 else None
+            for g in working_catalogue
+        ],
         "Status": [g.status_description for g in working_catalogue],
     },
 )
 
 cols = st.columns(2)
 
-with cols[0]:
-    st.toggle("Glass table", value=True, key="display_table")
-    if st.session_state.get("display_table", False):
-        event = st.dataframe(
-            df,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="multi-row",
-            height=600,
-        )
+if "selected_glasses" not in st.session_state:
+    st.session_state["selected_glasses"]: list[Glass] = []
 
-        selected: list = event.selection.rows if event.selection else []
-        selected_glasses: list[Glass] = [
-            working_catalogue[f"{df.iloc[i]['Glass Name']}"] for i in selected
-        ]
-    else:
-        selected_glasses: list[Glass] = []
+st.session_state["selection_state"] = {
+    "selection": {
+        "rows": [
+            df.index.get_loc(df[df["Glass Name"] == g.name].index[0])
+            for g in st.session_state["selected_glasses"]
+        ],
+        "columns": [],
+        "cells": [],
+    }
+}
+
+
+with cols[0]:
+    event = st.dataframe(
+        df,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="multi-row",
+        # selection_default=st.session_state.get(
+        #     "selection_state",
+        #     {"selection": {}},
+        # ),
+        height=600,
+    )
+
+    st.session_state["selected_indices"]: list = (
+        event.selection.rows if event.selection else []
+    )
+
+    st.session_state["selected_glasses"]: list[Glass] = [
+        working_catalogue[f"{df.iloc[i]['Glass Name']}"]
+        for i in st.session_state["selected_indices"]
+    ]
 
 with cols[1]:
-    st.toggle("Abbe diagram", value=True, key="display_abbe")
+    # Abbe diagram
+    fig = go.Figure()
 
-    if st.session_state.get("display_abbe", False):
-        # Abbe diagram
-        fig = go.Figure()
+    unique_catalogues: set[str] = {g.manufacturer for g in working_catalogue}
+    # Define default colours for each catalogue, so they don't change depending on what is selected
+    # Use a default colour palette cycler
+    catalogue_colors: dict[str, str] = {
+        catalogue: px.colors.qualitative.Dark24[i]
+        for i, catalogue in enumerate(
+            list(GLASS_CATALOGUES.keys())
+            + [m for m in df["Catalogue"].unique() if m not in GLASS_CATALOGUES]
+        )  # TODO: add uploaded catalogues to this list and color dict
+    }
 
-        unique_catalogues: set[str] = {g.manufacturer for g in working_catalogue}
-        # Define default colours for each catalogue, so they don't change depending on what is selected
-        # Use a default colour palette cycler
-        catalogue_colors: dict[str, str] = {
-            catalogue: px.colors.qualitative.Dark24[i]
-            for i, catalogue in enumerate(
-                list(GLASS_CATALOGUES.keys())
-                + [m for m in df["Catalogue"].unique() if m not in GLASS_CATALOGUES]
-            )  # TODO: add uploaded catalogues to this list and color dict
-        }
-
-        for catalogue in unique_catalogues:
-            catalogue_glasses: list[Glass] = [
-                g for g in working_catalogue if g.manufacturer == catalogue
-            ]
-            fig.add_trace(
-                trace=go.Scatter(
-                    x=[
-                        g.dV(nV_plot_wavelength)
-                        if st.session_state.get("use_differential_Abbe_number", False)
-                        else g.V_d
-                        for g in catalogue_glasses
-                    ],
-                    y=[g.n(nV_plot_wavelength) for g in catalogue_glasses],
-                    mode="markers",
-                    text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
-                    customdata=[g.name for g in catalogue_glasses],
-                    hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
-                    name=catalogue,
-                    marker={"color": catalogue_colors[catalogue]},
-                )
-            )
-
-        # add selected point(s) if applicable
+    for catalogue in unique_catalogues:
+        catalogue_glasses: list[Glass] = [
+            g for g in working_catalogue if g.manufacturer == catalogue
+        ]
         fig.add_trace(
             trace=go.Scatter(
                 x=[
                     g.dV(nV_plot_wavelength)
                     if st.session_state.get("use_differential_Abbe_number", False)
                     else g.V_d
-                    for g in selected_glasses
+                    for g in catalogue_glasses
                 ],
-                y=[g.n(nV_plot_wavelength) for g in selected_glasses],
+                y=[g.n(nV_plot_wavelength) for g in catalogue_glasses],
                 mode="markers",
-                text=[f"{g.manufacturer} {g.name}" for g in selected_glasses],
-                customdata=[g.name for g in selected_glasses],
+                text=[f"{g.manufacturer} {g.name}" for g in catalogue_glasses],
+                customdata=[g.name for g in catalogue_glasses],
                 hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
-                marker={
-                    "size": 16,
-                    "symbol": "cross-thin",
-                    "line": {"width": 1.5, "color": "white"},
-                },
-                name="Selected",
+                name=catalogue,
+                marker={"color": catalogue_colors[catalogue]},
             )
         )
 
-        fig.update_layout(
-            title="Abbe Diagram of Glasses in Working Catalogue",
-            xaxis_title=f"Abbe Number ({V_string})",
-            yaxis_title=f"Refractive Index ({n_string})",
-            template="plotly_dark",
-            height=600,
-            clickmode="event+select",
+    # add selected point(s) if applicable
+    fig.add_trace(
+        trace=go.Scatter(
+            x=[
+                g.dV(nV_plot_wavelength)
+                if st.session_state.get("use_differential_Abbe_number", False)
+                else g.V_d
+                for g in st.session_state["selected_glasses"]
+            ],
+            y=[g.n(nV_plot_wavelength) for g in st.session_state["selected_glasses"]],
+            mode="markers",
+            text=[
+                f"{g.manufacturer} {g.name}"
+                for g in st.session_state["selected_glasses"]
+            ],
+            customdata=[g.name for g in st.session_state["selected_glasses"]],
+            hovertemplate=f"%{{text}}<br>V_d: %{{x:.2f}}<br>{n_string}: %{{y:.6f}}<extra></extra>",
+            marker={
+                "size": 16,
+                "symbol": "cross-thin",
+                "line": {"width": 1.5, "color": "white"},
+            },
+            name="Selected",
+        )
+    )
+
+    # Add box showing nearby glass region
+    if len(st.session_state["selected_glasses"]) == 1 and st.session_state.get(
+        "compare_equivalent_glasses", False
+    ):
+        delta_n: float = st.session_state.get("delta_n", 0.005)
+        delta_V: float = st.session_state.get("delta_V", 0.5)
+
+        single_selected_glass = st.session_state["selected_glasses"][0]
+
+        fig.add_shape(
+            type="rect",
+            x0=single_selected_glass.V_d - delta_V,
+            x1=single_selected_glass.V_d + delta_V,
+            y0=single_selected_glass.n(nV_plot_wavelength) - delta_n,
+            y1=single_selected_glass.n(nV_plot_wavelength) + delta_n,
+            line={"color": "white", "width": 1, "dash": "dot"},
+            fillcolor="rgba(255, 255, 255, 0.1)",
+            layer="below",
         )
 
-        fig.update_xaxes(autorange="reversed")
+    fig.update_layout(
+        title="Abbe Diagram of Glasses in Working Catalogue",
+        xaxis_title=f"Abbe Number ({V_string})",
+        yaxis_title=f"Refractive Index ({n_string})",
+        template="plotly_dark",
+        height=600,
+        clickmode="event+select",
+    )
 
-        st.plotly_chart(
-            fig,
-            width="stretch",
-            on_select="rerun",
-            selection_mode="points",
-            key="abbe_diagram",
-        )
+    fig.update_xaxes(autorange="reversed")
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        on_select="rerun",
+        selection_mode="points",
+        key="abbe_diagram",
+    )
 
 
 st.divider()
 
-if not selected_glasses:
+if not st.session_state["selected_glasses"]:
     with st.container(horizontal_alignment="center"):
         st.info(
-            """You can select a glass from the table above to view its properties and
-            dispersion/transmission curves.""",
+            """You can select one or more glasses from the table above to view their
+            properties and dispersion/transmission curves.""",
             width=600,
         )
     st.stop()
 
-if len(selected_glasses) == 1:
-    st.subheader(f"{selected_glasses[0].manufacturer} {selected_glasses[0].name}")
+single_selected_glass = (
+    st.session_state["selected_glasses"][0]
+    if len(st.session_state["selected_glasses"]) == 1
+    else None
+)
 
-    cols = st.columns(3)
+if single_selected_glass:
+    st.subheader(f"{single_selected_glass.manufacturer} {single_selected_glass.name}")
+
+    cols = st.columns(4)
 
     with cols[0]:
-        st.metric("$n_d$", f"{selected_glasses[0].n_d:.4g}")
+        st.metric("$n_d$", f"{single_selected_glass.n_d:.4g}")
     with cols[1]:
-        st.metric("$V_d$", f"{selected_glasses[0].V_d:.2f}")
+        st.metric("$V_d$", f"{single_selected_glass.V_d:.2f}")
     with cols[2]:
-        st.metric("Status", f"{selected_glasses[0].status_description}")
+        st.metric("Status", f"{single_selected_glass.status_description}")
 
-    st.text(
-        f"Possible equivalents: {working_catalogue.list_equivalents(selected_glasses[0])}"
-    )
+    with cols[3], st.container(width=400, border=True):
+        st.toggle(
+            "Compare possible equivalent glasses",
+            value=True,
+            key="compare_equivalent_glasses",
+        )
 
+        if st.session_state.get("compare_equivalent_glasses", False):
+            subcols = st.columns(2)
+
+            subcols[0].number_input(
+                "delta n",
+                value=0.005,
+                step=0.001,
+                min_value=0.0,
+                format="%.4g",
+                key="delta_n",
+            )
+
+            subcols[1].number_input(
+                "delta V",
+                value=0.5,
+                min_value=0.0,
+                step=0.1,
+                format="%.2g",
+                key="delta_V",
+            )
+
+            possible_equivalents: list[Glass] = working_catalogue.find_equivalents(
+                single_selected_glass,
+                delta_n=st.session_state.get("delta_n", 0.005),
+                delta_V=st.session_state.get("delta_V", 0.5),
+            )
+
+            st.multiselect(
+                "Optionally select one or more to compare",
+                options=possible_equivalents,
+                format_func=lambda g: f"{g.manufacturer} {g.name}",
+                key="selected_equivalent_glasses",
+            )
+
+        else:
+            st.session_state["selected_equivalent_glasses"]: list[Glass] = []
 
 cols = st.columns(2, gap="large")
 
@@ -589,15 +677,17 @@ with cols[0]:
     # Refractive index plot
     fig: go.Figure = go.Figure()
 
-    for selected_glass in selected_glasses:
-        ref_index: NDArray = selected_glass.refractive_index(plot_wls)
+    for g in st.session_state["selected_glasses"] + st.session_state.get(
+        "selected_equivalent_glasses", []
+    ):
+        ref_index: NDArray = g.refractive_index(plot_wls)
         try:
             fig.add_trace(
                 trace=go.Scatter(
                     x=plot_wls,
                     y=ref_index,
                     mode="lines",
-                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
+                    name=f"{g.manufacturer} {g.name}",
                 )
             )
         except Exception:
@@ -622,15 +712,17 @@ with cols[1]:
     # Transmission plot
     fig: go.Figure = go.Figure()
 
-    for selected_glass in selected_glasses:
-        transmission: NDArray = selected_glass.transmission(plot_wls)  # ty:ignore[invalid-assignment]
+    for g in st.session_state["selected_glasses"] + st.session_state.get(
+        "selected_equivalent_glasses", []
+    ):
+        transmission: NDArray = g.transmission(plot_wls)
         try:
             fig.add_trace(
                 trace=go.Scatter(
                     x=plot_wls,
                     y=transmission,
                     mode="lines",
-                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
+                    name=f"{g.manufacturer} {g.name}",
                 )
             )
         except Exception as e:
@@ -682,14 +774,16 @@ with cols[0]:
 
     fig: go.Figure = go.Figure()
 
-    for selected_glass in selected_glasses:
+    for g in st.session_state["selected_glasses"] + st.session_state.get(
+        "selected_equivalent_glasses", []
+    ):
         try:
             fig.add_trace(
                 trace=go.Scatter(
                     x=plot_wls,
-                    y=selected_glass.dV(differential_plot_wls),
+                    y=g.dV(differential_plot_wls),
                     mode="lines",
-                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
+                    name=f"{g.manufacturer} {g.name}",
                 )
             )
         except Exception as e:
@@ -708,7 +802,10 @@ with cols[0]:
 with cols[1]:
     reference_glass: Glass = st.selectbox(
         "Reference glass for dRPD calculation",
-        options=selected_glasses,
+        options=(
+            st.session_state["selected_glasses"]
+            + st.session_state.get("selected_equivalent_glasses", [])
+        ),
         index=0,
         format_func=lambda g: f"{g.manufacturer} {g.name}",
         key="dRPD_reference_glass",
@@ -718,14 +815,16 @@ with cols[1]:
 
     dRPD_ref: NDArray = reference_glass.dRPD(differential_plot_wls)
 
-    for selected_glass in selected_glasses:
+    for g in st.session_state["selected_glasses"] + st.session_state.get(
+        "selected_equivalent_glasses", []
+    ):
         try:
             fig.add_trace(
                 trace=go.Scatter(
                     x=plot_wls,
-                    y=selected_glass.dRPD(differential_plot_wls) - dRPD_ref,
+                    y=g.dRPD(differential_plot_wls) - dRPD_ref,
                     mode="lines",
-                    name=f"{selected_glass.manufacturer} {selected_glass.name}",
+                    name=f"{g.manufacturer} {g.name}",
                 )
             )
         except Exception as e:

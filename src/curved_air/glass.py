@@ -178,6 +178,10 @@ class Glass:
         return self.wl
 
     @property
+    def relative_cost(self) -> float:
+        return self.rel_cost
+
+    @property
     def alternative_names(self) -> list:
         """
         A short function to generate a list of all possible alternative names
@@ -1588,8 +1592,8 @@ class GlassCatalogue(dict):
     def find_equivalents(
         self,
         glass: Glass,
-        delta_n: float = 0.001,
-        delta_V: float = 1,
+        delta_n: float = 0.005,
+        delta_V: float = 0.5,
     ) -> list[Glass]:
         """
         A simple method to find glasses in the catalogue that are roughly equivalent to
@@ -1598,6 +1602,8 @@ class GlassCatalogue(dict):
 
         equivalents: list[Glass] = []
         for _, g in self.items():
+            if g.name == glass.name:
+                continue
             if abs(g.n_d - glass.n_d) < delta_n and abs(g.V_d - glass.V_d) < delta_V:
                 equivalents.append(g)
 
