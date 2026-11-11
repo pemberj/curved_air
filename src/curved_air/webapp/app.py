@@ -63,6 +63,11 @@ pages: list = [
         icon="🎯",
     ),
     st.Page(
+        page=APP_PATH / "pages" / "interferograms.py",
+        title="Interferograms",
+        icon="🔎",
+    ),
+    st.Page(
         page=APP_PATH / "pages" / "telescope_designer.py",
         title="Telescope Designer",
         icon="🔭",
