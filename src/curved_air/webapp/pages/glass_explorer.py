@@ -585,18 +585,23 @@ single_selected_glass = (
 )
 
 if single_selected_glass:
-    st.subheader(f"{single_selected_glass.manufacturer} {single_selected_glass.name}")
+    main_col, equivalent_col = st.columns([3, 1], gap="xxsmall")
 
-    cols = st.columns(4)
+    with main_col:
+        st.subheader(
+            f"{single_selected_glass.manufacturer} {single_selected_glass.name}"
+        )
 
-    with cols[0]:
-        st.metric("$n_d$", f"{single_selected_glass.n_d:.4g}")
-    with cols[1]:
-        st.metric("$V_d$", f"{single_selected_glass.V_d:.2f}")
-    with cols[2]:
-        st.metric("Status", f"{single_selected_glass.status_description}")
+        subcols = st.columns(4)
 
-    with cols[3], st.container(width=400, border=True):
+        with subcols[0]:
+            st.metric("$n_d$", f"{single_selected_glass.n_d:.4g}")
+        with subcols[1]:
+            st.metric("$V_d$", f"{single_selected_glass.V_d:.2f}")
+        with subcols[2]:
+            st.metric("Status", f"{single_selected_glass.status_description}")
+
+    with equivalent_col, st.container(width=400, border=True):
         st.toggle(
             "Compare possible equivalent glasses",
             value=True,
@@ -640,31 +645,29 @@ if single_selected_glass:
         else:
             st.session_state["selected_equivalent_glasses"]: list[Glass] = []
 
-cols = st.columns(2, gap="large")
+_, *cols, _ = st.columns(4)
 
-with cols[0], st.container(horizontal_alignment="right"):  # noqa: SIM117
-    with st.container(width=400):
-        min_wl: ScalarQuantity = st_quantity_input(
-            "Min λ",
-            min_value=0.0,
-            value=380.0,
-            step=1.0,
-            possible_units=["nm", "µm"],
-            default_unit="nm",
-            key="min_wl_input",
-        ).to(u.nm)
+with cols[0]:
+    min_wl: ScalarQuantity = st_quantity_input(
+        "Min λ",
+        min_value=0.0,
+        value=380.0,
+        step=1.0,
+        possible_units=["nm", "µm"],
+        default_unit="nm",
+        key="min_wl_input",
+    ).to(u.nm)
 
-with cols[1], st.container(width=400, horizontal_alignment="left"):  # noqa: SIM117
-    with st.container(width=400):
-        max_wl: ScalarQuantity = st_quantity_input(
-            "Max λ",
-            min_value=0.0,
-            value=950.0,
-            step=1.0,
-            possible_units=["nm", "µm"],
-            default_unit="nm",
-            key="max_wl_input",
-        ).to(u.nm)
+with cols[1]:
+    max_wl: ScalarQuantity = st_quantity_input(
+        "Max λ",
+        min_value=0.0,
+        value=950.0,
+        step=1.0,
+        possible_units=["nm", "µm"],
+        default_unit="nm",
+        key="max_wl_input",
+    ).to(u.nm)
 
 st.session_state["min_max_wls"] = (min_wl, max_wl)
 
@@ -744,7 +747,7 @@ with cols[1]:
     st.plotly_chart(fig)
 
 
-cols = st.columns(2)
+_, *cols, _ = st.columns(4)
 
 with cols[0]:
     d_lambda: ScalarQuantity = (
@@ -772,6 +775,21 @@ with cols[0]:
         * u.nm
     )
 
+with cols[1]:
+    reference_glass: Glass = st.selectbox(
+        "Reference glass for dRPD calculation",
+        options=(
+            st.session_state["selected_glasses"]
+            + st.session_state.get("selected_equivalent_glasses", [])
+        ),
+        index=0,
+        format_func=lambda g: f"{g.manufacturer} {g.name}",
+        key="dRPD_reference_glass",
+    )
+
+cols = st.columns(2)
+
+with cols[0]:
     fig: go.Figure = go.Figure()
 
     for g in st.session_state["selected_glasses"] + st.session_state.get(
@@ -800,17 +818,6 @@ with cols[0]:
     st.plotly_chart(fig)
 
 with cols[1]:
-    reference_glass: Glass = st.selectbox(
-        "Reference glass for dRPD calculation",
-        options=(
-            st.session_state["selected_glasses"]
-            + st.session_state.get("selected_equivalent_glasses", [])
-        ),
-        index=0,
-        format_func=lambda g: f"{g.manufacturer} {g.name}",
-        key="dRPD_reference_glass",
-    )
-
     fig: go.Figure = go.Figure()
 
     dRPD_ref: NDArray = reference_glass.dRPD(differential_plot_wls)
