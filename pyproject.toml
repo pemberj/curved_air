@@ -104,6 +104,8 @@ ignore = [
     "D415", # first line should end with a period, question mark, or exclamation point
     "D417", # Missing argument descriptions in the docstring
 
+    "G004", # f-string in logging statement
+
     # "F401",   # module imported but unused
     "PERF203", # try / except within a loopp
     "SIM105",  # recommends contextlib.suppress instead of try / except / pass
