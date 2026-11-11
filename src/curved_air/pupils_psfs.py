@@ -39,9 +39,6 @@ type ComplexArray = NDArray[np.complexfloating]
 type BoolArray = NDArray[np.bool_]
 
 
-# -- Shapes ----------------------------------------------------------------------------
-
-
 class Shape(ABC):
     """
     Base class describing a generic geometrical region
@@ -79,6 +76,16 @@ class Shape(ABC):
 
     def rotate(self, angle: ScalarQuantity) -> Shape:
         return TransformedShape(self, rotation=angle)
+
+    def scale(
+        self,
+        sx: float = 1.0,
+        sy: float = 1.0,
+    ) -> Shape:
+        return TransformedShape(self, scale=(1 / sx, 1 / sy))
+
+    def mirror(self, mirror_x: bool = False, mirror_y: bool = False) -> Shape:
+        return TransformedShape(self, mirror_x=mirror_x, mirror_y=mirror_y)
 
 
 @dataclass
@@ -151,8 +158,8 @@ class Rectangle(Shape):
 @dataclass
 class Polygon(Shape):
     """
-    polygons that are not regular, or where the vertices of the shape are known
-    explicitly.
+    This class can be used to create polygons that are irregular, or where the vertices
+    of the shape are known explicitly.
     """
 
     vertices: tuple[tuple[Quantity, Quantity], ...]
@@ -177,6 +184,7 @@ class Polygon(Shape):
                 xx < (xv[j] - xv[i]) * (yy - yv[i]) / (yv[j] - yv[i]) + xv[i]
             )
             # TODO: understand this
+            # Bitwise exclusive 'or' operator (XOR)
             inside ^= intersects
 
         return inside
@@ -212,12 +220,14 @@ class RegularPolygon(Polygon):
         object.__setattr__(self, "vertices", tuple(vertices))
 
 
-# -- Boolean shape composition ---------------------------------------------------------
+"""
+Boolean shape compositions
 
-# All of these subclasses represent the result of a boolean operation on two shapes, for
-# instance adding two shapes together, taking their difference, or only the intersection
-# between them. With simple shapes and these basic operations you can form much more
-# complex geometrical shapes.
+The following subclasses represent the result of a boolean operation on two shapes, for
+instance adding two shapes together, taking their difference, or only the intersection
+between them. With simple shapes and these basic operations you can form much more
+complex geometrical shapes.
+"""
 
 
 @dataclass(frozen=True)
@@ -256,25 +266,30 @@ class Complement(Shape):
         return ~self.shape.contains(x, y)
 
 
-# -- Geometrical transformations -------------------------------------------------------
-
-
 @dataclass
 class TransformedShape(Shape):
     """
-    This class represents the result of transforming an existing shape with either a
+    This class represents the result of transforming an existing Shape with either a
     translation or a rotation.
 
-    TODO: Add mirroring and scaling transformations? Perhaps each should be its own
-    class?
+    This class is typically never called directly, but is rather returned when a
+    transformation method is called on an existing Shape.
+
+    Care should certainly be taken when applying multiple transformations at once!
     """
 
     shape: Shape
     translation: tuple[ScalarQuantity, ScalarQuantity] = (0 * u.m, 0 * u.m)
     rotation: ScalarQuantity = 0 * u.deg
+    mirror_x: bool = False
+    mirror_y: bool = False
+    scale: tuple[float, float] = (
+        1 * u.dimensionless_unscaled,
+        1 * u.dimensionless_unscaled,
+    )
 
     def contains(self, x: ArrayQuantity, y: ArrayQuantity) -> BoolArray:
-        # Transform world coordinates into the shape's local coordinate system.
+        # Transform world coordinates into the shape's local coordinate system
         dx: ScalarQuantity = self.translation[0].to(x.unit)
         dy: ScalarQuantity = self.translation[1].to(y.unit)
 
@@ -285,9 +300,19 @@ class TransformedShape(Shape):
         cos_t: float = np.cos(theta)
         sin_t: float = np.sin(theta)
 
-        # Inverse rotation.
+        # Rotation
         xr: ScalarQuantity = cos_t * x_local + sin_t * y_local
         yr: ScalarQuantity = -sin_t * x_local + cos_t * y_local
+
+        # Mirroring
+        if self.mirror_x:
+            xr = -xr
+        if self.mirror_y:
+            yr = -yr
+
+        # Scaling
+        xr = xr * self.scale[0]
+        yr = yr * self.scale[1]
 
         return self.shape.contains(xr, yr)
 
@@ -597,21 +622,20 @@ def segmented_telescope(
     """
 
     HEX_FACTOR: float = 1.15470  # Factor between circumradius and flat-to-flat distance
-    UNIT_MIRROR_SIZE: ScalarQuantity = segment_size
 
     if num_hexagon_rings is None:
         assert max_radius is not None, (
             "max_radius must be specified if num_hexagon_rings is None"
         )
-        num_hexagon_rings: int = int(np.ceil((2 * max_radius) / UNIT_MIRROR_SIZE))
+        num_hexagon_rings: int = int(np.ceil((2 * max_radius) / segment_size))
 
     UNIT_MIRROR: Shape = RegularPolygon(
-        num_sides=6, circumradius=(UNIT_MIRROR_SIZE * HEX_FACTOR) / 2
+        num_sides=6, circumradius=(segment_size * HEX_FACTOR) / 2
     )
 
     # Flat-to-flat spacing
-    X_SPACING: ScalarQuantity = UNIT_MIRROR_SIZE + 1 * segment_gap_size
-    Y_SPACING: ScalarQuantity = (UNIT_MIRROR_SIZE * HEX_FACTOR + segment_gap_size) / 2
+    X_SPACING: ScalarQuantity = segment_size + 1 * segment_gap_size
+    Y_SPACING: ScalarQuantity = (segment_size * HEX_FACTOR + segment_gap_size) / 2
 
     # Calculate primary mirror Shape based on num_hexagon_rings
     primary: Shape = UNIT_MIRROR
@@ -622,8 +646,10 @@ def segmented_telescope(
             if max(abs(q), abs(r), abs(q + r)) <= num_hexagon_rings:
                 x: ScalarQuantity = X_SPACING * (q + r / 2)
                 y: ScalarQuantity = 1.5 * Y_SPACING * r
-                if max_radius is not None and np.sqrt(x**2 + y**2) <= max_radius:
-                    primary |= UNIT_MIRROR.translate(dx=x, dy=y)
+                if max_radius is not None and np.sqrt(x**2 + y**2) > max_radius:
+                    # Skip segments outside the max_radius
+                    continue
+                primary |= UNIT_MIRROR.translate(dx=x, dy=y)
                 # else:
                 #     print(f"{q=}, {r=} not added because outside max_radius")
 
@@ -673,9 +699,9 @@ def test() -> None:
 
     from matplotlib import pyplot as plt  # noqa: PLC0415
 
-    pupil = Pupil(geometry=ELT)
+    pupil = Pupil(geometry=JWST)
 
-    grid = PupilGrid(npix=2000, extent=60 * u.m)
+    grid = PupilGrid(npix=1600, extent=25 * u.m)
 
     sampled: SampledPupil = pupil.sample(grid)
 
@@ -696,7 +722,7 @@ def test() -> None:
     ax.set_xlabel("Pupil position [m]")
     ax.set_ylabel("Pupil position [m]")
 
-    width: ScalarQuantity = (40 * u.m).to(u.m).value
+    width: ScalarQuantity = (8 * u.m).to(u.m).value
     ax.set_xlim(-width / 2, width / 2)
     ax.set_ylim(-width / 2, width / 2)
 
@@ -720,7 +746,7 @@ def test() -> None:
     ax.set_xlabel("Angular position [arcsec]")
     ax.set_ylabel("Angular position [arcsec]")
 
-    width = (0.5 * u.arcsec).to(u.arcsec).value
+    width = (2 * u.arcsec).to(u.arcsec).value
     ax.set_xlim(-width / 2, width / 2)
     ax.set_ylim(-width / 2, width / 2)
 
