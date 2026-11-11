@@ -15,6 +15,9 @@ from rich import print  # noqa: A004
 from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.ADC import ADC, PrismStack
 from curved_air.optics.dispersers import Prism
+from curved_air.other import Air
+
+ZEMAX_AIR = Air(air_model="zemax")
 
 
 def example_three_element_adc() -> tuple[ADC, dict] | None:
@@ -32,13 +35,14 @@ def example_three_element_adc() -> tuple[ADC, dict] | None:
             #     Prism(glass=gc["S-FPL51"]),
             # ]
             prism_list=[
-                Prism(glass=gc["N-BAK1"]),
-                Prism(glass=gc["N-BK7"]),
+                Prism(glass=gc["K10"]),
                 Prism(glass=gc["S-FPL51"]),
+                Prism(glass=gc["N-BAK1"]),
             ]
         ),
-        min_wl=390 * u.nm,
-        max_wl=950 * u.nm,
+        air_model=ZEMAX_AIR,
+        min_wl=370 * u.nm,
+        max_wl=900 * u.nm,
         D_telescope=2.2 * u.m,
         D_ADC=15 * u.mm,
         z_max=65 * u.degree,
@@ -80,8 +84,8 @@ def example_third_material_search() -> ADC | None:
     """
     # Load glass catalogue
     gc: GlassCatalogue = GlassCatalogue(["Schott", "Ohara"]).filter(
-        min_wl=0.39 * u.um,
-        max_wl=0.95 * u.um,
+        min_wl=370 * u.nm,
+        max_wl=900 * u.nm,
         min_transmission=0.98,
     )
 
@@ -92,8 +96,9 @@ def example_third_material_search() -> ADC | None:
                 Prism(glass=gc["S-FPL51"], apex_angle=-2.8 * u.deg),
             ]
         ),
-        min_wl=390 * u.nm,
-        max_wl=950 * u.nm,
+        air_model=ZEMAX_AIR,
+        min_wl=370 * u.nm,
+        max_wl=900 * u.nm,
         D_telescope=2.2 * u.m,
         D_ADC=15 * u.mm,
         z_max=65 * u.degree,
@@ -127,8 +132,9 @@ def example_third_material_search() -> ADC | None:
                     Prism(glass=gc["S-FPL51"], apex_angle=-2.8 * u.deg),
                 ]
             ),
-            min_wl=390 * u.nm,
-            max_wl=950 * u.nm,
+            air_model=ZEMAX_AIR,
+            min_wl=370 * u.nm,
+            max_wl=900 * u.nm,
             D_telescope=2.2 * u.m,
             D_ADC=15 * u.mm,
             z_max=65 * u.degree,
@@ -144,6 +150,7 @@ def example_third_material_search() -> ADC | None:
             # print()
 
         if adc.residuals_max_abs < baseline_adc.residuals_max_abs:
+            print()
             print(f"=== {g} ===")
             print(f"  Zero-deviation wavelength: {adc.wl_0:.3f}")
             for i, p in enumerate(adc.prism_stack.prism_list, start=1):
@@ -189,15 +196,17 @@ def example_exhaustive_search() -> ADC | None:
         gc["F2"],
         gc["LLF1"],
         gc["N-BAK1"],
-        # gc["N-BAK2"],
+        gc["N-BAK2"],
         gc["N-FK5"],
         gc["PBL6Y"],
         # gc["PBL35Y"],
-        # gc["S-FSL5"],
+        gc["S-FSL5"],
         gc["S-FPL51"],
         # gc["S-FPL53"],
+        # gc["S-FPL55"],
+        gc["S-FPM2"],
         gc["S-FPM4"],
-        # gc["S-LAL12"],
+        gc["S-LAL12"],
         gc["S-BAL12"],
     ]
 
@@ -205,8 +214,9 @@ def example_exhaustive_search() -> ADC | None:
         prism_stack=PrismStack(
             prism_list=[Prism(glass=gc["K10"]), Prism(glass=gc["S-FPL51"])]
         ),
-        min_wl=390 * u.nm,
-        max_wl=950 * u.nm,
+        air_model=ZEMAX_AIR,
+        min_wl=370 * u.nm,
+        max_wl=900 * u.nm,
         D_telescope=2.2 * u.m,
         D_ADC=15 * u.mm,
         z_max=65 * u.degree,
@@ -249,8 +259,9 @@ def example_exhaustive_search() -> ADC | None:
                     Prism(glass=p[2]),
                 ]
             ),
-            min_wl=390 * u.nm,
-            max_wl=950 * u.nm,
+            air_model=ZEMAX_AIR,
+            min_wl=370 * u.nm,
+            max_wl=900 * u.nm,
             D_telescope=2.2 * u.m,
             D_ADC=15 * u.mm,
             z_max=65 * u.degree,
@@ -266,6 +277,7 @@ def example_exhaustive_search() -> ADC | None:
             # print()
 
         if adc.residuals_PTV < baseline_adc.residuals_PTV:
+            print()
             print(f"  ==== {glasses} ====")
             print(f"  Zero-deviation wavelength: {adc.wl_0:.3f}")
             for i, prism in enumerate(adc.prism_stack.prism_list, start=1):
