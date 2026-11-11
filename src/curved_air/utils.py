@@ -634,6 +634,8 @@ def st_glass_chooser(
                     key=key, catalogues=catalogues, current_glass=current_glass
                 )
 
+    st.session_state[f"{key}"]: Glass = current_glass
+
     return current_glass
 
 

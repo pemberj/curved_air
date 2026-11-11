@@ -236,7 +236,13 @@ with st.sidebar:
         if cross_disperser_type in ["Prism", "Double-pass prism"]:
             default_glass: Glass = GlassCatalogue("Schott")["F2"]
 
-            glass: Glass = st_glass_chooser(current_glass=default_glass)
+            st_glass_chooser(
+                current_glass=st.session_state.get(
+                    "cross_disperser_glass", default_glass
+                ),
+                border=True,
+                key="cross_disperser_glass",
+            )
 
             apex_angle: ScalarQuantity = (
                 st.number_input(
@@ -251,7 +257,7 @@ with st.sidebar:
             )
 
             CROSS_DISPERSER: CrossDisperser = Prism(
-                glass=glass,
+                glass=st.session_state.get("cross_disperser_glass", default_glass),
                 apex_angle=apex_angle,
                 min_wl=MIN_WL,
                 max_wl=MAX_WL,
@@ -270,12 +276,12 @@ with st.sidebar:
                 fig.add_trace(
                     trace=go.Scatter(
                         x=wls,
-                        y=glass.refractive_index(wls),
+                        y=CROSS_DISPERSER.glass.refractive_index(wls),
                         mode="lines",
                     )
                 )
                 fig.update_layout(
-                    title=f"{glass.name} Refractive Index",
+                    title=f"{CROSS_DISPERSER.glass.name} Refractive Index",
                     xaxis_title="Wavelength (nm)",
                     yaxis_title="Refractive Index",
                     template="plotly_dark",

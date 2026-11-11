@@ -7,7 +7,7 @@ from astropy import units as u
 from matplotlib import pyplot as plt
 
 from curved_air.detectors import DETECTORS, Detector
-from curved_air.glass import GLASS_CATALOGUES, Glass, GlassCatalogue
+from curved_air.glass import Glass, GlassCatalogue
 from curved_air.instruments.LRS import LowResolutionSpectrograph
 from curved_air.optics.dispersers import Prism, SimpleGrating
 from curved_air.plotting import plot_style, wl_to_hex
@@ -74,37 +74,13 @@ with st.sidebar:
         )
 
         if st.session_state["disperser_type"] == "Prism":
-            st.session_state["current_glass"] = GlassCatalogue("Schott")["F2"]
+            default_glass: Glass = GlassCatalogue("Schott")["F2"]
 
-            chosen_glass: Glass = st_glass_chooser(
-                current_glass=st.session_state.get("current_glass", None),
-                catalogues=GLASS_CATALOGUES,
+            st_glass_chooser(
+                current_glass=st.session_state.get("prism_glass", default_glass),
+                border=True,
                 key="prism_glass",
             )
-
-            #             catalogue: str = st.selectbox(
-            #                 "Glass catalogue",
-            #                 GLASS_CATALOGUES.keys(),
-            #                 index=list(GLASS_CATALOGUES.keys()).index("Schott")
-            #                 if "Schott" in GLASS_CATALOGUES
-            #                 else 0,
-            #             )
-            #
-            #             try:
-            #                 glasses = GlassCatalogue(catalogue)
-            #                 glass_names: list[str] = sorted(glasses.keys())
-            #             except Exception:
-            #                 st.error(f"Could not load {catalogue} glass catalogue.")
-            #
-            #             default_glass: str = "F2"
-            #
-            #             glass_name: str = st.selectbox(
-            #                 "Glass",
-            #                 glass_names,
-            #                 index=glass_names.index(default_glass)
-            #                 if default_glass in glass_names
-            #                 else 0,
-            #             )
 
             apex_angle: ScalarQuantity = (
                 st.number_input(
@@ -117,8 +93,8 @@ with st.sidebar:
                 * u.deg
             )
 
-            _prism: Prism = Prism(
-                glass=chosen_glass,
+            prism: Prism = Prism(
+                glass=st.session_state.get("prism_glass", default_glass),
                 apex_angle=apex_angle,
                 min_wl=min_wl,
                 max_wl=max_wl,
@@ -139,12 +115,12 @@ with st.sidebar:
                 fig.add_trace(
                     trace=go.Scatter(
                         x=wls,
-                        y=chosen_glass.refractive_index(wls),
+                        y=prism.glass.refractive_index(wls),
                         mode="lines",
                     )
                 )
                 fig.update_layout(
-                    title=f"{chosen_glass.name} Refractive Index",
+                    title=f"{prism.glass.name} Refractive Index",
                     xaxis_title="Wavelength (nm)",
                     yaxis_title="Refractive Index",
                     template="plotly_dark",
@@ -152,13 +128,13 @@ with st.sidebar:
 
                 st.plotly_chart(fig)
 
-                st.metric(
-                    "Calculated incidence angle",
-                    f"{_prism.incidence_angle.value:.2f} degrees",
-                    help="""This tool automatically calculates the appropriate incidence
-                    angle such that the spectral format is symmetrically centred on the
-                    detector.""",
-                )
+            st.metric(
+                "Calculated incidence angle",
+                f"{prism.incidence_angle.value:.2f} degrees",
+                help="""This tool automatically calculates the appropriate incidence
+                angle such that the spectral format is symmetrically centred on the
+                detector.""",
+            )
 
         elif st.session_state["disperser_type"] == "Grating":
             groove_frequency: ScalarQuantity = st_quantity_input(
@@ -371,7 +347,7 @@ with st.sidebar:
 # Create Spectrograph
 
 if st.session_state["disperser_type"] == "Prism":
-    disperser = _prism
+    disperser = prism
 elif st.session_state["disperser_type"] == "Grating":
     disperser = SimpleGrating(groove_frequency=groove_frequency)
 
