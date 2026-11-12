@@ -1,5 +1,5 @@
 #! uv run streamlit run
-from dataclasses import dataclass
+
 from itertools import cycle
 from pathlib import Path
 
@@ -14,6 +14,7 @@ from astropy.units import Quantity
 from numpy.typing import NDArray
 from plotly import graph_objects as go
 
+from curved_air.detectors import DETECTORS, Detector
 from curved_air.plotting import plot_style
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 from curved_air.utils import st_quantity_input
@@ -53,111 +54,6 @@ band_properties: dict[str, dict[str, ScalarQuantity]] = {
 
 mirror_coatings: list[Path] = [
     DATA_PATH / "ASA_Protected_Enhanced_Aluminium.csv",
-]
-
-
-@dataclass
-class Detector:
-    name: str
-    pixel_size: ScalarQuantity  # micron
-    gain: ScalarQuantity  # e¯ / photon
-    dark_noise: ScalarQuantity  # e¯ / s
-    read_noise: ScalarQuantity  # e¯
-    QE: Path | str | float | None = None  # Quantum efficiency, optional
-
-
-detectors: list[Detector] = [
-    # CMOS detectors commonly used in astronomical guide/imaging cameras
-    Detector(
-        name="Sony IMX265 (CMOS)",
-        pixel_size=3.45 * u.micron,
-        gain=1 / u.photon,
-        dark_noise=3.2 * u.electron / u.second,
-        read_noise=2.2 * u.electron,
-        QE=DATA_PATH / "IMX265_QE.csv",
-    ),
-    Detector(
-        name="Sony IMX174 (CMOS)",
-        pixel_size=5.86 * u.micron,
-        gain=0.9 / u.photon,
-        dark_noise=4.0 * u.electron / u.second,
-        read_noise=3.5 * u.electron,
-        QE=0.76,
-    ),
-    Detector(
-        name="Sony IMX178 (CMOS)",
-        pixel_size=2.4 * u.micron,
-        gain=0.9 / u.photon,
-        dark_noise=2.0 * u.electron / u.second,
-        read_noise=2.1 * u.electron,
-        QE=0.8,
-    ),
-    Detector(
-        name="Sony IMX290 (CMOS)",
-        pixel_size=2.9 * u.micron,
-        gain=1.0 / u.photon,
-        dark_noise=0.8 * u.electron / u.second,
-        read_noise=1.5 * u.electron,
-        QE=0.8,
-    ),
-    Detector(
-        name="Sony IMX462 (CMOS)",
-        pixel_size=2.9 * u.micron,
-        gain=1.0 / u.photon,
-        dark_noise=0.7 * u.electron / u.second,
-        read_noise=1.2 * u.electron,
-        QE=0.82,
-    ),
-    Detector(
-        name="Sony IMX585 (CMOS)",
-        pixel_size=2.9 * u.micron,
-        gain=1.0 / u.photon,
-        dark_noise=0.5 * u.electron / u.second,
-        read_noise=1.1 * u.electron,
-        QE=0.91,
-    ),
-    # CCD detectors seen in legacy astronomical guider/imager systems
-    Detector(
-        name="Kodak KAF-8300 (CCD)",
-        pixel_size=5.4 * u.micron,
-        gain=0.45 / u.photon,
-        dark_noise=0.02 * u.electron / u.second,
-        read_noise=9.0 * u.electron,
-        QE=0.55,
-    ),
-    Detector(
-        name="Sony ICX825 (CCD)",
-        pixel_size=6.45 * u.micron,
-        gain=0.7 / u.photon,
-        dark_noise=0.01 * u.electron / u.second,
-        read_noise=6.5 * u.electron,
-        QE=0.77,
-    ),
-    Detector(
-        name="Sony ICX674 (CCD)",
-        pixel_size=4.54 * u.micron,
-        gain=0.7 / u.photon,
-        dark_noise=0.01 * u.electron / u.second,
-        read_noise=6.0 * u.electron,
-        QE=0.77,
-    ),
-    # sCMOS detectors used in high-end astronomical acquisition/guiding
-    Detector(
-        name="Gpixel GSENSE2020BSI (sCMOS)",
-        pixel_size=6.5 * u.micron,
-        gain=0.95 / u.photon,
-        dark_noise=0.2 * u.electron / u.second,
-        read_noise=1.6 * u.electron,
-        QE=0.95,
-    ),
-    Detector(
-        name="Gpixel GSENSE4040BSI (sCMOS)",
-        pixel_size=9.0 * u.micron,
-        gain=0.95 / u.photon,
-        dark_noise=0.15 * u.electron / u.second,
-        read_noise=1.3 * u.electron,
-        QE=0.95,
-    ),
 ]
 
 
@@ -480,7 +376,7 @@ def simulate_image(
     telescope_mirror_reflectivity: Path | str | float = 0.9,
     guide_focal_ratio: float = 3.5,
     guiding_split: Path | str | float = 0.05,
-    detector: Detector = detectors[0],
+    detector: Detector = DETECTORS["IMX174"],
     image_size: int = 44,
     centroid_ROI: int = 30,
     fibre_size: float | ScalarQuantity | None = None,
@@ -888,16 +784,21 @@ with settings_column:
     with st.expander("Detector", expanded=True):
         st.selectbox(
             "Detector",
-            options=[*[d.name for d in detectors], "Custom"],
+            options=[*list(DETECTORS), "Custom"],
             index=0,
             width=400,
             key="detector_preset",
         )
 
         if st.session_state.get("detector_preset", "Custom") != "Custom":
-            detector: Detector = next(
-                d for d in detectors if d.name == st.session_state["detector_preset"]
-            )
+            try:
+                detector: Detector = DETECTORS[st.session_state["detector_preset"]]
+            except KeyError:
+                st.error(
+                    f"Detector {st.session_state['detector_preset']} not found in DETECTORS."
+                )
+                detector: Detector = DETECTORS["IMX174"]
+
             st.session_state["detector"] = detector
 
             subcols = cycle(st.columns(5))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from astropy import units as u
@@ -18,8 +19,12 @@ if TYPE_CHECKING:
 class Detector:
     name: str = ""
     pixel_size: ScalarQuantity = 9 * u.um
-    nx: int = 10560
-    ny: int = 10560
+    nx: int = 1024
+    ny: int = 1024
+    gain: ScalarQuantity = 1 * u.electron / u.photon  # e¯ / photon
+    dark_noise: ScalarQuantity = 0 * u.electron / u.second  # e¯ / s
+    read_noise: ScalarQuantity = 0 * u.electron  # e¯
+    QE: Path | str | float | None = None  # Quantum efficiency, optional
     reference: Any | None = None
 
     def __post_init__(self) -> None:
@@ -129,7 +134,34 @@ iKon_M = Detector(
     reference="https://andor.oxinst.com/assets/uploads/products/andor/documents/andor-ikon-m-934-specifications.pdf",
 )
 
-DETECTORS: dict[str, Detector] = {
+KAF8300 = Detector(
+    name="Kodak KAF-8300",
+    pixel_size=5.4 * u.micron,
+    gain=0.45 / u.photon,
+    dark_noise=0.02 * u.electron / u.second,
+    read_noise=9.0 * u.electron,
+    QE=0.55,
+)
+
+ICX825 = Detector(
+    name="Sony ICX825",
+    pixel_size=6.45 * u.micron,
+    gain=0.7 / u.photon,
+    dark_noise=0.01 * u.electron / u.second,
+    read_noise=6.5 * u.electron,
+    QE=0.77,
+)
+
+ICX674 = Detector(
+    name="Sony ICX674",
+    pixel_size=4.54 * u.micron,
+    gain=0.7 / u.photon,
+    dark_noise=0.01 * u.electron / u.second,
+    read_noise=6.0 * u.electron,
+    QE=0.77,
+)
+
+CCD_DETECTORS: dict[str, Detector] = {
     d.name: d
     for d in [
         STA1600,
@@ -142,5 +174,104 @@ DETECTORS: dict[str, Detector] = {
         CCD2k15,
         iKon_L,
         iKon_M,
+        KAF8300,
+        ICX825,
+        ICX674,
     ]
 }
+
+
+IMX265 = Detector(
+    name="Sony IMX265 (CMOS)",
+    pixel_size=3.45 * u.micron,
+    gain=1 / u.photon,
+    dark_noise=3.2 * u.electron / u.second,
+    read_noise=2.2 * u.electron,
+    QE=Path(__file__).parent / ".." / "data" / "IMX265_QE.csv",
+)
+
+IMX174 = Detector(
+    name="Sony IMX174 (CMOS)",
+    pixel_size=5.86 * u.micron,
+    gain=0.9 / u.photon,
+    dark_noise=4.0 * u.electron / u.second,
+    read_noise=3.5 * u.electron,
+    QE=0.76,
+)
+
+IMX178 = Detector(
+    name="Sony IMX178 (CMOS)",
+    pixel_size=2.4 * u.micron,
+    gain=0.9 / u.photon,
+    dark_noise=2.0 * u.electron / u.second,
+    read_noise=2.1 * u.electron,
+    QE=0.8,
+)
+
+IMX290 = Detector(
+    name="Sony IMX290 (CMOS)",
+    pixel_size=2.9 * u.micron,
+    gain=1.0 / u.photon,
+    dark_noise=0.8 * u.electron / u.second,
+    read_noise=1.5 * u.electron,
+    QE=0.8,
+)
+
+IMX462 = Detector(
+    name="Sony IMX462 (CMOS)",
+    pixel_size=2.9 * u.micron,
+    gain=1.0 / u.photon,
+    dark_noise=0.7 * u.electron / u.second,
+    read_noise=1.2 * u.electron,
+    QE=0.82,
+)
+
+IMX585 = Detector(
+    name="Sony IMX585 (CMOS)",
+    pixel_size=2.9 * u.micron,
+    gain=1.0 / u.photon,
+    dark_noise=0.5 * u.electron / u.second,
+    read_noise=1.1 * u.electron,
+    QE=0.91,
+)
+
+CMOS_DETECTORS: dict[str, Detector] = {
+    d.name: d
+    for d in [
+        IMX265,
+        IMX174,
+        IMX178,
+        IMX290,
+        IMX462,
+        IMX585,
+    ]
+}
+
+
+GSENSE2020BSI = Detector(
+    name="Gpixel GSENSE2020BSI (sCMOS)",
+    pixel_size=6.5 * u.micron,
+    gain=0.95 / u.photon,
+    dark_noise=0.2 * u.electron / u.second,
+    read_noise=1.6 * u.electron,
+    QE=0.95,
+)
+GSENSE4040BSI = Detector(
+    name="Gpixel GSENSE4040BSI (sCMOS)",
+    pixel_size=9.0 * u.micron,
+    gain=0.95 / u.photon,
+    dark_noise=0.15 * u.electron / u.second,
+    read_noise=1.3 * u.electron,
+    QE=0.95,
+)
+
+SCMOS_DETECTORS: dict[str, Detector] = {
+    d.name: d
+    for d in [
+        GSENSE2020BSI,
+        GSENSE4040BSI,
+    ]
+}
+
+
+DETECTORS: dict[str, Detector] = {**CCD_DETECTORS, **CMOS_DETECTORS, **SCMOS_DETECTORS}
