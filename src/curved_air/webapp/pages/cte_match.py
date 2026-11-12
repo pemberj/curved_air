@@ -23,6 +23,10 @@ if TYPE_CHECKING:
 
 plt.style.use(plot_style)
 
+st.set_page_config(
+    page_title="CTE Match",
+    layout="wide",
+)
 
 st.header("CTE Match", anchor=False)
 

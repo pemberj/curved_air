@@ -67,6 +67,12 @@ def _edit_prism(index: int) -> None:
         st.session_state["prisms"][index].glass = glass
 
 
+st.set_page_config(
+    page_title="Atmospheric Dispersion Corrector",
+    layout="wide",
+)
+
+
 st.header("Atmospheric Dispersion Corrector", anchor=False)
 
 with st.expander("About this tool", expanded=False):

@@ -627,81 +627,84 @@ def transmission_selector() -> None:
         add_echelle_grating()
 
 
-def main() -> None:
-    """
-    Main function to run the Streamlit app.
-    """
-    st.header("Instrument Transmission Curves", anchor=False)
+# Now start the actual webapp
 
-    with st.expander("About this tool", expanded=False):
-        f"""
-    This tool can be used to plot a flowdown diagram of the transmission of an
-    optical system. Any number of unitary transmission curves can be added to the list,
-    which will be plotted in order from top to bottom, as a function of wavelength.
-    The total transmission, the product of all transmission curves, can be downloaded as
-    a CSV file for further analysis or use in other tools.
+st.set_page_config(
+    page_title="Instrument Transmission Curves",
+    layout="wide",
+)
 
-    All code is written by Jake Pember {badges}
+st.header("Instrument Transmission Curves", anchor=False)
 
-    Please get in contact if you have any questions, suggestions, or find any bugs!
+with st.expander("About this tool", expanded=False):
+    f"""
+This tool can be used to plot a flowdown diagram of the transmission of an
+optical system. Any number of unitary transmission curves can be added to the list,
+which will be plotted in order from top to bottom, as a function of wavelength.
+The total transmission, the product of all transmission curves, can be downloaded as
+a CSV file for further analysis or use in other tools.
 
-    You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
-    useful and want to support its development!
-    """
+All code is written by Jake Pember {badges}
 
-        bmac()
+Please get in contact if you have any questions, suggestions, or find any bugs!
 
-    left, right = st.columns(2)
+You can also [Buy me a pint](https://buymeacoffee.com/pemberj) if you find this tool
+useful and want to support its development!
+"""
 
-    with left:
-        transmission_selector()
+    bmac()
 
-        st.divider()
+left, right = st.columns(2)
 
-        display_list()
+with left:
+    transmission_selector()
 
-    with right:
-        if len(st.session_state.transmission_list) > 0:
-            fig: plt.Figure = transmission_plot(
-                Ts=st.session_state.transmission_list,
-                min_wl=0.37 * u.um,
-                max_wl=0.92 * u.um,
-                num_wls=500,
-            )
+    st.divider()
 
-            st.pyplot(fig)
+    display_list()
 
-        total: tuple[np.ndarray, np.ndarray] = total_transmission(
-            T=st.session_state.transmission_list,
+with right:
+    if len(st.session_state.transmission_list) > 0:
+        fig: plt.Figure = transmission_plot(
+            Ts=st.session_state["transmission_list"],
             min_wl=0.37 * u.um,
             max_wl=0.92 * u.um,
             num_wls=500,
-            save=False,
         )
 
-        with st.container(horizontal_alignment="center"):
-            st.download_button(
-                label="Download CSV",
-                data="\n".join(
-                    [
-                        "Wavelength (nm), Transmission",
-                        *[
-                            f"{wl:.5f}, {trans:.5f}"
-                            for wl, trans in zip(total[0], total[1], strict=True)
-                        ],
-                    ]
-                ),
-                file_name="total_transmission.csv",
-                mime="text/csv",
-            )
+        st.pyplot(fig)
 
-            with st.container(width=300):
-                st.caption(
-                    """Exported CSV files have two columns: `Wavelength (nm)` and
+    total: tuple[np.ndarray, np.ndarray] = total_transmission(
+        T=st.session_state["transmission_list"],
+        min_wl=0.37 * u.um,
+        max_wl=0.92 * u.um,
+        num_wls=500,
+        save=False,
+    )
+
+    with st.container(horizontal_alignment="center"):
+        st.download_button(
+            label="Download CSV",
+            data="\n".join(
+                [
+                    "Wavelength (nm), Transmission",
+                    *[
+                        f"{wl:.5f}, {trans:.5f}"
+                        for wl, trans in zip(total[0], total[1], strict=True)
+                    ],
+                ]
+            ),
+            file_name="total_transmission.csv",
+            mime="text/csv",
+        )
+
+        with st.container(width=300):
+            st.caption(
+                """Exported CSV files have two columns: `Wavelength (nm)` and
 `Transmission`.
 
 Note: Echelle grating blaze functions are not included in the exported data."""
-                )
+            )
 
 
 def test() -> None:
@@ -777,7 +780,3 @@ def test() -> None:
     )
 
     st.pyplot(fig)
-
-
-if __name__ == "__main__":
-    main()

@@ -24,6 +24,11 @@ if TYPE_CHECKING:
 
     from curved_air.type_hinting import ScalarQuantity
 
+st.set_page_config(
+    page_title="Guide Star Field of View",
+    layout="wide",
+)
+
 st.header("Guide Star Field of View", anchor=False)
 
 with st.expander("About this tool", expanded=False):

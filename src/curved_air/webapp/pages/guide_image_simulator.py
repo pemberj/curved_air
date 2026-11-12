@@ -553,6 +553,10 @@ def simulate_image(
 
 # Now start the actual webapp
 
+st.set_page_config(
+    page_title="Guide Image Simulator",
+    layout="wide",
+)
 
 st.title("Guide Image Simulator")
 

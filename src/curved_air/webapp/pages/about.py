@@ -2,6 +2,11 @@ import streamlit as st
 
 from curved_air.webapp import badges, bmac
 
+st.set_page_config(
+    page_title="About Curved Air",
+    layout="wide",
+)
+
 st.title("Curved Air: Optical Design Tools", anchor=False)
 
 """

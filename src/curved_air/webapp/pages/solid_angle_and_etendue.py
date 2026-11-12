@@ -15,7 +15,12 @@ def compute_solid_angle(half_cone_angle: ScalarQuantity) -> ScalarQuantity:
     return 2 * np.pi * (1 - np.cos(half_cone_angle)) * u.sr
 
 
-st.header("Solid Angle & Étendue Calculator", anchor=False)
+st.set_page_config(
+    page_title="Solid Angle & Étendue",
+    layout="wide",
+)
+
+st.header("Solid Angle & Étendue", anchor=False)
 
 with st.expander("About this tool", expanded=False):
     f"""

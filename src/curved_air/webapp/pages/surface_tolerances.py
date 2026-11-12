@@ -12,6 +12,11 @@ from curved_air.utils import (
 )
 from curved_air.webapp import badges, bmac
 
+st.set_page_config(
+    page_title="Surface Tolerances",
+    layout="wide",
+)
+
 st.header("Surface Tolerances", anchor=False)
 
 with st.expander("About this tool", expanded=False):

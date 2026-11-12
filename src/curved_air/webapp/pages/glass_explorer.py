@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
-wavelength_options: dict[str, ScalarQuantity | None] = {
+WAVELENGTH_OPTIONS: dict[str, ScalarQuantity | None] = {
     "i": 365.01 * u.nm,
     "h": 404.66 * u.nm,
     "g": 435.84 * u.nm,
@@ -54,6 +54,11 @@ wavelength_options: dict[str, ScalarQuantity | None] = {
     "t": 1013.98 * u.nm,
     "Custom": None,
 }
+
+st.set_page_config(
+    page_title="Glass Explorer",
+    layout="wide",
+)
 
 
 st.header("Glass Explorer", anchor=False)
@@ -218,7 +223,7 @@ with st.sidebar:
                 if st.session_state.get("select_n_filter_wavelength", False):
                     n_wavelength: str | None = st.pills(
                         "Refractive index wavelength",
-                        options=wavelength_options,
+                        options=WAVELENGTH_OPTIONS,
                         format_func=lambda x: f"{x}",
                         key="n_wavelength_pills",
                     )
@@ -227,7 +232,7 @@ with st.sidebar:
                         n_wavelength = "d"
 
                     if n_wavelength != "Custom":
-                        n_wavelength: ScalarQuantity = wavelength_options[n_wavelength]  # ty:ignore[invalid-assignment]
+                        n_wavelength: ScalarQuantity = WAVELENGTH_OPTIONS[n_wavelength]  # ty:ignore[invalid-assignment]
                         st.session_state["n_wavelength"] = n_wavelength.to(u.nm).value
 
                     if n_wavelength == "Custom":
@@ -338,7 +343,7 @@ if st.session_state.get("select_nV_wavelength", False):
     with cols[0]:
         nV_plot_wavelength: str | None = st.pills(
             "Refractive index / Abbe number wavelength",
-            options=wavelength_options,
+            options=WAVELENGTH_OPTIONS,
             format_func=lambda x: f"{x}",
             key="nV_plot_wavelength_pills",
         )
@@ -347,7 +352,7 @@ if st.session_state.get("select_nV_wavelength", False):
             nV_plot_wavelength = "d"
 
         if nV_plot_wavelength != "Custom":
-            nV_plot_wavelength: ScalarQuantity = wavelength_options[nV_plot_wavelength]  # ty:ignore[invalid-assignment]
+            nV_plot_wavelength: ScalarQuantity = WAVELENGTH_OPTIONS[nV_plot_wavelength]  # ty:ignore[invalid-assignment]
             st.session_state["nV_plot_wavelength"] = nV_plot_wavelength.to(u.nm).value
 
     if nV_plot_wavelength == "Custom":
@@ -402,7 +407,7 @@ if st.session_state.get("select_nV_wavelength", False):
 else:
     n_string = "n_d"
     V_string = "V_d"
-    nV_plot_wavelength: ScalarQuantity = wavelength_options["d"]
+    nV_plot_wavelength: ScalarQuantity = WAVELENGTH_OPTIONS["d"]
 
 assert isinstance(nV_plot_wavelength, Quantity)
 

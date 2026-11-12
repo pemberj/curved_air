@@ -17,6 +17,10 @@ from curved_air.webapp import badges, bmac
 
 plt.style.use(plot_style)
 
+st.set_page_config(
+    page_title="Low Resolution Spectrograph",
+    layout="wide",
+)
 
 st.header("Low Resolution Spectrograph", anchor=False)
 
