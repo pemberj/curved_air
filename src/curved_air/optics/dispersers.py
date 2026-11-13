@@ -854,7 +854,9 @@ class Prism(CrossDisperser):
         finite = np.isfinite(deviations)
         if not np.any(finite):
             raise ValueError(
-                "No valid incidence angle found for this wavelength/media."
+                f"""No valid incidence angle found for a(n) {self.glass},
+                {self.apex_angle:.2g} prism as defined. You must change the prism's
+                parameters before any more calculations are possible."""
             )
 
         idx = np.argmin(deviations[finite])
