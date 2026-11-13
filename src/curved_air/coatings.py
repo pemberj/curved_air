@@ -188,12 +188,12 @@ def parse_thorlabs_ar_coating_xlsx(file: Path) -> Coating:
 
 EDMUND_OPTICS_AR: list[Coating] = [
     parse_edmund_optics_ar_coating_xlsx(file)
-    for file in list(COATING_DATA.glob("Edmund Optics/AR/EO_*.xlsx"))
+    for file in sorted(COATING_DATA.glob("Edmund Optics/AR/EO_*.xlsx"))
 ]
 
 THORLABS_AR: list[Coating] = [
     parse_thorlabs_ar_coating_xlsx(file)
-    for file in list(COATING_DATA.glob("Thorlabs/AR/THORLABS_*.xlsx"))
+    for file in sorted(COATING_DATA.glob("Thorlabs/AR/THORLABS_*.xlsx"))
 ]
 
 
