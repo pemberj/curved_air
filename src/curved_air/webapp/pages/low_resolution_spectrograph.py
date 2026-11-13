@@ -47,9 +47,10 @@ with st.sidebar:
             "Min λ",
             min_value=0.0,
             value=380.0,
-            step=1.0,
+            step=10.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
+            format="%.2g",
             key="min_wl",
         )
         st.session_state["min_wl"] = min_wl
@@ -58,9 +59,10 @@ with st.sidebar:
             "Max λ",
             min_value=0.0,
             value=950.0,
-            step=1.0,
+            step=10.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
+            format="%.2g",
             key="max_wl",
         )
         st.session_state["max_wl"] = max_wl
@@ -89,20 +91,25 @@ with st.sidebar:
             apex_angle: ScalarQuantity = (
                 st.number_input(
                     "Apex angle (°)",
-                    min_value=5.0,
-                    max_value=60.0,
+                    min_value=0.0,
+                    max_value=180.0,
                     value=60.0,
                     step=1.0,
+                    format="%.2g",
                 )
                 * u.deg
             )
 
-            prism: Prism = Prism(
-                glass=st.session_state.get("prism_glass", default_glass),
-                apex_angle=apex_angle,
-                min_wl=min_wl,
-                max_wl=max_wl,
-            )
+            try:
+                prism: Prism = Prism(
+                    glass=st.session_state.get("prism_glass", default_glass),
+                    apex_angle=apex_angle,
+                    min_wl=min_wl,
+                    max_wl=max_wl,
+                )
+            except ValueError as e:
+                st.error(e)
+                st.stop()
 
             st.toggle(
                 "Plot glass refractive index",
@@ -146,6 +153,7 @@ with st.sidebar:
                 min_value=0.0,
                 value=200.0,
                 step=10.0,
+                format="%.2g",
                 possible_units=["µm", "mm", "cm"],
                 default_unit="mm",
                 key="groove_frequency",
@@ -173,6 +181,7 @@ with st.sidebar:
             min_value=0.0,
             value=50.0,
             step=1.0,
+            format="%.2g",
             possible_units=["µm", "mm"],
             default_unit="µm",
             help="""The dispersion-direction physical width of the slit.""",
@@ -184,6 +193,7 @@ with st.sidebar:
             min_value=0.0,
             value=5.0,
             step=1.0,
+            format="%.2g",
             possible_units=["µm", "mm"],
             default_unit="mm",
             help="""The spatial-direction physical length of the slit.""",
@@ -195,6 +205,7 @@ with st.sidebar:
             min_value=0.0,
             value=4.0,
             step=0.05,
+            format="%.3g",
             width=200,
             help="""The native focal ratio of the slit, i.e. the focal ratio of the beam
             entering the spectrograph, at which the slit appears to be the same size as
@@ -206,7 +217,8 @@ with st.sidebar:
             "Collimated beam diameter",
             min_value=0.0,
             value=100.0,
-            step=1.0,
+            step=10.0,
+            format="%.2g",
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             help="""The diameter of the collimated beam at the disperser.""",
@@ -218,6 +230,7 @@ with st.sidebar:
             min_value=0.0,
             value=800.0,
             step=10.0,
+            format="%.2g",
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             key="collimator_focal_length",
@@ -225,7 +238,7 @@ with st.sidebar:
 
         st.metric(
             "Collimator focal ratio",
-            f"f/{(f_coll / beam_diameter).decompose().value:.1f}",
+            f"f/{(f_coll / beam_diameter).decompose().value:.2g}",
             help="""The focal ratio (f-number) of the collimator, calculated from its
             focal length and the collimated beam diameter. Very low f-numbers can have
             important implications for the optical design of the camera in terms of
@@ -237,6 +250,7 @@ with st.sidebar:
             min_value=0.0,
             value=500.0,
             step=10.0,
+            format="%.2g",
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             key="camera_focal_length",
@@ -261,6 +275,24 @@ with st.sidebar:
             help="""Select from a list of commercially available detectors.""",
         )
 
+        detector_name: str = DETECTORS[detector].name
+        pixel_size: ScalarQuantity = DETECTORS[detector].pixel_size.to(u.um)
+        nx: int = DETECTORS[detector].nx
+        ny: int = DETECTORS[detector].ny
+
+        if not st.session_state.get("customise_detector", False):
+            subcols = st.columns(2)
+
+            with subcols[0]:
+                st.metric("Number of pixels", f"{nx}$\\times${ny}")
+
+            with subcols[1]:
+                st.metric(
+                    "Pixel size",
+                    f"{pixel_size:.2g}",
+                    help="The physical size of a single pixel on the detector.",
+                )
+
         st.toggle(
             "Custom detector parameters",
             value=False,
@@ -271,17 +303,17 @@ with st.sidebar:
         if st.session_state["customise_detector"]:
             detector_name: str = st.text_input(
                 "Detector name",
-                value=DETECTORS[detector].name,
+                value=detector_name,
                 help="""The name of the detector, for plot labelling only.""",
             )
 
             pixel_size: ScalarQuantity = (
                 st.number_input(
                     "Pixel size (µm)",
-                    min_value=1.0,
-                    max_value=50.0,
-                    value=DETECTORS[detector].pixel_size.to(u.um).value,
+                    min_value=0.0,
+                    value=pixel_size,
                     step=0.5,
+                    format="%.2g",
                     key="sf_px",
                 )
                 * u.um
@@ -289,27 +321,19 @@ with st.sidebar:
 
             nx: int = st.number_input(
                 "Pixels (x)",
-                min_value=256,
-                max_value=20000,
-                value=DETECTORS[detector].nx,
+                min_value=0,
+                value=nx,
                 step=256,
                 key="sf_nx",
             )
 
             ny: int = st.number_input(
                 "Pixels (y)",
-                min_value=256,
-                max_value=20000,
-                value=DETECTORS[detector].ny,
+                min_value=0,
+                value=ny,
                 step=256,
                 key="sf_ny",
             )
-
-        else:
-            detector_name: str = DETECTORS[detector].name
-            pixel_size: ScalarQuantity = DETECTORS[detector].pixel_size.to(u.um)
-            nx: int = DETECTORS[detector].nx
-            ny: int = DETECTORS[detector].ny
 
         st.toggle("Show detector name in plot", value=True, key="detector_name")
 
@@ -339,13 +363,6 @@ with st.sidebar:
         )
 
     st.space(10)
-
-    # st.toggle("Warn about possible design issues", value=False, key="warn")
-
-    # st.space(10)
-
-    # with st.container(horizontal_alignment="center"):
-    # st.button("Recompute", type="primary")
 
 
 # Create Spectrograph
