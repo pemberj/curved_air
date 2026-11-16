@@ -177,7 +177,9 @@ with st.sidebar:
             log_handler: logging.StreamHandler = logging.StreamHandler(log_stream)
             log_handler.setLevel(logging.INFO)
             log_handler.setFormatter(logging.Formatter("%(message)s"))
-            convert_logger: logging.Logger = logging.getLogger("interferograms.convert")
+            convert_logger: logging.Logger = logging.getLogger(
+                "curved_air.interferograms.convert"
+            )
             previous_level: int = convert_logger.level
             convert_logger.setLevel(logging.INFO)
             convert_logger.addHandler(log_handler)
