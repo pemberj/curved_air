@@ -315,17 +315,15 @@ def from_fisba_binary(file: str | Path) -> InterferogramData:
     The format is undocumented; this layout was reverse-engineered from exports and
     verified against the equivalent tab-delimited text exports (see `from_fisba_csv`):
 
-    ====== ======= =========================================================
-    Offset Type    Content
-    ====== ======= =========================================================
-    0      uint8   Result type: 1 = Surface deviation, 2 = Wave aberration
-    1      uint32  Number of rows
-    5      uint32  Number of columns
-    9      int32   Invalid-pixel marker (0x80000000, i.e. INT32_MIN)
-    13     uint32  Comment length N in bytes
-    17     char[N] Comment, e.g. "PixelSize=0.1041" (ASCII key=value pairs)
-    17+N   int32   rows * cols data values, row-major, little-endian
-    ====== ======= =========================================================
+    Offset  Type      Content
+    ------- --------- ---------------------------------------------------------
+    0       uint8     Result type: 1 = Surface deviation, 2 = Wave aberration
+    1       uint32    Number of rows
+    5       uint32    Number of columns
+    9       int32     Invalid-pixel marker (0x80000000, i.e. INT32_MIN)
+    13      uint32    Comment length N in bytes
+    17      char[N]   Comment, e.g. "PixelSize=0.1041" (ASCII key=value pairs)
+    17+N    int32     rows * cols data values, row-major, little-endian
 
     Rows are stored bottom-up, so the array is flipped vertically to match the
     orientation of files exported as text/csv. Values are in the same units as the text
