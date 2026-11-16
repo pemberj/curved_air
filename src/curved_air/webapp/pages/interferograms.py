@@ -1027,19 +1027,7 @@ with image_col:
 
 st.divider()
 
-heading_col, unit_select_col, *_ = st.columns(4)
-
-with heading_col:
-    st.subheader("Data statistics", anchor=False)
-
-with unit_select_col:  # noqa: SIM117
-    with st.container():
-        stats_unit = st.selectbox(
-            "Select unit for statistics",
-            options=unit_options,
-            index=unit_options.index(loader_unit) if loader_unit in unit_options else 0,
-            key="stats_unit",
-        )
+st.subheader("Data statistics", anchor=False)
 
 cols = st.columns(4)
 column = cycle(cols)
@@ -1050,42 +1038,42 @@ max_data: float = np.nanmax(data)
 with next(column):
     st.metric(
         label="Maximum",
-        value=f"{(max_data * input_unit).to(stats_unit):.4g}",
+        value=f"{(max_data * input_unit).to(output_unit):.4g}",
         border=True,
     )
 
 with next(column):
     st.metric(
         label="Minimum",
-        value=f"{(min_data * input_unit).to(stats_unit):.4g}",
+        value=f"{(min_data * input_unit).to(output_unit):.4g}",
         border=True,
     )
 
 with next(column):
     st.metric(
         "Peak-to-valley",
-        value=f"{((max_data - min_data) * input_unit).to(stats_unit):.4g}",
+        value=f"{((max_data - min_data) * input_unit).to(output_unit):.4g}",
         border=True,
     )
 
 with next(column):
     st.metric(
         label="RMS",
-        value=f"{(np.nanstd(data) * input_unit).to(stats_unit):.4g}",
+        value=f"{(np.nanstd(data) * input_unit).to(output_unit):.4g}",
         border=True,
     )
 
 with next(column):
     st.metric(
         label="Mean",
-        value=f"{(np.nanmean(data) * input_unit).to(stats_unit):.4g}",
+        value=f"{(np.nanmean(data) * input_unit).to(output_unit):.4g}",
         border=True,
     )
 
 with next(column):
     st.metric(
         label="Median",
-        value=f"{(np.nanmedian(data) * input_unit).to(stats_unit):.4g}",
+        value=f"{(np.nanmedian(data) * input_unit).to(output_unit):.4g}",
         border=True,
     )
 
@@ -1095,7 +1083,7 @@ q01: NDArray = np.nanpercentile(data, 1)
 with next(column):
     st.metric(
         "PTVq (99%)",
-        value=f"{((q99 - q01) * input_unit).to(stats_unit):.4g}",
+        value=f"{((q99 - q01) * input_unit).to(output_unit):.4g}",
         border=True,
         help="Peak-to-valley value after removing the top and bottom 1% of data points.",
     )
@@ -1105,7 +1093,7 @@ with next(column):
         "RMSq (99%)",
         value=f"{
             (np.nanstd(data[(data >= q01) & (data <= q99)]) * input_unit).to(
-                stats_unit
+                output_unit
             ):.4g}",
         border=True,
         help="RMS value after removing the top and bottom 1% of data points.",
