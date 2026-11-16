@@ -36,6 +36,11 @@ from curved_air.interferograms.utils import phase2sag
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+FISBA_BINARY_HEADER: struct.Struct = struct.Struct("<BIIiI")
+FISBA_RESULT_TYPES: dict[int, str] = {1: "Surface deviation", 2: "Wave aberration"}
+
+MIN_ZYGO_HEADER_SIZE: int = 834
+
 VALID = 0
 INVALID = 1
 
@@ -43,6 +48,29 @@ zemax_units: dict[str, int] = {"mm": 0, "cm": 1, "in": 2, "m": 3}
 
 logger: logging.Logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+
+def is_zygo_dat(file: str | Path) -> bool:
+    """
+    Return True if `file` looks like a Zygo MetroPro .dat file (as opposed to e.g. a
+    Fisba binary export, which shares the same extension).
+
+    The check is that the first 4 bytes are a valid "magic number" and the file is at
+    least 834 bytes long.
+    """
+
+    if isinstance(file, str):
+        file = Path(file)
+
+    with file.open(mode="rb") as f:
+        data: bytes = f.read(4)
+        if len(data) < 4:  # noqa: PLR2004
+            return False
+        magic_number: int = int.from_bytes(data[0:4], byteorder="big")
+        return (
+            magic_number in [0x881B036F, 0x881B0370, 0x881B0371]
+            and file.stat().st_size >= MIN_ZYGO_HEADER_SIZE
+        )
 
 
 def from_zygo(
@@ -74,11 +102,11 @@ def from_zygo(
     with file.open(mode="rb") as f:
         data: bytes = f.read()
 
-    # "Nominal" header size in bytes
-    hdr_size: int = 834
-
-    if len(data) < 834:  # noqa: PLR2004
-        raise ValueError("File too small to be MetroPro DAT format!")
+    # Check header size is large enough and magic number is one of the expected values
+    if not is_zygo_dat(file):
+        raise ValueError(
+            f"{file!r} does not appear to be a valid Zygo MetroPro .dat file."
+        )
 
     # Read first 4 bytes to determine "magic number"
     magic_number: int = int.from_bytes(data[0:4], byteorder="big")
@@ -86,16 +114,14 @@ def from_zygo(
 
     if magic_number == 0x881B036F:  # noqa: PLR2004
         logger.debug("Detected header format 1")
+        header_size = MIN_ZYGO_HEADER_SIZE
     elif magic_number == 0x881B0370:  # noqa: PLR2004
         logger.debug("Detected header format 2")
+        header_size = MIN_ZYGO_HEADER_SIZE
     elif magic_number == 0x881B0371:  # noqa: PLR2004
         logger.debug("Detected header format 3")
         # Header size is 4096 bytes for format 3
-        hdr_size = 4096
-    else:
-        raise ValueError(
-            f"No valid magic number detected, incorrect dat file format!\nMAGIC NUMBER: 0x{magic_number:x}"
-        )
+        header_size = 4096
 
     hdr_format: int = struct.unpack(">h", data[4:6])[0]
     logger.info(f"HEADER FORMAT: {hdr_format}")
@@ -137,7 +163,8 @@ def from_zygo(
             }
 
             intensity: NDArray = np.frombuffer(
-                data[hdr_size : hdr_size + ac_n_bytes], dtype=">u2"
+                data[header_size : header_size + ac_n_bytes],
+                dtype=">u2",
             ).copy()
             intensity: NDArray = intensity.reshape(ac_height, ac_width)
 
@@ -220,7 +247,7 @@ def from_zygo(
             }
 
             phase: NDArray = np.frombuffer(
-                data[hdr_size + ac_n_bytes : hdr_size + ac_n_bytes + cn_n_bytes],
+                data[header_size + ac_n_bytes : header_size + ac_n_bytes + cn_n_bytes],
                 dtype=">i4",
             ).copy()
             phase: NDArray = phase.reshape(cn_height, cn_width)
@@ -259,13 +286,110 @@ def from_zygo(
     return to_return
 
 
-def from_fisba_binary(file: str | Path) -> InterferogramData:
+def is_fisba_binary(file: str | Path) -> bool:
     """
-    TODO: Parse header, comments, and data
-    TODO: Look up Fisba file format specifications
+    Return True if `file` looks like a Fisba binary export (as opposed to e.g. a Zygo
+    MetroPro .dat file, which shares the same extension).
+
+    The check is that the header parses and the file size is consistent with
+    header + comment + rows * cols int32 values.
     """
 
-    raise NotImplementedError("from_fisba_binary is not yet implemented.")
+    file = Path(file)
+    size: int = file.stat().st_size
+    with file.open(mode="rb") as f:
+        head: bytes = f.read(FISBA_BINARY_HEADER.size)
+    if len(head) < FISBA_BINARY_HEADER.size:
+        return False
+    result_type, rows, cols, _invalid, comment_len = FISBA_BINARY_HEADER.unpack(head)
+    return (
+        result_type in FISBA_RESULT_TYPES
+        and size == FISBA_BINARY_HEADER.size + comment_len + 4 * rows * cols
+    )
+
+
+def from_fisba_binary(file: str | Path) -> InterferogramData:
+    """
+    Read a binary .dat file exported from Fisba(/Trioptics?) interferometer software
+
+    The format is undocumented; this layout was reverse-engineered from exports and
+    verified against the equivalent tab-delimited text exports (see `from_fisba_csv`):
+
+    ====== ======= =========================================================
+    Offset Type    Content
+    ====== ======= =========================================================
+    0      uint8   Result type: 1 = Surface deviation, 2 = Wave aberration
+    1      uint32  Number of rows
+    5      uint32  Number of columns
+    9      int32   Invalid-pixel marker (0x80000000, i.e. INT32_MIN)
+    13     uint32  Comment length N in bytes
+    17     char[N] Comment, e.g. "PixelSize=0.1041" (ASCII key=value pairs)
+    17+N   int32   rows * cols data values, row-major, little-endian
+    ====== ======= =========================================================
+
+    Rows are stored bottom-up, so the array is flipped vertically to match the
+    orientation of files exported as text/csv. Values are in the same units as the text
+    export (Angstrom for surface deviation maps). Data points flagged as invalid are
+    returns as NumPy NaNs
+
+    Returns an InterferogramData object with the same metadata keys as `from_fisba_csv`
+    ("PixelSize", "Rows", "Cols"), plus "ResultType" and any other key=value pairs found
+    in the comment line(s) at the top of the file
+    """
+
+    file = Path(file)
+    raw: bytes = file.read_bytes()
+
+    hdr_size: int = FISBA_BINARY_HEADER.size
+    if len(raw) < hdr_size:
+        raise ValueError(f"File too small to be a Fisba binary file: {file!r}")
+
+    result_code, rows, cols, invalid, comment_len = FISBA_BINARY_HEADER.unpack_from(raw)
+    result_type: str = FISBA_RESULT_TYPES.get(result_code, f"Unknown ({result_code})")
+    if result_code not in FISBA_RESULT_TYPES:
+        logger.warning(f"Unknown Fisba result type code {result_code}; trying anyway")
+
+    data_start: int = hdr_size + comment_len
+    expected_size: int = data_start + 4 * rows * cols
+
+    if len(raw) != expected_size:
+        raise ValueError(
+            f"""Size of {file!r} ({len(raw)} bytes) does not match the header (expected
+            {expected_size} bytes for {rows}x{cols} values). Are you sure this is a
+            Fisba binary file?"""
+        )
+
+    comment: str = raw[hdr_size:data_start].decode("latin-1").strip("\x00")
+
+    logger.info(f"Reading Fisba binary file: {file}")
+    logger.info(f"{'-' * 80}")
+    logger.info(f"Result type: {result_type}")
+    logger.info(f"Rows: {rows}, Cols: {cols}")
+    logger.info(f"Comment: {comment}")
+
+    metadata: dict[str, Any] = {"ResultType": result_type}
+    for item in re.split(r"[\r\n;]+", comment):
+        key, sep, value = item.partition("=")
+        if not sep:
+            continue
+        try:
+            metadata[key.strip()] = float(value)
+        except ValueError:
+            metadata[key.strip()] = value.strip()
+    metadata["Rows"] = rows
+    metadata["Cols"] = cols
+
+    values: NDArray = np.frombuffer(raw, dtype="<i4", offset=data_start)
+
+    # Flip the data top/bottom
+    values = values.reshape(rows, cols)[::-1]
+
+    # Convert to floats
+    data: NDArray = values.astype(float)
+
+    data[values == invalid] = np.nan
+
+    return InterferogramData(data=data, metadata=Metadata(raw_dict=metadata))
 
 
 def from_fisba_csv(file: str | Path) -> InterferogramData:

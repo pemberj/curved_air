@@ -26,9 +26,11 @@ from plotly import graph_objects as go
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from curved_air.interferograms.convert import (
+    from_fisba_binary,
     from_fisba_csv,
     from_zemax_grid_sag,
     from_zygo,
+    is_fisba_binary,
     to_zemax,
     zemax_units,
 )
@@ -98,6 +100,7 @@ with st.sidebar:
         options=[
             "Auto-detect",
             "Fisba (CSV, .txt)",
+            "Fisba (binary, .dat)",
             "Zygo (.dat)",
             "Zemax Grid Sag (.dat)",
         ],
@@ -139,6 +142,10 @@ with st.sidebar:
                     loader: Callable = from_fisba_csv
                     loader_name = "fisba"
                     loader_unit = "Å"
+                elif suffix == ".dat" and is_fisba_binary(temp_file_path):
+                    loader: Callable = from_fisba_binary
+                    loader_name = "fisba"
+                    loader_unit = "Å"
                 elif suffix == ".dat":
                     loader: Callable = from_zygo
                     loader_name = "zygo"
@@ -151,6 +158,10 @@ with st.sidebar:
 
             elif input_mode == "Fisba (CSV, .txt)":
                 loader: Callable = from_fisba_csv
+                loader_name = "fisba"
+                loader_unit = "Å"
+            elif input_mode == "Fisba (binary, .dat)":
+                loader: Callable = from_fisba_binary
                 loader_name = "fisba"
                 loader_unit = "Å"
             elif input_mode == "Zygo (.dat)":
