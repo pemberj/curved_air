@@ -270,21 +270,15 @@ def from_fisba_binary(file: str | Path) -> InterferogramData:
 
 def from_fisba_csv(file: str | Path) -> InterferogramData:
     r"""
-    Read a 2ES interferogram text export like the provided sample.
+    Read a file exported from Fisba interferometer software in tab-delimited CSV format.
 
     Expected structure (loosely):
       - Header lines (may include "PixelSize=...", "Row=... Col=...", etc.)
       - A column header line starting with "Row\\Col" followed by integer column indices
       - Then data lines: "<row_index>\\t<val0>\\t<val1>..."; missing/blank cells -> NaN
 
-    Returns
-    -------
-    data : NDArray, shape (n_rows, n_cols), dtype float
-        2D array indexed by row/col (0..max header col), filled with NaN where absent.
-        Note: Row indices in the file can be in any order; the array is sized based on
-        the max row/col indices encountered and filled accordingly.
-    metadata : dict
-        Parsed metadata (e.g., PixelSize, declared Row/Col dimensions, etc.).
+    Returns an InterferogramData object containing the tabulated data as well as any
+    metadata that was parsed from the header.
     """
     metadata: dict[str, int | float] = {}
     col_indices: list[int] | None = None
