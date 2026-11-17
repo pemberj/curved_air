@@ -29,7 +29,7 @@ from curved_air.interferograms.convert import (
     from_fisba_binary,
     from_fisba_csv,
     from_zemax_grid_sag,
-    from_zygo,
+    from_zygo_dat,
     is_fisba_binary,
     to_zemax,
     zemax_units,
@@ -148,7 +148,7 @@ with st.sidebar:
                     loader_name = "fisba"
                     loader_unit = "Å"
                 elif suffix == ".dat":
-                    loader: Callable = from_zygo
+                    loader: Callable = from_zygo_dat
                     loader_name = "zygo"
                     loader_unit = "nm"
                 else:
@@ -166,8 +166,11 @@ with st.sidebar:
                 loader_name = "fisba"
                 loader_unit = "Å"
             elif input_mode == "Zygo (.dat)":
-                loader: Callable = from_zygo
+                loader: Callable = from_zygo_dat
                 loader_name = "zygo"
+                # Native units are 'zygos', fractions of a wave depending on instrument
+                # I choose nanometres as a more useful standard here - but it is just a
+                # choice!
                 loader_unit = "nm"
             elif input_mode == "Zemax Grid Sag (.dat)":
                 loader: Callable = from_zemax_grid_sag
@@ -178,6 +181,7 @@ with st.sidebar:
             log_handler: logging.StreamHandler = logging.StreamHandler(log_stream)
             log_handler.setLevel(logging.INFO)
             log_handler.setFormatter(logging.Formatter("%(message)s"))
+
             convert_logger: logging.Logger = logging.getLogger(
                 "curved_air.interferograms.convert"
             )

@@ -31,15 +31,20 @@ from curved_air.interferograms import (
     Metadata,
     PhaseData,
 )
-from curved_air.interferograms.utils import phase2sag
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+    from curved_air.type_hinting import ScalarQuantity
+
 FISBA_BINARY_HEADER: struct.Struct = struct.Struct("<BIIiI")
 FISBA_RESULT_TYPES: dict[int, str] = {1: "Surface deviation", 2: "Wave aberration"}
 
-MIN_ZYGO_HEADER_SIZE: int = 834
+ZYGO_MAGIC_NUMBERS_AND_HEADER_SIZES: dict[int, int] = {
+    0x881B036F: 834,  # File format 1
+    0x881B0370: 834,  # File format 2
+    0x881B0371: 4096,  # File format 3
+}
 
 VALID = 0
 INVALID = 1
@@ -55,25 +60,41 @@ def is_zygo_dat(file: str | Path) -> bool:
     Return True if `file` looks like a Zygo MetroPro .dat file (as opposed to e.g. a
     Fisba binary export, which shares the same extension).
 
-    The check is that the first 4 bytes are a valid "magic number" and the file is at
-    least 834 bytes long.
+    The Zygo Metropro file format is described here:
+    https://www.engineering.upenn.edu/~nanosop/documents/MetroProReferenceGuide0347_M.pdf
     """
 
     if isinstance(file, str):
         file = Path(file)
 
     with file.open(mode="rb") as f:
-        data: bytes = f.read(4)
-        if len(data) < 4:  # noqa: PLR2004
+        data: bytes = f.read(10)  # Read the first 10 bytes of the file
+        if len(data) < 10:  # noqa: PLR2004
             return False
+
         magic_number: int = int.from_bytes(data[0:4], byteorder="big")
-        return (
-            magic_number in [0x881B036F, 0x881B0370, 0x881B0371]
-            and file.stat().st_size >= MIN_ZYGO_HEADER_SIZE
-        )
+        hdr_format: int = struct.unpack(">h", data[4:6])[0]
+        hsize: int = struct.unpack(">l", data[6:10])[0]
+
+        if magic_number not in ZYGO_MAGIC_NUMBERS_AND_HEADER_SIZES:
+            logger.warning(f"Invalid magic number: 0x{magic_number:x}")
+            logger.warning(
+                f"\n{file!r} does not appear to be a valid Zygo MetroPro .dat file."
+            )
+            return False
+
+        assert hsize == ZYGO_MAGIC_NUMBERS_AND_HEADER_SIZES[magic_number]
+
+        logger.info(f"MAGIC NUMBER: 0x{magic_number:x}")
+        logger.info(f"HEADER FORMAT: {hdr_format}")
+        logger.info(f"HEADER SIZE: {hsize}")
+
+        logger.info(f"\n{file!r} appears to be a valid Zygo MetroPro .dat file.")
+
+        return True
 
 
-def from_zygo(
+def from_zygo_dat(
     file: str | Path,
     which: str = "both",
     plot: bool = False,
@@ -102,36 +123,25 @@ def from_zygo(
     with file.open(mode="rb") as f:
         data: bytes = f.read()
 
+    logger.info(f"Reading Zygo MetroPro .dat file: {file}\n")
+
     # Check header size is large enough and magic number is one of the expected values
     if not is_zygo_dat(file):
         raise ValueError(
             f"{file!r} does not appear to be a valid Zygo MetroPro .dat file."
         )
 
-    # Read first 4 bytes to determine "magic number"
-    magic_number: int = int.from_bytes(data[0:4], byteorder="big")
-    logger.debug(f"MAGIC NUMBER: 0x{magic_number:x}")
-
-    if magic_number == 0x881B036F:  # noqa: PLR2004
-        logger.debug("Detected header format 1")
-        header_size = MIN_ZYGO_HEADER_SIZE
-    elif magic_number == 0x881B0370:  # noqa: PLR2004
-        logger.debug("Detected header format 2")
-        header_size = MIN_ZYGO_HEADER_SIZE
-    elif magic_number == 0x881B0371:  # noqa: PLR2004
-        logger.debug("Detected header format 3")
-        # Header size is 4096 bytes for format 3
-        header_size = 4096
-
+    # The first 4 bytes are the "magic number"
+    _magic_number: int = int.from_bytes(data[0:4], byteorder="big")
+    # The next two bytes are the header format
     hdr_format: int = struct.unpack(">h", data[4:6])[0]
-    logger.info(f"HEADER FORMAT: {hdr_format}")
-
+    # And the next four are the header size in bytes
     hsize: int = struct.unpack(">l", data[6:10])[0]
-    logger.info(f"HEADER SIZE: {hsize}")
+    # All of those are verified in the is_zygo_dat function call
 
     # If the intensity data matrix is present then it begins immediately after the header
     if which == "intensity" or which == "both":
-        logger.info(f"\n{'Processing intensity data ':.<50}")
+        logger.info(f"\n{'Processing intensity data ':.<50}\n")
         # Intensity data matrix header variables
         ac_org_x: int = struct.unpack(">h", data[48:50])[0]
         ac_org_y: int = struct.unpack(">h", data[50:52])[0]
@@ -142,16 +152,15 @@ def from_zygo(
         ac_n_bytes: int = struct.unpack(">l", data[60:64])[0]
 
         if ac_n_bytes > 0:
-            logger.info("INTENSITY DATA MATRIX HEADER DATA")
-            logger.info(f"X/Y ORIGIN: {ac_org_x}, {ac_org_y}")
-            logger.info(f"WIDTH: {ac_width}")
-            logger.info(f"HEIGHT: {ac_height}")
+            logger.info("INTENSITY DATA MATRIX HEADER")
+            logger.info(f"ORIGIN (X, Y): ({ac_org_x}, {ac_org_y})")
+            logger.info(f"WIDTH: {ac_width}\nHEIGHT: {ac_height}")
             logger.info(f"N BUCKETS: {ac_n_buckets}")
             logger.info(f"RANGE: {ac_range}")
-            logger.info(f"AC TOTAL BYTES: {ac_n_bytes}")
+            logger.info(f"TOTAL BYTES: {ac_n_bytes}")
 
             wavelength: float = struct.unpack(">f", data[168:172])[0]
-            wavelength = (wavelength * u.m).to(u.nm)  # Convert to nm
+            wavelength: ScalarQuantity = (wavelength * u.m).to(u.nm)  # Convert to nm
 
             intensity_metadata: dict[str, Any] = {
                 "FILE": file,
@@ -159,11 +168,11 @@ def from_zygo(
                 "TYPE": "SUR",
                 "WVL": wavelength,
                 "SSZ": ac_n_buckets,  # Sample size
-                "NDA": ...,  # Null data (identifies points that should be ignored)
+                # "NDA": ...,  # Null data (identifies points that should be ignored)
             }
 
             intensity: NDArray = np.frombuffer(
-                data[header_size : header_size + ac_n_bytes],
+                data[hsize : hsize + ac_n_bytes],
                 dtype=">u2",
             ).copy()
             intensity: NDArray = intensity.reshape(ac_height, ac_width)
@@ -191,7 +200,7 @@ def from_zygo(
             # to_return.append((None, None))
 
     if which == "phase" or which == "both":
-        logger.info(f"{'Processing phase data ':.<50}")
+        logger.info(f"\n{'Processing phase data ':.<50}\n")
         # Phase data matrix header variables
         cn_org_x: int = struct.unpack(">h", data[64:66])[0]
         cn_org_y: int = struct.unpack(">h", data[66:68])[0]
@@ -203,51 +212,58 @@ def from_zygo(
         obliquity_factor: float = struct.unpack(">f", data[176:180])[0]
         phase_res: int = struct.unpack(">h", data[218:220])[0]
 
-        match hdr_format:
-            case 1:
-                if phase_res == 0:
-                    R: int = 4096
-                elif phase_res == 1:
-                    R: int = 32768
-                else:
-                    logger.error("INVALID PHASE RES")
+        wavelength: ScalarQuantity = (wavelength_in * u.m).to(u.nm)
 
-            case 2 | 3:
-                if phase_res == 0:
-                    R: int = 4096
-                elif phase_res == 1:
-                    R: int = 32768
-                elif phase_res == 2:  # noqa: PLR2004
-                    R: int = 131072
-                else:
-                    logger.error("INVALID PHASE RES")
-
+        # Phase data values are in units of "zygos". A zygo is a fraction of a fringe of
+        # interference.
+        # The following decision tree determines the correct phase resolution value
+        # The resolution of a zygo is (1/R) fringes, and varies by device
+        match hdr_format, phase_res:
+            case 1, 0:
+                R: int = 4096
+            case 1, 1:
+                R: int = 32768
+            case 1, _:
+                logger.error(
+                    f"Invalid phase resolution ({phase_res}) for header format 1"
+                )
+            case 2 | 3, 0:
+                R: int = 4096
+            case 2 | 3, 1:
+                R: int = 32768
+            case 2 | 3, 2:
+                R: int = 131072
+            case 2 | 3, _:
+                logger.error(
+                    f"Invalid phase resolution ({phase_res}) for header format {hdr_format}"
+                )
             case _:
-                logger.error("Invalid header format.")
+                logger.error(f"Invalid header format: {hdr_format}")
 
         # If phase data matrix is present, then process it.
         if cn_n_bytes > 0:
-            logger.info("PHASE MATRIX HEADER DATA")
-            logger.info(f"X/Y ORIGIN: {cn_org_x}, {cn_org_y}")
-            logger.info(f"WIDTH / HEIGHT: {cn_width}, {cn_height}")
+            logger.info("PHASE DATA MATRIX HEADER")
+            logger.info(f"ORIGIN (X, Y): ({cn_org_x}, {cn_org_y})")
+            logger.info(f"WIDTH: {cn_width}\nHEIGHT: {cn_height}")
             logger.info(f"INTF_SCALE_FACTOR: {intf_scale_factor}")
-            logger.info(f"WAVELENGTH IN: {(wavelength_in * u.m).to(u.nm).value:.6g}")
+            logger.info(f"WAVELENGTH_IN: {wavelength_in}")
+            logger.info(f"WAVELENGTH: {wavelength:.6g}")
             logger.info(f"OBLIQUITY FACTOR: {obliquity_factor}")
             logger.info(f"PHASE RES: {phase_res}")
-            logger.info(f"PHASE RES ELEMENTS (R): {R}")
-            logger.info(f"CN TOTAL BYTES: {cn_n_bytes}")
+            logger.info(f"-> PHASE RES ELEMENTS (R): {R}")
+            logger.info(f"TOTAL BYTES: {cn_n_bytes}\n")
 
             phase_metadata: dict[str, Any] = {
                 "FILE": file,
                 "GRD": (cn_width, cn_height),
                 "TYPE": "SUR",
                 "WVL": (wavelength_in * u.m).to(u.nm),  # Measurement wavelength
-                "SSZ": ...,  # Sample size
-                "NDA": ...,  # Null data (identifies points that should be ignored)
+                # "SSZ": ...,  # Sample size
+                # "NDA": ...,  # Null data (identifies points that should be ignored)
             }
 
             phase: NDArray = np.frombuffer(
-                data[header_size + ac_n_bytes : header_size + ac_n_bytes + cn_n_bytes],
+                data[hsize + ac_n_bytes : hsize + ac_n_bytes + cn_n_bytes],
                 dtype=">i4",
             ).copy()
             phase: NDArray = phase.reshape(cn_height, cn_width)
@@ -255,11 +271,25 @@ def from_zygo(
             phase[ind] = 0
             # This is now the phase in units of "zygos"
 
-            # Convert to units of waves
-            phase: NDArray = phase * ((intf_scale_factor * obliquity_factor) / R)
-            # It is also possible to use the formula (W*S*O)/R to have the
-            # units in meters where W is wavelength is given in the
-            # "wavelength_in" header variable in units of meters.
+            # To convert a phase data value from zygos to a height, use these formulas:
+            # S = intf_scale_factor
+            # W = wavelength_in
+            # O = obliquity_factor
+            # R = resolution from above table
+
+            # To convert to a height in waves, multiply by (S x O / R)
+            # To convert to a height in meters, multiply by (W x S x O / R)
+
+            # I will return the surface height in units of wavelength (nanometres)
+            logger.info(
+                f"""Converting phase data from native 'zygos' to nanometres using {wavelength=:.6g}, {intf_scale_factor=}, {obliquity_factor=}, and resolution {R=}"""
+            )
+            phase: NDArray = (
+                phase
+                * (wavelength * (intf_scale_factor * obliquity_factor) / R)
+                .to(u.nm)
+                .value
+            )
 
             if plot:
                 fig2: plt.Figure = plt.figure("Phase map", dpi=96)
@@ -280,8 +310,8 @@ def from_zygo(
     if len(to_return) == 0:
         raise ValueError("No data extracted from file.")
 
-    plt.show()
-    logger.info("")
+    if plot:
+        plt.show()
 
     return to_return
 
@@ -820,83 +850,3 @@ def to_zemax(
         logger.info(f"Data saved to {file}.")
 
     return None
-
-
-def test() -> None:
-    """
-    Test function to demonstrate usage.
-    """
-    file: str | Path = (
-        "/home/japember/Nextcloud-IvS/Zemax/MARVEL/MARVEL Camera/As-Built MARVEL Lenses/data/C1.2_SN3_00c_386CX_IRR_UC.dat"
-    )
-    data: list[InterferogramData] = from_zygo(file)
-
-    for d in data:
-        if isinstance(d, IntensityData):
-            _intensity_metadata = d.metadata
-            _intensity_data = d.data
-        elif isinstance(d, PhaseData):
-            _phase_metadata = d.metadata
-            phase_data: NDArray = d.data
-
-    assert phase_data is not None, "No phase data extracted from file."
-
-    print(f"{'Raw phase data ':.<50}")
-    print(f"Max: {np.nanmax(phase_data):.6f} waves")
-    print(f"Min: {np.nanmin(phase_data):.6f} waves")
-    print(f"PV: {np.nanmax(phase_data) - np.nanmin(phase_data):.6f} waves")
-    print(f"RMS: {np.nanstd(phase_data):.6f} waves")
-
-    fig: plt.Figure = plt.figure("Resampled")
-    ax: plt.Axes = fig.gca()
-    img: plt.AxesImage = ax.imshow(phase_data, cmap="jet")
-    cb: plt.Colorbar = fig.colorbar(img, ax=ax)
-    cb.set_label("Phase (waves)")
-    ax.set_title("Resampled Data")
-    plt.show()
-
-    surface_sag: NDArray = phase2sag(phase_data)
-
-    print(f"\n{'Computed surface sag ':.<50}")
-    print(f"Max: {np.nanmax(surface_sag):.6f} mm")
-    print(f"Min: {np.nanmin(surface_sag):.6f} mm")
-    print(f"PV: {np.nanmax(surface_sag) - np.nanmin(surface_sag):.6f} mm")
-    print(f"RMS: {np.nanstd(surface_sag):.6f} mm")
-
-    fig2: plt.Figure = plt.figure("Surface Sag")
-    ax2: plt.Axes = fig2.gca()
-    img2: plt.AxesImage = ax2.imshow(surface_sag, cmap="jet")
-    cb: plt.Colorbar = fig2.colorbar(img2, ax=ax2)
-    cb.set_label("Sag (mm)")
-    ax2.set_title("Surface Sag Data")
-    plt.show()
-
-    # to_zemax(resample(phase_data), "test_output.dat")
-
-    data: InterferogramData = from_fisba_csv(
-        "/home/japember/Nextcloud-2ES/2ES Prism Interferograms/Fisba/2ES_P1S1.txt"
-    )
-
-    fig3: plt.Figure = plt.figure("2ES Fisba Data")
-    ax3: plt.Axes = fig3.gca()
-    img3: plt.AxesImage = ax3.imshow(data.data, cmap="jet")
-    cb: plt.Colorbar = fig3.colorbar(img3, ax=ax3)
-    cb.set_label("Phase (waves)")
-    ax3.set_title("2ES Fisba Data")
-    plt.show()
-
-    data: GridSagData = from_zemax_grid_sag(
-        "/home/japember/Nextcloud-IvS/Zemax/MARVEL/MARVEL Camera/As-Built MARVEL Lenses/output/MARVEL_C1.1.dat"
-    )
-
-    fig4: plt.Figure = plt.figure("Zemax Grid Sag Data")
-    ax4: plt.Axes = fig4.gca()
-    img4: plt.AxesImage = ax4.imshow(data.data, cmap="jet")
-    cb: plt.Colorbar = fig4.colorbar(img4, ax=ax4)
-    cb.set_label("Sag (mm)")
-    ax4.set_title("Zemax Grid Sag Data")
-    plt.show()
-
-
-if __name__ == "__main__":
-    test()
