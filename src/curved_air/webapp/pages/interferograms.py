@@ -49,6 +49,7 @@ from curved_air.interferograms.fitting import (
 )
 from curved_air.interferograms.streamlit_components import profile_selector
 from curved_air.interferograms.utils import (
+    crop_edge,
     flag_edge_zeroes,
     line_profile,
     native_endian_array,
@@ -404,7 +405,19 @@ with st.sidebar:
         st.container(height=1, border=False)
         st.toggle("Crop to valid data?", key="crop_toggle", value=False)
 
-        cols = st.columns(2)
+        st.number_input(
+            "Crop edge (pixels)",
+            min_value=0,
+            value=0,
+            step=1,
+            width=200,
+            key="crop_edge",
+            help="""Ignore the outermost N pixels of valid data, following the shape of
+            the valid region. Can be used in conjunction with the `Flag zeroes`
+            correction and the aperture shape will be maintained.""",
+        )
+
+        cols = st.columns([1, 3])
         with cols[0]:
             st.container(height=10, border=False)
             st.toggle("Resample?", key="resample_toggle", value=False)
@@ -414,6 +427,7 @@ with st.sidebar:
                 min_value=1,
                 value=200,
                 step=1,
+                width=300,
                 key="resample_size",
                 disabled=not st.session_state.get("resample_toggle", False),
             )
@@ -511,6 +525,11 @@ with st.sidebar:
 # Apply corrections if requested
 if "Flag zeroes" in st.session_state.get("corrections", []):
     data: NDArray = flag_edge_zeroes(data)
+
+if st.session_state.get("crop_edge", 0) > 0:
+    # Remove the edge pixels, even if the valid data is not square
+    # basically "shrink selection" like in Photoshop
+    data: NDArray = crop_edge(data, st.session_state["crop_edge"])
 
 if "Subtract piston" in st.session_state.get("corrections", []):
     data -= np.nanmedian(data)

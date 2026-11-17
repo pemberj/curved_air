@@ -182,7 +182,7 @@ def example_third_material_search() -> ADC | None:
     return current_best
 
 
-def example_exhaustive_search() -> ADC | None:
+def example_exhaustive_search(num_elements: int = 3) -> ADC | None:
     """
     Example: Exhaustive search for a three-element ADC using all possible combinations
     (and orders) of glasses in a (small) input catalogue.
@@ -190,7 +190,7 @@ def example_exhaustive_search() -> ADC | None:
     # Load glass catalogue
     gc: GlassCatalogue = GlassCatalogue(["Schott", "Ohara"])
 
-    glasses_to_use: list[Glass] = [
+    glass_catalogue: list[Glass] = [
         gc["K10"],
         gc["N-BK7"],
         gc["F2"],
@@ -240,25 +240,19 @@ def example_exhaustive_search() -> ADC | None:
 
     current_best: ADC = baseline_adc
 
-    permutations_of_glasses: list[tuple[Glass, Glass, Glass]] = list(
-        permutations(glasses_to_use, 3)
+    permutations_of_glasses: list[tuple[Glass,]] = list(
+        permutations(glass_catalogue, num_elements)
     )
 
     # Try all glasses in the catalogue as the third prism material
     for p in tqdm.tqdm(permutations_of_glasses, unit="permutation", ncols=120):
-        glasses = f"{p[0].name} / {p[1].name} / {p[2].name}"
+        glasses: str = " / ".join([g.name for g in p])
 
         # print(glasses)
         # continue
 
         adc = ADC(
-            prism_stack=PrismStack(
-                prism_list=[
-                    Prism(glass=p[0]),
-                    Prism(glass=p[1]),
-                    Prism(glass=p[2]),
-                ]
-            ),
+            prism_stack=PrismStack(prism_list=[Prism(glass=g) for g in p]),
             air_model=ZEMAX_AIR,
             min_wl=370 * u.nm,
             max_wl=900 * u.nm,
@@ -306,6 +300,6 @@ def example_exhaustive_search() -> ADC | None:
 
 
 if __name__ == "__main__":
-    example_three_element_adc()
+    # example_three_element_adc()
     # example_third_material_search()
-    # example_exhaustive_search()
+    example_exhaustive_search(num_elements=2)

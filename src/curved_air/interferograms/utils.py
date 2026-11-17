@@ -20,6 +20,7 @@ from astropy.units import Quantity
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 from PIL import Image
+from scipy import ndimage
 
 from curved_air.geometry import Shape
 
@@ -505,4 +506,43 @@ def flag_edge_zeroes(data: NDArray) -> NDArray:
 
     data = data.copy()
     data[edge_mask] = np.nan
+    return data
+
+
+def crop_edge(data: NDArray, n: int) -> NDArray:
+    """Flag the outermost `n` pixels of valid (finite) data as invalid to crop them out
+    from any further analyses. Typical in surface interferograms are large deviations
+    at the very edges of a surface. It can be conventient to ignore the edges without
+    setting up any more complex masking for a quick view of the main area of data.
+
+    The valid region of the data array is trimmed by `n` pixels from its outer boundary,
+    regardless of the shape of the valid region.
+
+    Interior holes (NaN islands fully enclosed by valid data) are not affected, only the
+    exterior edge should be trimmed. The array border itself counts as invalid, so valid
+    data touching the edge of a fully-valid rectangular array is also trimmed.
+    """
+
+    if n <= 0:
+        return data
+
+    valid: NDArray = np.isfinite(data)
+
+    # Fill interior holes so erosion only acts on the exterior boundary
+    footprint: NDArray = ndimage.binary_fill_holes(valid)
+
+    # Euclidean distance to the nearest invalid pixel; pad so that the array border also
+    # counts as invalid. `EDT` preserves the shape of an aperture, so round apertures
+    # stay round, unlike repeated binary erosion which follows 'Manhattan distance' and
+    # does not always preserve the shapes
+    distance: NDArray = ndimage.distance_transform_edt(
+        np.pad(footprint, 1, constant_values=False)
+    )[1:-1, 1:-1]
+    keep: NDArray = distance > n
+
+    data: NDArray = data.copy()
+
+    # Apply the mask
+    data[valid & ~keep] = np.nan
+
     return data
