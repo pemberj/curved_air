@@ -412,9 +412,12 @@ with st.sidebar:
             step=1,
             width=200,
             key="crop_edge",
-            help="""Ignore the outermost N pixels of valid data, following the shape of
-            the valid region. Can be used in conjunction with the `Flag zeroes`
-            correction and the aperture shape will be maintained.""",
+            help="""Ignore the outermost `n` pixels of valid data, following the shape
+            of the valid region. Can be used in conjunction with the `Flag zeroes`
+            correction and the aperture shape will be maintained. This can be very
+            useful to remove the very edges of an aperture which can often have large
+            deviations from the local surface shape and dominate peak-to-valley
+            statistics and colourmaps.""",
         )
 
         cols = st.columns([1, 3])
