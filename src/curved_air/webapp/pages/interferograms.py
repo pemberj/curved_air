@@ -233,7 +233,10 @@ with st.sidebar:
         for i, d in enumerate(datalist):
             if d.metadata is not None:
                 st.subheader(f"Metadata for array {i}", anchor=False)
-                st.write(d.metadata.__dict__())
+                # Only write entries that are not None
+                st.write(
+                    {k: v for k, v in d.metadata.__dict__().items() if v is not None}
+                )
 
 
 # Jump back out to main canvas to select and initialise the data array

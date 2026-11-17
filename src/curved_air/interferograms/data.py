@@ -43,6 +43,9 @@ class Metadata:
     sample_size: int | None = None
     null_data_value: float | None = None
 
+    n_buckets: int | None = None
+    range: float | None = None
+
     scale_factor: float | None = None
 
     obliquity_factor: float | None = None
@@ -86,15 +89,22 @@ class Metadata:
 
     def __dict__(self) -> dict[str, Any]:
         return {
-            "FILE": self.file,
-            "GRD": self.grid_size,
-            "TYPE": self.type,
-            "WVL": self.wavelength,
-            "SSZ": self.sample_size,
-            "NDA": self.null_data_value,
-            "PixelSize": self.pixel_size,
+            "Filename": self.file,
+            "Type": self.type,
+            "Grid size": self.grid_size,
+            "Wavelength": self.wavelength,
+            "Sample size": self.sample_size,
+            "Null data value": self.null_data_value,
+            "Pixel size": self.pixel_size,
             "Rows": self.rows,
             "Cols": self.cols,
+            "Origin": self.origin,
+            "N Buckets": self.n_buckets,
+            "Scale factor": self.scale_factor,
+            "Obliquity factor": self.obliquity_factor,
+            "Phase resolution": self.phase_resolution,
+            "Phase resultion elements": self.phase_resolution_elements,
+            "Total bytes": self.total_bytes,
         }
 
 

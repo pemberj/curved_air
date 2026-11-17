@@ -162,15 +162,6 @@ def from_zygo_dat(
             wavelength: float = struct.unpack(">f", data[168:172])[0]
             wavelength: ScalarQuantity = (wavelength * u.m).to(u.nm)  # Convert to nm
 
-            intensity_metadata: dict[str, Any] = {
-                "FILE": file,
-                "GRD": (ac_width, ac_height),
-                "TYPE": "SUR",
-                "WVL": wavelength,
-                "SSZ": ac_n_buckets,  # Sample size
-                # "NDA": ...,  # Null data (identifies points that should be ignored)
-            }
-
             intensity: NDArray = np.frombuffer(
                 data[hsize : hsize + ac_n_bytes],
                 dtype=">u2",
@@ -191,7 +182,19 @@ def from_zygo_dat(
 
             to_return.append(
                 IntensityData(
-                    data=intensity, metadata=Metadata(raw_dict=intensity_metadata)
+                    data=intensity,
+                    metadata=Metadata(
+                        file=file.stem,
+                        rows=ac_width,
+                        cols=ac_height,
+                        pixel_size=None,  # Not provided in Zygo .dat files
+                        wavelength=wavelength,
+                        sample_size=ac_n_buckets,
+                        origin=(ac_org_x, ac_org_y),
+                        total_bytes=ac_n_bytes,
+                        n_buckets=ac_n_buckets,
+                        range=ac_range,
+                    ),
                 )
             )
 
@@ -253,15 +256,6 @@ def from_zygo_dat(
             logger.info(f"-> PHASE RES ELEMENTS (R): {R}")
             logger.info(f"TOTAL BYTES: {cn_n_bytes}\n")
 
-            phase_metadata: dict[str, Any] = {
-                "FILE": file,
-                "GRD": (cn_width, cn_height),
-                "TYPE": "SUR",
-                "WVL": (wavelength_in * u.m).to(u.nm),  # Measurement wavelength
-                # "SSZ": ...,  # Sample size
-                # "NDA": ...,  # Null data (identifies points that should be ignored)
-            }
-
             phase: NDArray = np.frombuffer(
                 data[hsize + ac_n_bytes : hsize + ac_n_bytes + cn_n_bytes],
                 dtype=">i4",
@@ -300,7 +294,21 @@ def from_zygo_dat(
                 # plt.savefig(file + ".phase.png")
 
             to_return.append(
-                PhaseData(data=phase, metadata=Metadata(raw_dict=phase_metadata))
+                PhaseData(
+                    data=phase,
+                    metadata=Metadata(
+                        rows=cn_width,
+                        cols=cn_height,
+                        pixel_size=None,  # Not provided in Zygo .dat files
+                        wavelength=wavelength,
+                        origin=(cn_org_x, cn_org_y),
+                        total_bytes=cn_n_bytes,
+                        scale_factor=intf_scale_factor,
+                        obliquity_factor=obliquity_factor,
+                        phase_resolution=phase_res,
+                        phase_resolution_elements=R,
+                    ),
+                )
             )
 
         else:
@@ -390,7 +398,7 @@ def from_fisba_binary(file: str | Path) -> InterferogramData:
     comment: str = raw[hdr_size:data_start].decode("latin-1").strip("\x00")
 
     logger.info(f"Reading Fisba binary file: {file}")
-    logger.info(f"{'-' * 80}")
+    logger.info(f"{'-' * 50}")
     logger.info(f"Result type: {result_type}")
     logger.info(f"Rows: {rows}, Cols: {cols}")
     logger.info(f"Comment: {comment}")
