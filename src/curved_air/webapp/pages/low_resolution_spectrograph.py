@@ -50,7 +50,7 @@ with st.sidebar:
             step=10.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
-            format="%.2g",
+            format="%.5g",
             key="min_wl",
         )
         st.session_state["min_wl"] = min_wl
@@ -62,7 +62,7 @@ with st.sidebar:
             step=10.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
-            format="%.2g",
+            format="%.5g",
             key="max_wl",
         )
         st.session_state["max_wl"] = max_wl
@@ -92,10 +92,10 @@ with st.sidebar:
                 st.number_input(
                     "Apex angle (°)",
                     min_value=0.0,
-                    max_value=180.0,
+                    max_value=90.0,
                     value=60.0,
                     step=1.0,
-                    format="%.2g",
+                    format="%.4g",
                 )
                 * u.deg
             )
@@ -153,7 +153,7 @@ with st.sidebar:
                 min_value=0.0,
                 value=200.0,
                 step=10.0,
-                format="%.2g",
+                format="%.4g",
                 possible_units=["µm", "mm", "cm"],
                 default_unit="mm",
                 key="groove_frequency",
@@ -181,7 +181,7 @@ with st.sidebar:
             min_value=0.0,
             value=50.0,
             step=1.0,
-            format="%.2g",
+            format="%.3g",
             possible_units=["µm", "mm"],
             default_unit="µm",
             help="""The dispersion-direction physical width of the slit.""",
@@ -193,7 +193,7 @@ with st.sidebar:
             min_value=0.0,
             value=5.0,
             step=1.0,
-            format="%.2g",
+            format="%.3g",
             possible_units=["µm", "mm"],
             default_unit="mm",
             help="""The spatial-direction physical length of the slit.""",
@@ -218,7 +218,7 @@ with st.sidebar:
             min_value=0.0,
             value=100.0,
             step=10.0,
-            format="%.2g",
+            format="%.4g",
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             help="""The diameter of the collimated beam at the disperser.""",
@@ -230,7 +230,7 @@ with st.sidebar:
             min_value=0.0,
             value=800.0,
             step=10.0,
-            format="%.2g",
+            format="%.4g",
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             key="collimator_focal_length",
@@ -250,7 +250,7 @@ with st.sidebar:
             min_value=0.0,
             value=500.0,
             step=10.0,
-            format="%.2g",
+            format="%.4g",
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
             key="camera_focal_length",
@@ -313,7 +313,7 @@ with st.sidebar:
                     min_value=0.0,
                     value=pixel_size,
                     step=0.5,
-                    format="%.2g",
+                    format="%.3g",
                     key="sf_px",
                 )
                 * u.um

@@ -160,9 +160,10 @@ with st.sidebar:
                     "Min λ",
                     min_value=0.0,
                     value=380.0,
-                    step=1.0,
+                    step=10.0,
                     possible_units=["nm", "µm"],
                     default_unit="nm",
+                    format="%.5g",
                     key="T_min_wl",
                 ).to(u.nm)
 
@@ -170,9 +171,10 @@ with st.sidebar:
                     "Max λ",
                     min_value=0.0,
                     value=950.0,
-                    step=1.0,
+                    step=10.0,
                     possible_units=["nm", "µm"],
                     default_unit="nm",
+                    format="%.5g",
                     key="T_max_wl",
                 ).to(u.nm)
 
@@ -243,6 +245,7 @@ with st.sidebar:
                             step=1.0,
                             possible_units=["nm", "µm"],
                             default_unit="nm",
+                            format="%.5g",
                             key="n_wavelength_input",
                         )
 
@@ -365,6 +368,7 @@ if st.session_state.get("select_nV_wavelength", False):
                 max_value=2_000.0,
                 value=st.session_state.get("nV_plot_wavelength", 589.3),
                 step=1.0,
+                format="%.5g",
                 key="nV_plot_wavelength_input",
             )
 
@@ -630,7 +634,7 @@ if single_selected_glass:
                 value=0.5,
                 min_value=0.0,
                 step=0.1,
-                format="%.2g",
+                format="%.3g",
                 key="delta_V",
             )
 
@@ -660,6 +664,7 @@ with cols[0]:
         step=1.0,
         possible_units=["nm", "µm"],
         default_unit="nm",
+        format="%.5g",
         key="min_wl_input",
     ).to(u.nm)
 
@@ -671,6 +676,7 @@ with cols[1]:
         step=1.0,
         possible_units=["nm", "µm"],
         default_unit="nm",
+        format="%.5g",
         key="max_wl_input",
     ).to(u.nm)
 
@@ -762,6 +768,7 @@ with cols[0]:
             max_value=100.0,
             value=10.0,
             step=0.1,
+            format="%.3g",
             key="d_lambda",
             help="""The wavelength step (in nm) used for calculating the numerical
             derivatives for dV and dRPD calculations. A smaller step will give a more

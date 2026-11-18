@@ -112,7 +112,7 @@ with cols[0]:
             value=12.0,
             step=0.1,
             width=200,
-            format="%.3f",
+            format="%.3g",
         )
         input_area = None
     else:
@@ -130,6 +130,7 @@ with cols[0]:
                 step=0.5,
                 possible_units=["arcsec", "arcmin", "deg"],
                 default_unit="arcmin",
+                format="%.4g",
                 key="guide_star_fov_diameter",
             )
             input_area: ScalarQuantity = (np.pi * (input_diameter / 2) ** 2).to(
@@ -143,6 +144,7 @@ with cols[0]:
                 step=0.005,
                 possible_units=["arcmin^2", "deg^2"],
                 default_unit="deg^2",
+                format="%.4g",
                 key="guide_star_fov_area",
             )
         target_magnitude = 0.0

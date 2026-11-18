@@ -114,7 +114,7 @@ with st.sidebar:
             step=1.0,
             possible_units=["°C", "K"],
             default_unit="°C",
-            format="%.2g",
+            format="%.4g",
             key="air_model_temperature",
         )
 
@@ -126,7 +126,7 @@ with st.sidebar:
             step=10.0,
             possible_units=["hPa", "Pa", "mbar", "bar", "torr"],
             default_unit="hPa",
-            format="%.2g",
+            format="%.6g",
             key="air_model_pressure",
         )
 
@@ -139,7 +139,7 @@ with st.sidebar:
             help="""Relative humidity as a fraction (0.0 - 1.0).
             Note: The Zemax air model does not support humidity.""",
             disabled=model_name == "zemax",
-            format="%.2g",
+            format="%.4g",
             key="air_model_humidity",
         )
 
@@ -152,7 +152,7 @@ with st.sidebar:
             help="""CO₂ concentration in ppm (parts per million).
             Note: The Zemax and Edlen air models do not support CO₂ concentration.""",
             disabled=model_name != "ciddor",
-            format="%.2g",
+            format="%.5g",
             key="air_model_co2",
         )
 
@@ -172,7 +172,7 @@ with st.sidebar:
             step=5.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
-            format="%.2g",
+            format="%.5g",
             key="adc_min_wl",
         )
 
@@ -183,7 +183,7 @@ with st.sidebar:
             step=5.0,
             possible_units=["nm", "µm"],
             default_unit="nm",
-            format="%.2g",
+            format="%.5g",
             key="adc_max_wl",
         )
 
@@ -218,7 +218,7 @@ with st.sidebar:
             step=100.0,
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
-            format="%.2g",
+            format="%.6g",
             key="D_telescope",
         )
 
@@ -230,7 +230,7 @@ with st.sidebar:
             step=5.0,
             possible_units=["mm", "cm", "m"],
             default_unit="mm",
-            format="%.2g",
+            format="%.5g",
             key="D_ADC",
         )
 
@@ -242,7 +242,7 @@ with st.sidebar:
                 max_value=90.0,
                 value=60.0,
                 step=1.0,
-                format="%.2g",
+                format="%.3g",
                 key="z_max",
             )
             * u.degree
