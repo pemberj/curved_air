@@ -310,7 +310,9 @@ with st.sidebar:
             try:
                 st.download_button(
                     "Download filtered catalogue as AGF",
-                    data=working_catalogue.to_AGF_string(),
+                    data=working_catalogue.to_AGF_string(
+                        comment="Exported from Curved Air: https://curvedair.jakepember.com"
+                    ),
                     file_name="filtered_catalogue.agf",
                     mime="text/plain",
                 )
