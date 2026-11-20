@@ -186,14 +186,44 @@ def parse_thorlabs_ar_coating_xlsx(file: Path) -> Coating:
     )
 
 
-EDMUND_OPTICS_AR: list[Coating] = [
+EDMUND_OPTICS_AR_BROAD: list[Coating] = [
     parse_edmund_optics_ar_coating_xlsx(file)
-    for file in sorted(COATING_DATA.glob("Edmund Optics/AR/EO_*.xlsx"))
+    for file in sorted(COATING_DATA.glob("Edmund Optics/AR_broad/EO_*.xlsx"))
 ]
 
-THORLABS_AR: list[Coating] = [
+EDMUND_OPTICS_AR_NARROW: list[Coating] = [
+    parse_edmund_optics_ar_coating_xlsx(file)
+    for file in sorted(COATING_DATA.glob("Edmund Optics/AR_narrow/EO_*.xlsx"))
+]
+
+EDMUND_OPTICS_HR_BROAD: list[Coating] = [
+    # parse_edmund_optics_hr_coating_xlsx(file)
+    # for file in sorted(COATING_DATA.glob("Edmund Optics/HR_broad/EO_*.xlsx"))
+]
+
+EDMUND_OPTICS_HR_NARROW: list[Coating] = [
+    # parse_edmund_optics_hr_coating_xlsx(file)
+    # for file in sorted(COATING_DATA.glob("Edmund Optics/HR_narrow/EO_*.xlsx"))
+]
+
+THORLABS_AR_BROAD: list[Coating] = [
     parse_thorlabs_ar_coating_xlsx(file)
-    for file in sorted(COATING_DATA.glob("Thorlabs/AR/THORLABS_*.xlsx"))
+    for file in sorted(COATING_DATA.glob("Thorlabs/AR_broad/THORLABS_*.xlsx"))
+]
+
+THORLABS_AR_NARROW: list[Coating] = [
+    parse_thorlabs_ar_coating_xlsx(file)
+    for file in sorted(COATING_DATA.glob("Thorlabs/AR_narrow/THORLABS_*.xlsx"))
+]
+
+THORLABS_HR_BROAD: list[Coating] = [
+    # parse_thorlabs_hr_coating_xlsx(file)
+    # for file in sorted(COATING_DATA.glob("Thorlabs/HR_broad/THORLABS_*.xlsx"))
+]
+
+THORLABS_HR_NARROW: list[Coating] = [
+    # parse_thorlabs_hr_coating_xlsx(file)
+    # for file in sorted(COATING_DATA.glob("Thorlabs/HR_narrow/THORLABS_*.xlsx"))
 ]
 
 
@@ -202,10 +232,16 @@ def test() -> None:
     fig = plt.figure()
     ax = fig.gca()
 
-    for coating in EDMUND_OPTICS_AR:
+    for coating in EDMUND_OPTICS_AR_BROAD:
         coating.plot(ax=ax)
 
-    for coating in THORLABS_AR:
+    for coating in EDMUND_OPTICS_AR_NARROW:
+        coating.plot(ax=ax)
+
+    for coating in THORLABS_AR_BROAD:
+        coating.plot(ax=ax)
+
+    for coating in THORLABS_AR_NARROW:
         coating.plot(ax=ax)
 
     plt.show()

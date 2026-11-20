@@ -53,6 +53,11 @@ pages: list = [
         icon="🔍",
     ),
     st.Page(
+        page=APP_PATH / "pages" / "coating_explorer.py",
+        title="Coating Explorer",
+        icon="",
+    ),
+    st.Page(
         page=APP_PATH / "pages" / "fibre_loss_converter.py",
         title="Fibre Loss Converter",
         icon="🧵",
