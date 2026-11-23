@@ -55,7 +55,7 @@ pages: list = [
     st.Page(
         page=APP_PATH / "pages" / "coating_explorer.py",
         title="Coating Explorer",
-        icon="",
+        icon="🫧",
     ),
     st.Page(
         page=APP_PATH / "pages" / "fibre_loss_converter.py",
