@@ -17,12 +17,14 @@ TODO: Grab more Edmund Optics coating files. I have none for HR coatings yet
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import overload
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
 from astropy import units as u
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from curved_air.plotting import plot_style
 from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
@@ -186,6 +188,142 @@ def parse_thorlabs_ar_coating_xlsx(file: Path) -> Coating:
     )
 
 
+@dataclass
+class ComplexIndexMaterial:
+    """
+    A class representing a metal coating material with a complex-valued refractive index
+    """
+
+    name: str
+    wavelengths: ArrayQuantity | None = None
+    refractive_index_n: float | NDArray[np.floating] | None = None
+    refractive_index_k: float | NDArray[np.floating] | None = None
+    valid_wavelength_range: tuple[ScalarQuantity, ScalarQuantity] = field(
+        default=(380 * u.nm, 950 * u.nm)
+    )
+    reference: str | None = None
+    comments: str | None = None
+
+    def parse_file(self, file: Path) -> None:
+        """
+        Parse a data file containing the complex refractive index of the material.
+
+        YAML files from refractiveindex.info (`Full database record' files) can be
+        loaded and parsed with this function. Tabulated data is supported, either as a
+        single `tabulated nk' block or as separate `tabulated n' and `tabulated k'
+        blocks (k is interpolated onto the n wavelength grid if they differ).
+
+        Wavelengths in these files are assumed to be in microns.
+        """
+
+        file = Path(file)
+        if file.suffix.lower() not in (".yml", ".yaml"):
+            raise ValueError(f"Unsupported file type: {file.suffix}")
+
+        with file.open("r", encoding="utf-8") as f:
+            record: dict = yaml.safe_load(f)
+
+        n_data: np.ndarray | None = None
+        k_data: np.ndarray | None = None
+
+        for block in record.get("DATA", []):
+            data_type: str = block["type"].strip()
+            if not data_type.startswith("tabulated"):
+                raise NotImplementedError(
+                    f"{file.name}: data type '{data_type}' is not supported "
+                    "(only tabulated data can be parsed)"
+                )
+            table: NDArray[np.floating] = np.loadtxt(
+                block["data"].strip().splitlines(), ndmin=2
+            )
+
+            if data_type == "tabulated nk":
+                n_data: NDArray[np.floating] = table[:, [0, 1]]
+                k_data: NDArray[np.floating] = table[:, [0, 2]]
+
+            elif data_type == "tabulated n":
+                n_data: NDArray[np.floating] = table[:, [0, 1]]
+
+            elif data_type == "tabulated k":
+                k_data: NDArray[np.floating] = table[:, [0, 1]]
+
+            else:
+                raise NotImplementedError(
+                    f"{file.name}: unknown data type '{data_type}'"
+                )
+
+        if n_data is None:
+            raise ValueError(f"{file.name}: no refractive index (n) data found!")
+
+        wavelengths_um: NDArray[np.floating] = n_data[:, 0]
+
+        if k_data is None:
+            k: NDArray[np.floating] = np.zeros_like(wavelengths_um)
+
+        elif np.array_equal(k_data[:, 0], wavelengths_um):
+            k: NDArray[np.floating] = k_data[:, 1]
+
+        else:
+            k: NDArray[np.floating] = np.interp(
+                wavelengths_um, k_data[:, 0], k_data[:, 1]
+            )
+
+        self.wavelengths: ArrayQuantity = wavelengths_um * u.um
+        self.refractive_index_n: NDArray[np.floating] = n_data[:, 1]
+        self.refractive_index_k: NDArray[np.floating] = k
+        self.valid_wavelength_range: tuple[ScalarQuantity, ScalarQuantity] = (
+            np.min(wavelengths_um) * u.um,
+            np.max(wavelengths_um) * u.um,
+        )
+
+        if "REFERENCES" in record:
+            self.reference: str = record["REFERENCES"].strip()
+
+        if "COMMENTS" in record or "NOTES" in record:
+            self.comments: str = "\n".join(
+                record[key].strip() for key in ("COMMENTS", "NOTES") if key in record
+            )
+
+    @overload
+    def refractive_index(self, wl: ScalarQuantity) -> float: ...
+
+    @overload
+    def refractive_index(self, wl: ArrayQuantity) -> NDArray: ...
+
+    @overload
+    def refractive_index(self, wl: None = None) -> NDArray: ...
+
+    def refractive_index(
+        self,
+        wl: ScalarQuantity | ArrayQuantity | None = None,
+    ) -> float | NDArray:
+        """
+        The complex refractive index n + ik at the given wavelength
+        """
+
+        if self.refractive_index_n is None:
+            raise ValueError("Refractive index data is not available.")
+
+        n: float | NDArray[np.floating] = self.refractive_index_n
+
+        k: float | NDArray[np.floating] = (
+            0.0 if self.refractive_index_k is None else self.refractive_index_k
+        )
+
+        if wl is None:
+            return np.asarray(self.refractive_index_n) + 1j * np.asarray(k)
+
+        wl: float | NDArray[np.floating] = wl.to(u.um).value
+
+        all_wls: NDArray[np.floating] = self.wavelengths.to(u.um).value
+
+        n_interp: NDArray[np.floating] = np.interp(wl, all_wls, n)
+
+        k_interp: NDArray[np.floating] = np.interp(wl, all_wls, k)
+
+        return n_interp + 1j * k_interp
+
+
 EDMUND_OPTICS_AR_BROAD: list[Coating] = [
     parse_edmund_optics_ar_coating_xlsx(file)
     for file in sorted(COATING_DATA.glob("Edmund Optics/AR_broad/EO_*.xlsx"))
@@ -227,7 +365,7 @@ THORLABS_HR_NARROW: list[Coating] = [
 ]
 
 
-def test() -> None:
+def test_commercial_coatings() -> None:
 
     fig = plt.figure()
     ax = fig.gca()
@@ -247,5 +385,30 @@ def test() -> None:
     plt.show()
 
 
+def test_complex_index() -> None:
+
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
+
+    wls: ArrayQuantity = np.linspace(370, 900, 100) * u.nm
+
+    for file in sorted((COATING_DATA / "metallic_complex").glob("*.yml")):
+        material = ComplexIndexMaterial(name=file.stem)
+        material.parse_file(file)
+
+        n: NDArray[np.floating] = np.real(material.refractive_index(wls))
+        k: NDArray[np.floating] = np.imag(material.refractive_index(wls))
+
+        ax.plot(wls, n, label=f"{material.name} (n)")
+        ax.plot(wls, k, label=f"{material.name} (k)")
+
+    ax.set_xlabel("Wavelength (nm)")
+    ax.set_ylabel("Refractive Index")
+    ax.legend()
+    plt.show()
+
+
 if __name__ == "__main__":
-    test()
+    # test_commercial_coatings()
+
+    test_complex_index()
