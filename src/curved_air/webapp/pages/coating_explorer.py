@@ -7,7 +7,18 @@ webapp
 
 coatings
 
+This app provides a frontend to explore and compare optical coatings that are available
+from different manufacturers. So far, I include several (not yet all) of the coatings
+available on off-the-shelf optics from Edmund Optics and Thorlabs.
 
+TODO:
+    - Add more coatings that I have data for (not proprietary stuff, make sure it's
+    advertised by the manufacturer)
+    - Allow the user to upload CSV files with coating curves
+    - Maybe a companion app: thin-film coating designer/optimiser: with a maximum number
+    of layers (to limit server utilisation), optimise a coating stack for reflectivity
+    at given wavelengths. Export the coating curve in a format that can be uploaded to
+    the coating explorer/comparison app.
 """
 
 from __future__ import annotations
@@ -65,7 +76,7 @@ with tabs_col:
 
     if ar_tab.open:
         with ar_tab:
-            st.subheader("Anti-Reflection (AR) Coatings")
+            st.subheader("Anti-Reflection (AR) Coatings", anchor=False)
 
             st.multiselect(
                 "Select Broadband AR Coatings to Compare",
@@ -85,7 +96,7 @@ with tabs_col:
 
     if hr_tab.open:
         with hr_tab:
-            st.subheader("High-Reflectivity (HR) Coatings")
+            st.subheader("High-Reflectivity (HR) Coatings", anchor=False)
 
             st.multiselect(
                 "Select Broadband HR Coatings to Compare",
