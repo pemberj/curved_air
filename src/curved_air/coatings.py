@@ -381,13 +381,21 @@ class ComplexIndexMaterial:
         return self.n(wl) - 1j * self.k(wl)
 
 
-McPeak_Al: ComplexIndexMaterial = ComplexIndexMaterial(name="McPeak Al").parse_file(
-    COATING_DATA / "metallic_complex" / "McPeak_Al.yml"
-)
+McPeak_Al: ComplexIndexMaterial = ComplexIndexMaterial(
+    name="Aluminium [McPeak+2025]"
+).parse_file(COATING_DATA / "metallic_complex" / "McPeak_Al.yml")
 
-McPeak_Ag: ComplexIndexMaterial = ComplexIndexMaterial(name="McPeak Ag").parse_file(
-    COATING_DATA / "metallic_complex" / "McPeak_Ag.yml"
-)
+McPeak_Ag: ComplexIndexMaterial = ComplexIndexMaterial(
+    name="Silver [McPeak+2015]"
+).parse_file(COATING_DATA / "metallic_complex" / "McPeak_Ag.yml")
+
+McPeak_Au: ComplexIndexMaterial = ComplexIndexMaterial(
+    name="Gold [McPeak+2015]"
+).parse_file(COATING_DATA / "metallic_complex" / "McPeak_Au.yml")
+
+Sytchkova_Cr: ComplexIndexMaterial = ComplexIndexMaterial(
+    name="Chromium [Sytchkova+2021]"
+).parse_file(COATING_DATA / "metallic_complex" / "Sytchkova_Cr.yml")
 
 
 @dataclass
@@ -651,61 +659,48 @@ def test_thin_film_reflectance() -> None:
         name="Glass", wavelengths=wls, refractive_index_n=1.5, refractive_index_k=0.0
     )
 
-    result1: ReflectanceResult = thin_film_reflectance(
-        wls=wls, aoi=45 * u.deg, incident_material=Air, substrate_material=McPeak_Al
-    )
-
-    result2: ReflectanceResult = thin_film_reflectance(
-        wls=wls,
-        aoi=45 * u.deg,
-        incident_material=Glass,
-        substrate_material=McPeak_Al,
-    )
-
-    result3: ReflectanceResult = thin_film_reflectance(
-        wls=wls, aoi=45 * u.deg, incident_material=Air, substrate_material=McPeak_Ag
-    )
-
-    result4: ReflectanceResult = thin_film_reflectance(
-        wls=wls,
-        aoi=45 * u.deg,
-        incident_material=Glass,
-        substrate_material=McPeak_Ag,
-    )
-
     fig: plt.Figure = plt.figure()
     ax: plt.Axes = fig.gca()
 
-    alu_air = ax.plot(
-        wls, result1.R[0], label="Unpolarised, aluminium incident from Air"
-    )
-    _alu_glass = ax.plot(
-        wls,
-        result2.R[0],
-        ls="--",
-        color=alu_air[0].get_color(),
-        label="Unpolarised, aluminium incident from Glass",
-    )
+    for material in (McPeak_Al, McPeak_Ag, McPeak_Au, Sytchkova_Cr):
+        air_incidence_result: ReflectanceResult = thin_film_reflectance(
+            wls=wls,
+            aoi=45 * u.deg,
+            incident_material=Air,
+            substrate_material=material,
+        )
 
-    silver_air = ax.plot(
-        wls, result3.R[0], label="Unpolarised, silver incident from Air"
-    )
-    _silver_glass = ax.plot(
-        wls,
-        result4.R[0],
-        ls="--",
-        color=silver_air[0].get_color(),
-        label="Unpolarised, silver incident from Glass",
-    )
+        glass_incidence_result: ReflectanceResult = thin_film_reflectance(
+            wls=wls,
+            aoi=45 * u.deg,
+            incident_material=Glass,
+            substrate_material=material,
+        )
 
+        air_incidence = ax.plot(
+            wls,
+            air_incidence_result.R[0],
+            label=f"Unpolarised, {material.name} incident from Air",
+        )
+        _glass_incidence = ax.plot(
+            wls,
+            glass_incidence_result.R[0],
+            ls="--",
+            color=air_incidence[0].get_color(),
+            label=f"Unpolarised, {material.name} incident from Glass",
+        )
+
+    ax.set_title("Reflectance of unpolarised light from metallic coatings at 45° AOI")
     ax.set_xlabel("Wavelength (nm)")
     ax.set_ylabel("Reflectance")
     ax.legend()
 
     ax.set_xlim(350, 950)
-    ax.set_ylim(0.75, 1.05)
+    ax.set_ylim(0.5, 1.15)
 
     ax.axhline(1.0, color="k", ls="--", alpha=0.5)
+    ax.axvline(x=370, color="k", ls="--", alpha=0.5)
+    ax.axvline(x=900, color="k", ls="--", alpha=0.5)
 
     plt.show()
 
