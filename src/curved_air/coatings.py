@@ -15,19 +15,24 @@ handle this?
 TODO: Grab more Edmund Optics coating files. I have none for HR coatings yet
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
 from astropy import units as u
-from numpy.typing import ArrayLike, NDArray
 
 from curved_air.plotting import plot_style
-from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike, NDArray
+
+    from curved_air.type_hinting import ArrayQuantity, ScalarQuantity
 
 plt.style.use(plot_style)
 
@@ -204,7 +209,7 @@ class ComplexIndexMaterial:
     reference: str | None = None
     comments: str | None = None
 
-    def parse_file(self, file: Path) -> None:
+    def parse_file(self, file: Path) -> ComplexIndexMaterial:
         """
         Parse a data file containing the complex refractive index of the material.
 
@@ -284,44 +289,274 @@ class ComplexIndexMaterial:
                 record[key].strip() for key in ("COMMENTS", "NOTES") if key in record
             )
 
-    @overload
-    def refractive_index(self, wl: ScalarQuantity) -> float: ...
+        return self
 
     @overload
-    def refractive_index(self, wl: ArrayQuantity) -> NDArray: ...
+    def n(self, wl: ScalarQuantity) -> float: ...
 
     @overload
-    def refractive_index(self, wl: None = None) -> NDArray: ...
+    def n(self, wl: ArrayQuantity) -> NDArray[np.floating]: ...
 
-    def refractive_index(
-        self,
-        wl: ScalarQuantity | ArrayQuantity | None = None,
-    ) -> float | NDArray:
+    @overload
+    def n(self, wl: None = None) -> NDArray[np.floating]: ...
+
+    def n(
+        self, wl: ScalarQuantity | ArrayQuantity | None = None
+    ) -> float | NDArray[np.floating] | None:
         """
-        The complex refractive index n + ik at the given wavelength
+        The real part of the refractive index n at the given wavelength
         """
 
         if self.refractive_index_n is None:
             raise ValueError("Refractive index data is not available.")
 
-        n: float | NDArray[np.floating] = self.refractive_index_n
-
-        k: float | NDArray[np.floating] = (
-            0.0 if self.refractive_index_k is None else self.refractive_index_k
-        )
-
         if wl is None:
-            return np.asarray(self.refractive_index_n) + 1j * np.asarray(k)
+            return self.refractive_index_n
 
-        wl: float | NDArray[np.floating] = wl.to(u.um).value
+        if isinstance(self.refractive_index_n, float):
+            return self.refractive_index_n * np.ones_like(wl.value, dtype=float)
+
+        wl: NDArray[np.floating] | float = wl.to(u.um).value
 
         all_wls: NDArray[np.floating] = self.wavelengths.to(u.um).value
 
-        n_interp: NDArray[np.floating] = np.interp(wl, all_wls, n)
+        return np.interp(wl, all_wls, self.refractive_index_n)
 
-        k_interp: NDArray[np.floating] = np.interp(wl, all_wls, k)
+    @overload
+    def k(self, wl: ScalarQuantity) -> float: ...
 
-        return n_interp + 1j * k_interp
+    @overload
+    def k(self, wl: ArrayQuantity) -> NDArray[np.floating]: ...
+
+    @overload
+    def k(self, wl: None = None) -> NDArray[np.floating]: ...
+
+    def k(
+        self, wl: ScalarQuantity | ArrayQuantity | None = None
+    ) -> float | NDArray[np.floating]:
+        """
+        The imaginary part of the refractive index k at the given wavelength
+        """
+
+        if self.refractive_index_k is None:
+            return 0.0
+
+        if wl is None:
+            return self.refractive_index_k
+
+        if isinstance(self.refractive_index_k, float):
+            return self.refractive_index_k * np.ones_like(wl.value, dtype=float)
+
+        wl: NDArray[np.floating] | float = wl.to(u.um).value
+
+        all_wls: NDArray[np.floating] = self.wavelengths.to(u.um).value
+
+        return np.interp(wl, all_wls, self.refractive_index_k)
+
+    @overload
+    def refractive_index(self, wl: ScalarQuantity) -> complex: ...
+
+    @overload
+    def refractive_index(self, wl: ArrayQuantity) -> NDArray[np.complexfloating]: ...
+
+    @overload
+    def refractive_index(self, wl: None = None) -> NDArray[np.complexfloating]: ...
+
+    def refractive_index(
+        self,
+        wl: ScalarQuantity | ArrayQuantity | None = None,
+    ) -> complex | NDArray[np.floating | np.complexfloating]:
+        """
+        The complex refractive index n - ik at the given wavelength
+        """
+
+        if self.refractive_index_n is None:
+            raise ValueError("Refractive index data is not available.")
+
+        if wl is None:
+            return self.refractive_index_n - 1j * (
+                self.refractive_index_k if self.refractive_index_k is not None else 0.0
+            )
+
+        return self.n(wl) - 1j * self.k(wl)
+
+
+McPeak_Al: ComplexIndexMaterial = ComplexIndexMaterial(name="McPeak Al").parse_file(
+    COATING_DATA / "metallic_complex" / "McPeak_Al.yml"
+)
+
+McPeak_Ag: ComplexIndexMaterial = ComplexIndexMaterial(name="McPeak Ag").parse_file(
+    COATING_DATA / "metallic_complex" / "McPeak_Ag.yml"
+)
+
+BK7_Complex: ComplexIndexMaterial = ComplexIndexMaterial(name="BK7").parse_file(
+    COATING_DATA / "metallic_complex" / "BK7.yml"
+)
+
+
+@dataclass
+class Layer:
+    """
+    A class representing a single layer in a thin-film stack, with a complex refractive
+    index and a thickness.
+    """
+
+    material: ComplexIndexMaterial
+    thickness: ScalarQuantity
+
+
+@dataclass
+class ReflectanceResult:
+    """All arrays have shape (n_angles, n_wavelengths)."""
+
+    wls: ScalarQuantity | ArrayQuantity
+    aoi: ScalarQuantity | ArrayQuantity
+    rs: NDArray[np.complexfloating]  # complex amplitude coefficients
+    rp: NDArray[np.complexfloating]
+    Rs: NDArray[np.floating]  # intensity reflectances
+    Rp: NDArray[np.floating]
+    R: NDArray[np.floating]  # unpolarised = (Rs + Rp) / 2
+    retardance_deg: NDArray[np.floating]  # arg(rp) - arg(rs), wrapped to (-180, 180]
+
+
+def _admittance_index(
+    material: ComplexIndexMaterial,
+    wl: ArrayQuantity,
+) -> NDArray[np.complexfloating]:
+    """
+    Complex index of `material` at `wl` in the thin-film (Macleod) convention N = n - ik.
+
+    Note the sign: ComplexIndexMaterial.refractive_index() returns n + ik, which is
+    the opposite convention to the one the characteristic-matrix maths below uses.
+    """
+    n = np.broadcast_to(np.asarray(material.n(wl), dtype=float), wl.shape)
+    k = np.broadcast_to(np.abs(np.asarray(material.k(wl), dtype=float)), wl.shape)
+    return n - 1j * k
+
+
+def thin_film_reflectance(
+    wls: ScalarQuantity | ArrayQuantity,
+    aoi: ScalarQuantity | ArrayQuantity,
+    incident_material: ComplexIndexMaterial,
+    substrate_material: ComplexIndexMaterial,
+    layers: list[Layer] | Layer | None = None,
+) -> ReflectanceResult:
+    """
+    Calculate the reflectance of a thin-film stack on a semi-infinite (opaque) substrate
+
+    Typical use-cases
+    ---------------
+    Front-surface protected Al:  incident=Air, layers=[Layer(silica, 100 nm)], substrate=McPeak_Al
+    Back-surface Ag on silica:   incident=silica, layers=[Layer(nicr, 2 nm)], substrate=McPeak_Ag
+    (for a back-surface mirror the paint/overcoat behind the metal is irrelevant
+    as long as the metal is opaque, i.e. >~100 nm.)
+
+    Keep opaque metal as the substrate rather than as a thick layer: a thick
+    absorbing layer gives exponentially large matrix elements.
+    """
+
+    if layers is None:
+        layers: list[Layer] = []
+    elif isinstance(layers, Layer):
+        layers: list[Layer] = [layers]
+
+    shape: tuple[int, int] = (aoi.size, wls.size)
+
+    n0: NDArray[np.floating] = np.broadcast_to(
+        np.asarray(incident_material.n(wls)), wls.shape
+    )
+    k0: NDArray[np.floating] = np.broadcast_to(
+        np.abs(np.asarray(incident_material.k(wls))), wls.shape
+    )
+
+    if np.any(k0) > 1e-9:  # noqa: PLR2004
+        raise ValueError("The incident medium must be non-absorbing (i.e. k = 0)")
+
+    # n0: NDArray[np.complexfloating] = n - 1j * k
+    # n0: NDArray[np.floating] = n0.real[None, :]  # (1, W)
+
+    wl2 = wls[None, :]
+
+    beta = n0 * np.sin(aoi)  # conserved n sin(theta), (A, W)
+    cos0 = np.cos(aoi)
+    eta0_s = n0 * cos0
+    eta0_p = n0 / cos0
+
+    def tilted(
+        n: complex | NDArray[np.complexfloating],
+    ) -> tuple[
+        NDArray[np.complexfloating],
+        NDArray[np.complexfloating],
+        NDArray[np.complexfloating],
+    ]:
+        """Return N cos(theta), eta_s, eta_p for a medium of complex index N."""
+
+        # Why do this with beta instead of theta directly? Because the angle in the
+        # medium is complex for absorbing layers,and the complex square root has a
+        # branch cut. Using beta avoids this problem.
+        n_cos_theta: NDArray[np.complexfloating] = np.sqrt(n**2 - beta**2 + 0j)
+
+        # n - ik convention: absorbing/evanescent fields need Im(N cos) <= 0
+        n_cos_theta: NDArray[np.complexfloating] = np.where(
+            n_cos_theta.imag > 0, -n_cos_theta, n_cos_theta
+        )
+
+        return n_cos_theta, n_cos_theta, n**2 / n_cos_theta
+
+    one: NDArray[np.floating] = np.ones(shape, dtype=complex)
+    zero: NDArray[np.floating] = np.zeros(shape, dtype=complex)
+
+    # Initialise identity matrices for S- and P-polarisation, to be multiplied by each
+    # layer's matrix
+    Ms: list[NDArray[np.floating]] = [one.copy(), zero.copy(), zero.copy(), one.copy()]
+    Mp: list[NDArray[np.floating]] = [one.copy(), zero.copy(), zero.copy(), one.copy()]
+
+    for layer in layers:
+        n: complex | NDArray[np.complexfloating] = layer.material.refractive_index(wls)
+
+        n_c, eta_s, eta_p = tilted(n)
+
+        delta = 2 * np.pi * n_c * layer.thickness.to_value(u.nm) / wl2
+
+        c, s = np.cos(delta), np.sin(delta)
+
+        for M, eta in ((Ms, eta_s), (Mp, eta_p)):
+            l11, l12, l21, l22 = c, 1j * s / eta, 1j * eta * s, c
+
+            a, b, cc, dd = M
+
+            M[:] = [
+                a * l11 + b * l21,
+                a * l12 + b * l22,
+                cc * l11 + dd * l21,
+                cc * l12 + dd * l22,
+            ]
+
+    Nsub: complex | NDArray[np.complexfloating] = substrate_material.refractive_index(
+        wls
+    )
+    _, eta_sub_s, eta_sub_p = tilted(Nsub)
+
+    def amp(
+        M: list[NDArray[np.floating]],
+        eta0: float,
+        eta_sub: NDArray[np.complexfloating],
+    ) -> NDArray[np.complexfloating]:
+        """
+        Matrix multiplication to produce the complex amplitude reflection coefficient
+        r = (eta0 B - C) / (eta0 B + C) for either S- or P-polarisation.
+        """
+
+        B: NDArray[np.complexfloating] = M[0] + M[1] * eta_sub
+        C: NDArray[np.complexfloating] = M[2] + M[3] * eta_sub
+        return (eta0 * B - C) / (eta0 * B + C)
+
+    rs: NDArray[np.complexfloating] = amp(Ms, eta0_s, eta_sub_s)
+    rp: NDArray[np.complexfloating] = amp(Mp, eta0_p, eta_sub_p)
+    Rs, Rp = np.abs(rs) ** 2, np.abs(rp) ** 2
+    ret = np.angle(rp * np.conj(rs), deg=True)
+
+    return ReflectanceResult(wls, aoi, rs, rp, Rs, Rp, 0.5 * (Rs + Rp), ret)
 
 
 EDMUND_OPTICS_AR_BROAD: list[Coating] = [
@@ -408,7 +643,80 @@ def test_complex_index() -> None:
     plt.show()
 
 
+def test_thin_film_reflectance() -> None:
+
+    wls: ArrayQuantity = np.linspace(350, 950, 100) * u.nm
+
+    Air = ComplexIndexMaterial(
+        name="Air", wavelengths=wls, refractive_index_n=1.0, refractive_index_k=0.0
+    )
+
+    Glass = ComplexIndexMaterial(
+        name="Glass", wavelengths=wls, refractive_index_n=1.5, refractive_index_k=0.0
+    )
+
+    result1: ReflectanceResult = thin_film_reflectance(
+        wls=wls, aoi=45 * u.deg, incident_material=Air, substrate_material=McPeak_Al
+    )
+
+    result2: ReflectanceResult = thin_film_reflectance(
+        wls=wls,
+        aoi=45 * u.deg,
+        incident_material=Glass,
+        substrate_material=McPeak_Al,
+    )
+
+    result3: ReflectanceResult = thin_film_reflectance(
+        wls=wls, aoi=45 * u.deg, incident_material=Air, substrate_material=McPeak_Ag
+    )
+
+    result4: ReflectanceResult = thin_film_reflectance(
+        wls=wls,
+        aoi=45 * u.deg,
+        incident_material=Glass,
+        substrate_material=McPeak_Ag,
+    )
+
+    fig: plt.Figure = plt.figure()
+    ax: plt.Axes = fig.gca()
+
+    alu_air = ax.plot(
+        wls, result1.R[0], label="Unpolarised, aluminium incident from Air"
+    )
+    _alu_glass = ax.plot(
+        wls,
+        result2.R[0],
+        ls="--",
+        color=alu_air[0].get_color(),
+        label="Unpolarised, aluminium incident from Glass",
+    )
+
+    silver_air = ax.plot(
+        wls, result3.R[0], label="Unpolarised, silver incident from Air"
+    )
+    _silver_glass = ax.plot(
+        wls,
+        result4.R[0],
+        ls="--",
+        color=silver_air[0].get_color(),
+        label="Unpolarised, silver incident from Glass",
+    )
+
+    ax.set_xlabel("Wavelength (nm)")
+    ax.set_ylabel("Reflectance")
+    ax.legend()
+
+    ax.set_xlim(350, 950)
+    ax.set_ylim(0.75, 1.05)
+
+    ax.axhline(1.0, color="k", ls="--", alpha=0.5)
+
+    plt.show()
+
+
 if __name__ == "__main__":
     # test_commercial_coatings()
 
-    test_complex_index()
+    # test_complex_index()
+
+    test_thin_film_reflectance()
