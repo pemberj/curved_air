@@ -389,10 +389,6 @@ McPeak_Ag: ComplexIndexMaterial = ComplexIndexMaterial(name="McPeak Ag").parse_f
     COATING_DATA / "metallic_complex" / "McPeak_Ag.yml"
 )
 
-BK7_Complex: ComplexIndexMaterial = ComplexIndexMaterial(name="BK7").parse_file(
-    COATING_DATA / "metallic_complex" / "BK7.yml"
-)
-
 
 @dataclass
 class Layer:
