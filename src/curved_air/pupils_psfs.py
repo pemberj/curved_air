@@ -380,12 +380,12 @@ def segmented_telescope(
 
 
 JWST_SPIDERS: Shape = (
-    Rectangle(width=80 * u.mm, height=4 * u.m).translate(dy=2 * u.m)
+    Rectangle(width=80 * u.mm, height=4 * u.m).translate(dy=-2 * u.m)
     | Rectangle(width=80 * u.mm, height=4 * u.m)
-    .translate(dy=-2 * u.m)
+    .translate(dy=2 * u.m)
     .rotate(30 * u.deg)
     | Rectangle(width=80 * u.mm, height=4 * u.m)
-    .translate(dy=-2 * u.m)
+    .translate(dy=2 * u.m)
     .rotate(-30 * u.deg)
 )
 

@@ -68,6 +68,20 @@ class Shape(ABC):
     def mirror(self, mirror_x: bool = False, mirror_y: bool = False) -> Shape:
         return TransformedShape(self, mirror_x=mirror_x, mirror_y=mirror_y)
 
+    @property
+    @abstractmethod
+    def max_radius(self) -> ScalarQuantity:
+        """
+        Returns the maximum radius of the shape, which is the distance from the origin
+        to the furthest point in the shape. This is useful for determining the size of
+        a grid that will contain the shape.
+
+        This is computed analytically (no sampling), so it is cheap. It is exact for the
+        primitive Shapes; for boolean compositions and TransformedShapes it is a
+        guaranteed upper bound, which is still useful for computing eg. a pupil grid.
+        """
+        ...
+
 
 @dataclass
 class Circle(Shape):
@@ -89,6 +103,10 @@ class Circle(Shape):
         y: ArrayQuantity = y.to(self.diameter.unit)
 
         return np.asarray(x**2 + y**2 <= self.radius**2)
+
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        return self.radius
 
 
 @dataclass
@@ -113,6 +131,10 @@ class Ellipse(Shape):
 
         return np.asarray((x / a) ** 2 + (y / b) ** 2 <= 1)
 
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        return max(self.semi_major, self.semi_minor.to(self.semi_major.unit))
+
 
 @dataclass
 class Rectangle(Shape):
@@ -134,6 +156,10 @@ class Rectangle(Shape):
         height = self.height.to(x.unit)
 
         return np.asarray((np.abs(x) <= self.width / 2) & (np.abs(y) <= height / 2))
+
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        return np.hypot(self.width / 2, self.height.to(self.width.unit) / 2)
 
 
 @dataclass
@@ -170,6 +196,15 @@ class Polygon(Shape):
 
         return inside
 
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        # A polygon is the convex hull of its vertices at most, so the furthest point
+        # from the origin is always a vertex.
+        unit: u.Unit = self.vertices[0][0].unit
+        xv: FloatArray = np.asarray([vx.to_value(unit) for vx, _ in self.vertices])
+        yv: FloatArray = np.asarray([vy.to_value(unit) for _, vy in self.vertices])
+        return np.max(np.hypot(xv, yv)) * unit
+
 
 @dataclass
 class RegularPolygon(Polygon):
@@ -200,6 +235,10 @@ class RegularPolygon(Polygon):
         ]
         object.__setattr__(self, "vertices", tuple(vertices))
 
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        return self.circumradius
+
 
 """
 Boolean shape compositions
@@ -219,6 +258,10 @@ class Union(Shape):
     def contains(self, x: ArrayQuantity, y: ArrayQuantity) -> BoolArray:
         return self.left.contains(x, y) | self.right.contains(x, y)
 
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        return max(self.left.max_radius, self.right.max_radius)
+
 
 @dataclass(frozen=True)
 class Intersection(Shape):
@@ -227,6 +270,11 @@ class Intersection(Shape):
 
     def contains(self, x: ArrayQuantity, y: ArrayQuantity) -> BoolArray:
         return self.left.contains(x, y) & self.right.contains(x, y)
+
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        # Upper bound: the intersection lies within both shapes
+        return min(self.left.max_radius, self.right.max_radius)
 
 
 @dataclass(frozen=True)
@@ -237,6 +285,11 @@ class Difference(Shape):
     def contains(self, x: ArrayQuantity, y: ArrayQuantity) -> BoolArray:
         return self.left.contains(x, y) & ~self.right.contains(x, y)
 
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        # Upper bound: removing material can't push the shape further out
+        return self.left.max_radius
+
 
 @dataclass(frozen=True)
 class Complement(Shape):
@@ -245,6 +298,13 @@ class Complement(Shape):
 
     def contains(self, x: ArrayQuantity, y: ArrayQuantity) -> BoolArray:
         return ~self.shape.contains(x, y)
+
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        raise ValueError(
+            "The complement of a shape is unbounded and has no maximum radius. "
+            "Intersect it with a bounded shape first."
+        )
 
 
 @dataclass
@@ -274,8 +334,8 @@ class TransformedShape(Shape):
         dx: ScalarQuantity = self.translation[0].to(x.unit)
         dy: ScalarQuantity = self.translation[1].to(y.unit)
 
-        x_local: ScalarQuantity = x - dx
-        y_local: ScalarQuantity = y - dy
+        x_local: ScalarQuantity = x + dx
+        y_local: ScalarQuantity = y + dy
 
         theta: ScalarQuantity = self.rotation.to_value(u.rad)
         cos_t: float = np.cos(theta)
@@ -287,12 +347,28 @@ class TransformedShape(Shape):
 
         # Mirroring
         if self.mirror_x:
-            xr = -xr
+            xr: ScalarQuantity = -xr
         if self.mirror_y:
-            yr = -yr
+            yr: ScalarQuantity = -yr
 
         # Scaling
-        xr = xr * self.scale[0]
-        yr = yr * self.scale[1]
+        xr: ScalarQuantity = xr * self.scale[0]
+        yr: ScalarQuantity = yr * self.scale[1]
 
         return self.shape.contains(xr, yr)
+
+    @property
+    def max_radius(self) -> ScalarQuantity:
+        # Inverting contains(): a local point q maps to world point
+        # p = R^-1 M S^-1 q + offset. Rotation and mirroring preserve length, S^-1
+        # stretches by at most max(1/|scale|), and the offset adds at most |offset|.
+        # Exact for circles under uniform scaling, otherwise an upper bound.
+        inner: ScalarQuantity = self.shape.max_radius
+        stretch: float = max(
+            abs(1 / u.Quantity(self.scale[0]).value),
+            abs(1 / u.Quantity(self.scale[1]).value),
+        )
+        offset: ScalarQuantity = np.hypot(
+            self.translation[0].to(inner.unit), self.translation[1].to(inner.unit)
+        )
+        return stretch * inner + offset
