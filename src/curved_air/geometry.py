@@ -17,6 +17,8 @@ type FloatArray = NDArray[np.floating]
 type ComplexArray = NDArray[np.complexfloating]
 type BoolArray = NDArray[np.bool_]
 
+HEX_FACTOR: float = 1.15470  # Factor between circumradius and flat-to-flat distance
+
 
 class Shape(ABC):
     """

@@ -28,7 +28,7 @@ import numpy as np
 from astropy import units as u
 from numpy.typing import NDArray
 
-from curved_air.geometry import Circle, Rectangle, RegularPolygon, Shape
+from curved_air.geometry import HEX_FACTOR, Circle, Rectangle, RegularPolygon, Shape
 
 if TYPE_CHECKING:
     from astropy.units import Quantity
@@ -343,8 +343,6 @@ def segmented_telescope(
     segments, such as the James Webb Space Telescope (JWST), the Keck telescopes, the
     European Extremely Large Telescope (ELT), etc.
     """
-
-    HEX_FACTOR: float = 1.15470  # Factor between circumradius and flat-to-flat distance
 
     if num_hexagon_rings is None:
         assert max_radius is not None, (
